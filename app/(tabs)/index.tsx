@@ -1,12 +1,13 @@
 import { View, Text, Image, ScrollView, TextInput, TouchableOpacity } from 'react-native'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { Link, useRouter } from 'expo-router'
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { experiences } from '../../data/experiences'
 import Adjustment from '../../assets/icons/adjustment.svg'
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import API_URL from '../../constants/api'
 const categories = ['All', 'Food', 'Cultural', 'Adventure', 'Fitness', 'Relaxation', 'Scenic', 'Sports', 'Music', 'Art'];
 
 
@@ -29,16 +30,49 @@ const app = () => {
     "Onest-Light": require('../../assets/fonts/Onest-Light.ttf')
   })
 
+  const [firstName, setFirstName] = useState("");
+  const [profilePic, setProfilePic] = useState("");
+
+
+
+  const fetchUserData = async () => {
+    try {
+      const user = await AsyncStorage.getItem('user');
+      console.log('Raw user from AsyncStorage:', user);  // This should log the raw string data
+
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        console.log('Fetched user:', parsedUser); // This should show the parsed user object
+        setFirstName(parsedUser.first_name);
+        setProfilePic(parsedUser.profile_pic);
+      } else {
+        console.log('No user found in AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+
   return (
     <SafeAreaView >
       <View className='w-full h-screen'>
         <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }} >
           <View className='flex items-center justify-between flex-row p-6'>
             <View className="">
-              <Text className="text-normal text-3xl font-onest-semibold">Hello, Dexter</Text>
+              <Text className="text-normal text-3xl font-onest-semibold">Hello, {firstName}</Text>
               <Text className="text-gray-400 font-onest">Welcome to Itinera</Text>
             </View>
-            <Image source={require('../../assets/images/person.png')} style={{ width: 50, height: 50 }} />
+            <Image
+              source={{ uri: `${API_URL}/${profilePic}` }}
+              style={{ width: 50, height: 50, borderRadius: 25 }} // Added borderRadius for a circular image
+              onError={(e) => console.log("Image URL:", `${API_URL}/${profilePic}`)}
+
+            />
           </View>
 
           <View className='flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4'>

@@ -10,10 +10,21 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 const ProfileScreen = () => {
   const { height } = useWindowDimensions();
   const bottom = useBottomTabBarHeight();
+  const { user, logout } = useAuth();
+
+  const navigation = useNavigation<any>();
+
+  const handleLogout = async () => {
+    const result = await logout();
+    if (result.success) {
+      navigation.replace('(login)'); // Use navigation to go to 'Login' screen
+    }
+  };
 
   // Static user data
   const userData = {
@@ -52,6 +63,11 @@ const ProfileScreen = () => {
         <View className="flex items-start p-6">
           <Text className="text-3xl font-onest-semibold text-gray-800">My Profile</Text>
           <Text className="text-gray-400 font-onest">Manage your travel preferences</Text>
+
+          <TouchableOpacity onPress={handleLogout}>
+            <Text>Logout</Text>
+          </TouchableOpacity>
+
         </View>
 
         {/* Profile Summary */}
@@ -186,7 +202,7 @@ const ProfileScreen = () => {
           <Text className="text-center text-white font-onest-medium">Account Settings</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 };
 
