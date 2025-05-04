@@ -10,11 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-// Note: You'll need to install the Material Symbols font in your app
-// https://fonts.google.com/icons
-// And make sure it's linked in your project
-
-// Define types for our data
+import { experiences } from '../../data/experiences'
 type SavedExperience = {
     id: string;
     title: string;
@@ -28,67 +24,18 @@ type SavedExperience = {
 
 const SavedScreen = () => {
     const router = useRouter();
-    const bottom = useBottomTabBarHeight();
+
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [activeCategory, setActiveCategory] = useState<string>('all');
 
-    // Static data for saved experiences
-    const savedExperiences: SavedExperience[] = [
-        {
-            id: '1',
-            title: 'Golden Gate Bridge Tour',
-            location: 'San Francisco, USA',
-            image: require('../../assets/images/balay.jpg'), // Replace with your images
-            category: 'sightseeing',
-            rating: 4.8,
-            price: '₱ 49',
-            savedAt: '2 days ago'
-        },
-        {
-            id: '2',
-            title: 'Napa Valley Wine Tasting',
-            location: 'Napa Valley, USA',
-            image: require('../../assets/images/ruins.jpg'),
-            category: 'food',
-            rating: 4.9,
-            price: '₱ 89',
-            savedAt: '1 week ago'
-        },
-        {
-            id: '3',
-            title: 'Alcatraz Island Visit',
-            location: 'San Francisco, USA',
-            image: require('../../assets/images/siargao.jpg'),
-            category: 'historical',
-            rating: 4.7,
-            price: '₱ 39.99',
-            savedAt: '2 weeks ago'
-        },
-        {
-            id: '4',
-            title: 'Muir Woods Trek',
-            location: 'Mill Valley, USA',
-            image: require('../../assets/images/silay.jpg'),
-            category: 'adventure',
-            rating: 4.6,
-            price: '₱ 29',
-            savedAt: '3 weeks ago'
-        }
-    ];
 
-    // Categories for filtering
-    const categories = [
-        { id: 'all', name: 'All' },
-        { id: 'sightseeing', name: 'Sightseeing' },
-        { id: 'food', name: 'Food & Drinks' },
-        { id: 'historical', name: 'Historical' },
-        { id: 'adventure', name: 'Adventure' }
-    ];
+    const categories = ['All', 'Food', 'Cultural', 'Adventure', 'Fitness', 'Relaxation', 'Scenic', 'Sports', 'Music', 'Art'];
 
-    // Filter experiences based on selected category
-    const filteredExperiences = activeCategory === 'all'
-        ? savedExperiences
-        : savedExperiences.filter(exp => exp.category === activeCategory);
+    const [selectedCategory, setSelectedCategory] = useState('All'); // default selected
+    const filteredExperiences = selectedCategory === 'All'
+        ? experiences
+        : experiences.filter(exp => exp.category.toLowerCase() === selectedCategory.toLowerCase());
+
+
 
     const refreshData = () => {
         setIsRefreshing(true);
@@ -98,35 +45,6 @@ const SavedScreen = () => {
         }, 1500);
     };
 
-    // Render stars based on rating using Material Symbols
-    const renderStars = (rating: number) => {
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-
-        return (
-            <View className="flex-row items-center">
-                {[...Array(5)].map((_, i) => (
-                    <Text
-                        key={i}
-                        className={`material-symbols-outlined text-sm ${i < fullStars
-                            ? 'text-yellow-500'
-                            : i === fullStars && hasHalfStar
-                                ? 'text-yellow-500'
-                                : 'text-gray-300'
-                            }`}
-                    >
-                        {i < fullStars
-                            ? 'star'
-                            : i === fullStars && hasHalfStar
-                                ? 'star_half'
-                                : 'star'
-                        }
-                    </Text>
-                ))}
-                <Text className="text-xs text-gray-600 ml-1">{rating.toFixed(1)}</Text>
-            </View>
-        );
-    };
 
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
@@ -149,32 +67,26 @@ const SavedScreen = () => {
                     </View>
 
                     {/* Category Navigation */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        className="px-4 mb-4"
-                    >
-                        {categories.map((category) => (
-                            <TouchableOpacity
-                                key={category.id}
-                                onPress={() => setActiveCategory(category.id)}
-                                className={`py-2 px-4 rounded-full mr-2 ${activeCategory === category.id ? 'bg-gray-800' : 'bg-white border border-gray-200'
-                                    }`}
-                            >
-                                <Text
-                                    className={`text-center font-onest-medium ${activeCategory === category.id ? 'text-white' : 'text-gray-500'
-                                        }`}
+                    <ScrollView className=' px-6 py-8' horizontal showsHorizontalScrollIndicator={false}>
+                        {categories.map((category, index) => {
+                            const isSelected = selectedCategory === category;
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    onPress={() => setSelectedCategory(category)}
+                                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
                                 >
-                                    {category.name}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                                    <Text className={`text-base font-onest-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                        {category}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </ScrollView>
-
                     {/* Experiences List */}
-                    <View className="px-4 py-2">
+                    <View className="px-6 py-2">
                         {filteredExperiences.length === 0 ? (
-                            <View className="py-12 items-center">
+                            <View className="w-full py-12 items-center">
                                 <Image
                                     source={require('../../assets/images/google.png')} // Replace with your image
                                     className="w-32 h-32 opacity-60 mb-4"
@@ -237,7 +149,7 @@ const SavedScreen = () => {
                                         <View className="flex-row justify-between items-center mt-3">
 
                                             <Text className="text-xs text-gray-400 font-onest">
-                                                Saved {experience.savedAt}
+                                                Saved 2 days ago
                                             </Text>
                                         </View>
                                     </View>

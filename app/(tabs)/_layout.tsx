@@ -5,6 +5,7 @@ import { images } from '@/constants/images'
 // import { icons } from '@/constants/icons'
 import { useFonts } from 'expo-font';
 import HomeIcon from '../../assets/icons/home.svg'
+import Trip from '../../assets/icons/calendar1.svg'
 import Adjustment from '../../assets/icons/adjustment.svg'
 import Saved from '../../assets/icons/heart.svg'
 import Profile from '../../assets/icons/user.svg'
@@ -114,6 +115,20 @@ const _layout = () => {
         }}
       />
       <Tabs.Screen
+        name='trips'
+        options={{
+          title: 'Trips',
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              focused={focused}
+              icon={Trip}
+              title="Trips" />
+          )
+        }}
+      />
+
+      <Tabs.Screen
         name='saved'
         options={{
           title: 'Saved',
@@ -128,19 +143,7 @@ const _layout = () => {
           )
         }}
       />
-      <Tabs.Screen
-        name='search'
-        options={{
-          title: 'Search',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={Search}
-              title="Search" />
-          )
-        }}
-      />
+
       <Tabs.Screen
         name='profile'
         options={{

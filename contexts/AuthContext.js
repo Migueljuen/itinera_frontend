@@ -78,33 +78,31 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   // Login function
-  const login = async (email, password) => {
-    setError('');
-    try {
-      const response = await axios.post(`${API_URL}/api/login`, { email, password });
-  
-      const { token, user } = response.data;
-      console.log('Saving to AsyncStorage:', user);
-  
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-  
-      console.log('Saved user and token to AsyncStorage.');
-  
-      const storedUser = await AsyncStorage.getItem('user');
-      console.log('Retrieved from AsyncStorage immediately after save:', storedUser);
-  
-      // Don't forget to return success if everything works
-      return { success: true };
-    } catch (error) {
-      console.error('Actual error caught in login():', error);
-      const errorMessage =
-        error?.response?.data?.error || 'Login failed. Please try again.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-  
+const login = async (email, password) => {
+  setError('');
+  try {
+    const response = await axios.post(`${API_URL}/api/login`, { email, password });
+
+    const { token, user } = response.data;
+   
+
+    await AsyncStorage.setItem('token', token);
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+
+    
+    const storedUser = await AsyncStorage.getItem('user');
+ 
+    // Don't forget to return success if everything works
+    return { success: true };
+  } catch (error) {
+    console.error('Actual error caught in login():', error);
+    const errorMessage =
+      error?.response?.data?.error || 'Login failed. Please try again.';
+    setError(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+};
+
 
   // Register function
   const register = async (userData) => {
