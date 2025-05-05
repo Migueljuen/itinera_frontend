@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, ScrollView, Image, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../../contexts/AuthContext.js"; // Make sure path is correct
+import { useAuth } from "../../contexts/AuthContext"; // Make sure path is correct
 
 export default function Login() {
   const router = useRouter();
@@ -37,10 +37,16 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(email, password); // assume result.user.role is available
 
       if (result.success) {
-        router.replace("/(tabs)");
+        if (result.user.role === "Traveler") {
+          router.replace("/(traveler)");
+        } else if (result.user.role === "Creator") {
+          router.replace("/(creator)");
+        } else {
+          Alert.alert("Login Failed", "Invalid user role.");
+        }
       } else {
         Alert.alert("Login Failed", result.error);
       }
@@ -122,7 +128,7 @@ export default function Login() {
 
           <TouchableOpacity
 
-            onPress={() => router.replace("/(signup)")}
+            onPress={() => router.replace("/signup")}
             className="flex justify-center items-center"
           >
             <Text className="my-4 font-medium">

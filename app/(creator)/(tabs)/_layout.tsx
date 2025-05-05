@@ -4,12 +4,12 @@ import { Tabs } from 'expo-router'
 import { images } from '@/constants/images'
 // import { icons } from '@/constants/icons'
 import { useFonts } from 'expo-font';
-import HomeIcon from '../../assets/icons/home.svg'
-import Trip from '../../assets/icons/calendar1.svg'
-import Adjustment from '../../assets/icons/adjustment.svg'
-import Saved from '../../assets/icons/heart.svg'
-import Profile from '../../assets/icons/user.svg'
-import Search from '../../assets/icons/search.svg'
+import HomeIcon from '../../../assets/icons/home.svg'
+import Trip from '../../../assets/icons/calendar1.svg'
+import Adjustment from '../../../assets/icons/adjustment.svg'
+import Saved from '../../../assets/icons/heart.svg'
+import Profile from '../../../assets/icons/user.svg'
+import Search from '../../../assets/icons/search.svg'
 
 
 
@@ -60,10 +60,10 @@ const TabIcon = ({ focused, icon: Icon, title }: any) => {
 
 const _layout = () => {
   const [fontsLoaded] = useFonts({
-    "Onest-Medium": require('../../assets/fonts/Onest-Medium.ttf'),
-    "Onest-ExtraBold": require('../../assets/fonts/Onest-ExtraBold.ttf'),
-    "Onest-Regular": require('../../assets/fonts/Onest-Regular.ttf'),
-    "Onest-Light": require('../../assets/fonts/Onest-Light.ttf')
+    "Onest-Medium": require('../../../assets/fonts/Onest-Medium.ttf'),
+    "Onest-ExtraBold": require('../../../assets/fonts/Onest-ExtraBold.ttf'),
+    "Onest-Regular": require('../../../assets/fonts/Onest-Regular.ttf'),
+    "Onest-Light": require('../../../assets/fonts/Onest-Light.ttf')
   });
 
   if (!fontsLoaded) return null; // 👈 avoid rendering until fonts are ready
@@ -101,43 +101,47 @@ const _layout = () => {
     >
 
 
+
       <Tabs.Screen
-        name='index'
+        name='dashboard'
         options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={HomeIcon}
-              title="Home" />
-          )
-        }}
-      />
-      <Tabs.Screen
-        name='trips'
-        options={{
-          title: 'Trips',
+          title: 'dashboard',
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
               icon={Trip}
-              title="Trips" />
+              title="dashboard" />
           )
         }}
       />
 
       <Tabs.Screen
-        name='saved'
+        name='experiences'
         options={{
-          title: 'Saved',
+          title: 'experiences',
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
               icon={Saved}
-              title="Saved" />
+              title="experiences" />
+
+            // <Home  title="Saved"  focused={focused} width={24} height={24} />
+          )
+        }}
+      />
+
+      <Tabs.Screen
+        name='bookings'
+        options={{
+          title: 'bookings',
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              focused={focused}
+              icon={Saved}
+              title="bookings" />
 
             // <Home  title="Saved"  focused={focused} width={24} height={24} />
           )

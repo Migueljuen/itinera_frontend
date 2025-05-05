@@ -192,7 +192,7 @@ export default function Signup() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.replace("/(login)")}
+            onPress={() => router.replace("/login")}
             className="flex justify-center items-center"
           >
             <Text className="my-4 font-medium">

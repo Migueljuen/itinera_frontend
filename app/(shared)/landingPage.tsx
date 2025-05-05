@@ -36,7 +36,7 @@ export default function landingPage() {
 
         <View className=" flex flex-row justify-between px-5 items-center ">
           <Image source={require('../../assets/images/logo.png')} style={{ width: 100, height: 100 }} />
-          <TouchableOpacity onPress={() => router.replace("/(login)")} className="bg-buttonPrimary p-4 rounded-md">
+          <TouchableOpacity onPress={() => router.replace("/login")} className="bg-buttonPrimary p-4 rounded-md">
             <Text className="text-white text-center">Sign In</Text>
           </TouchableOpacity>
         </View>
@@ -45,7 +45,7 @@ export default function landingPage() {
           <View className=" flex justify-center items-center flex-1 p-12 gap-8 w-11/12 m-auto  ">
             <View className="text-center"><Text className=" text-4xl text-center text-normal font-onest-medium">Experience more.</Text><Text className="font-onest-medium text-4xl text-center text-normal"> Plan less.</Text></View>
             <Text className="text-grey text-center font-onest">Craft Your Perfect Journey: Tailored Itineraries for Every Adventure.</Text>
-            <TouchableOpacity onPress={() => router.replace("/(login)")} className="bg-buttonSecondary p-4 rounded-md">
+            <TouchableOpacity onPress={() => router.replace("/login")} className="bg-buttonSecondary p-4 rounded-md">
               <Text className="text-white text-center">Get started</Text>
             </TouchableOpacity>
 

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useRefresh } from '../../contexts/RefreshContext';
+import { useRefresh } from '../../../contexts/RefreshContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Globe from '../../assets/icons/globe.svg';
-import Calendar from '../../assets/icons/calendar.svg';
-import API_URL from '../../constants/api';
+import Globe from '../../../assets/icons/globe.svg';
+import Calendar from '../../../assets/icons/calendar.svg';
+import API_URL from '../../../constants/api';
 // Define types based on your database schema
 interface Itinerary {
     itinerary_id: number;
@@ -117,7 +117,7 @@ export default function TripScreen() {
                                 destination_id: 1,
                                 name: 'Eiffel Tower',
                                 city: 'Paris',
-                                image: require('../../assets/images/siargao.jpg')
+                                image: require('../../../assets/images/siargao.jpg')
                             }
                         },
                         {
@@ -158,7 +158,7 @@ export default function TripScreen() {
                                 destination_id: 3,
                                 name: 'Sagrada Familia',
                                 city: 'Barcelona',
-                                image: require('../../assets/images/ruins.jpg')
+                                image: require('../../../assets/images/ruins.jpg')
                             }
                         }
                     ]
@@ -185,7 +185,7 @@ export default function TripScreen() {
                                 destination_id: 4,
                                 name: 'Colosseum',
                                 city: 'Rome',
-                                image: require('../../assets/images/balay.jpg')
+                                image: require('../../../assets/images/balay.jpg')
                             }
                         }
                     ]
@@ -224,7 +224,7 @@ export default function TripScreen() {
             }
         }
         // Default image if no experience image is available
-        return require('../../assets/images/balay.jpg');
+        return require('../../../assets/images/balay.jpg');
     };
 
     // Get primary destination for the itinerary
@@ -293,7 +293,7 @@ export default function TripScreen() {
                         {filteredItineraries.length === 0 ? (
                             <View className="py-12 items-center">
                                 <Image
-                                    source={require('../../assets/images/siargao.jpg')}
+                                    source={require('../../../assets/images/siargao.jpg')}
                                     className="w-32 h-32 opacity-60 mb-4"
                                     resizeMode="contain"
                                 />
@@ -312,7 +312,7 @@ export default function TripScreen() {
                                         onPress={() => router.push('/(itineraryFlow)/create/')}
                                     >
                                         <Image
-                                            source={require('../../assets/icons/plus.png')}
+                                            source={require('../../../assets/icons/plus.png')}
                                             className="w-4 h-4 mr-2 opacity-80"
                                             resizeMode="contain"
                                         />
@@ -381,7 +381,7 @@ export default function TripScreen() {
                 >
                     <View className="flex-row items-center">
                         <Image
-                            source={require('../../assets/icons/plus.png')}
+                            source={require('../../../assets/icons/plus.png')}
                             className="w-5 h-5 mr-2 opacity-80"
                             resizeMode="contain"
                         />

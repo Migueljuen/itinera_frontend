@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { experiences } from '../../data/experiences'
+import { experiences } from '../../../data/experiences'
 type SavedExperience = {
     id: string;
     title: string;
@@ -88,7 +88,7 @@ const SavedScreen = () => {
                         {filteredExperiences.length === 0 ? (
                             <View className="w-full py-12 items-center">
                                 <Image
-                                    source={require('../../assets/images/google.png')} // Replace with your image
+                                    source={require('../../../assets/images/google.png')} // Replace with your image
                                     className="w-32 h-32 opacity-60 mb-4"
                                     resizeMode="contain"
                                 />
@@ -123,7 +123,7 @@ const SavedScreen = () => {
                                             onPress={() => console.log('Remove from saved')}
                                         >
                                             <Image
-                                                source={require('../../assets/images/google.png')} // Replace with your icon
+                                                source={require('../../../assets/images/google.png')} // Replace with your icon
                                                 className="w-5 h-5"
                                             />
                                         </TouchableOpacity>

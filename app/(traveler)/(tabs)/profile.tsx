@@ -10,14 +10,16 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Pencil from '../../assets/icons/pencil.svg'
-import Logout from '../../assets/icons/logout.svg'
-import Plus from '../../assets/icons/plus.svg'
-import API_URL from '../../constants/api'
+import Pencil from '../../../assets/icons/pencil.svg'
+import Logout from '../../../assets/icons/logout.svg'
+import Plus from '../../../assets/icons/plus.svg'
+import API_URL from '../../../constants/api'
+import { useRouter } from 'expo-router';
 const ProfileScreen = () => {
+  const router = useRouter();
   const { height } = useWindowDimensions();
   const bottom = useBottomTabBarHeight();
   const { user, logout } = useAuth();
@@ -30,7 +32,8 @@ const ProfileScreen = () => {
   const handleLogout = async () => {
     const result = await logout();
     if (result.success) {
-      navigation.replace('(login)'); // Use navigation to go to 'Login' screen
+      router.replace("/(shared)/login");
+
     }
   };
   const fetchUserData = async () => {

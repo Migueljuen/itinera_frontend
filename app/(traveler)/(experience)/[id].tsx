@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import API_URL from '../../constants/api'; // Your API base URL
+import API_URL from '../../../constants/api'; // Your API base URL
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Update Experience type to match the API data structure

@@ -3,11 +3,11 @@ import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import { Link, useRouter } from 'expo-router'
 import { SafeAreaView } from "react-native-safe-area-context";
-import Adjustment from '../../assets/icons/adjustment.svg'
+import Adjustment from '../../../assets/icons/adjustment.svg'
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import API_URL from '../../constants/api'
+import API_URL from '../../../constants/api'
 import { useNavigation } from '@react-navigation/native';
-import { useRefresh } from '../../contexts/RefreshContext';
+import { useRefresh } from '../../../contexts/RefreshContext';
 
 type Experience = {
   id: number;
@@ -153,11 +153,11 @@ const App = () => {
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
-                defaultSource={require('../../assets/images/balay.jpg')}
+                defaultSource={require('../../../assets/images/balay.jpg')}
               />
             ) : (
               <Image
-                source={require('../../assets/images/balay.jpg')}
+                source={require('../../../assets/images/balay.jpg')}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
               />
             )}
@@ -165,7 +165,7 @@ const App = () => {
 
           <View className='flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4'>
             <Image
-              source={require('../../assets/images/search.png')}
+              source={require('../../../assets/images/search.png')}
               className='w-5 h-5 mr-3 opacity-60'
               resizeMode='contain'
             />
@@ -247,7 +247,7 @@ const App = () => {
         >
           <View className="flex-row items-center">
             <Image
-              source={require('../../assets/icons/plus.png')}
+              source={require('../../../assets/icons/plus.png')}
               className="w-5 h-5 mr-2 opacity-80"
               resizeMode="contain"
             />
