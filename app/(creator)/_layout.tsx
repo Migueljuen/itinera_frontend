@@ -9,6 +9,8 @@ export default function CreatorLayout() {
     return (
         <>
             <Stack>
+                <Stack.Screen name="(createExperience)" options={{ headerShown: false }} />
+
                 <Stack.Screen
                     name="(tabs)"
                     options={{
@@ -17,6 +19,7 @@ export default function CreatorLayout() {
                         headerTintColor: '#333',
                     }}
                 />
+
 
             </Stack>
 

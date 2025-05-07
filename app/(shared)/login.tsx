@@ -73,12 +73,19 @@ export default function Login() {
             <TextInput
               placeholder="Email"
               placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
+              className="bg-gray-100 rounded-md mb-1 text-lg"
+              style={{
+                paddingVertical: 12, // instead of Tailwind's fixed `p-4`
+                paddingHorizontal: 16,
+                fontSize: 18,
+                lineHeight: 22, // slightly higher than fontSize
+              }}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
             />
+
             {errors.email && <Text className="text-red-500 text-sm ml-1">{errors.email}</Text>}
           </View>
 

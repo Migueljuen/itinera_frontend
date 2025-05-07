@@ -24,11 +24,6 @@ interface Experience {
   images: string[];
 }
 
-interface Stats {
-  totalBookings: number;
-  avgRating: number;
-  activeExperiences: number;
-}
 
 const CreatorDashboard: React.FC = () => {
   const router = useRouter();
@@ -38,11 +33,7 @@ const CreatorDashboard: React.FC = () => {
   const [searchText, setSearchText] = useState<string>('');
   const [selectedTab, setSelectedTab] = useState<string>('Active');
   const [myExperiences, setMyExperiences] = useState<Experience[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalBookings: 85,
-    avgRating: 4.8,
-    activeExperiences: 12
-  });
+
 
   // Dummy data for demonstration
   const dummyExperiences: Experience[] = [
@@ -55,7 +46,7 @@ const CreatorDashboard: React.FC = () => {
       status: 'Active',
       bookings: 34,
       rating: 4.9,
-      images: ['experiences/hike1.jpg']
+      images: ['../../../assets/images/siargao.jpg']
     },
     {
       id: '2',
@@ -66,7 +57,7 @@ const CreatorDashboard: React.FC = () => {
       status: 'Active',
       bookings: 28,
       rating: 4.7,
-      images: ['experiences/wine.jpg']
+      images: ['../../../assets/images/silay.jpg']
     },
     {
       id: '3',
@@ -77,7 +68,7 @@ const CreatorDashboard: React.FC = () => {
       status: 'Draft',
       bookings: 0,
       rating: 0,
-      images: ['experiences/arch.jpg']
+      images: ['../../../assets/images/manokan.jpg']
     },
     {
       id: '4',
@@ -88,7 +79,7 @@ const CreatorDashboard: React.FC = () => {
       status: 'Inactive',
       bookings: 23,
       rating: 4.6,
-      images: ['experiences/kayak.jpg']
+      images: ['../../../assets/images/ruins.jpg']
     }
   ];
 
@@ -137,44 +128,9 @@ const CreatorDashboard: React.FC = () => {
             )}
           </View>
 
-          {/* Stats Overview */}
-          <View className="flex-row justify-between px-6 mb-6">
-            <View className="bg-white p-4 rounded-xl w-1/3 mr-2 shadow-sm border border-gray-100">
-              <View className="bg-blue-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/images/logo1.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-              </View>
-              <Text className="text-2xl font-onest-semibold">{stats.totalBookings}</Text>
-              <Text className="text-xs text-gray-500">Total Bookings</Text>
-            </View>
-            <View className="bg-white p-4 rounded-xl w-1/3 mx-1 shadow-sm border border-gray-100">
-              <View className="bg-amber-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/icons/heart.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-              </View>
-              <Text className="text-2xl font-onest-semibold">{stats.avgRating}</Text>
-              <Text className="text-xs text-gray-500">Avg. Rating</Text>
-            </View>
-            <View className="bg-white p-4 rounded-xl w-1/3 ml-2 shadow-sm border border-gray-100">
-              <View className="bg-green-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/icons/heart.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-              </View>
-              <Text className="text-2xl font-onest-semibold">{stats.activeExperiences}</Text>
-              <Text className="text-xs text-gray-500">Active Experiences</Text>
-            </View>
-          </View>
 
-          <View className='flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4'>
+
+          <View className='flex flex-row items-center justify-between p-4 bg-[#fff] rounded-xl mx-4'>
             <Image
               source={require('../../../assets/images/search.png')}
               className='w-5 h-5 mr-3 opacity-60'
@@ -227,7 +183,7 @@ const CreatorDashboard: React.FC = () => {
                     <View className="relative">
                       {item.images && item.images.length > 0 ? (
                         <Image
-                          source={{ uri: `${API_URL}/${item.images[0]}` }}
+                          source={{ uri: `${item.images[0]}` }}
                           style={{ width: '100%', height: 160 }}
                           resizeMode="cover"
                         />
@@ -314,11 +270,11 @@ const CreatorDashboard: React.FC = () => {
 
         <TouchableOpacity
           className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
-          onPress={() => router.push('/(creator)/new')}
+          onPress={() => router.push('/(createExperience)/createExperience')}
         >
           <View className="flex-row items-center">
             <Image
-              source={require('../../../assets/icons/heart.svg')}
+              source={require('../../../assets/icons/plus.png')}
               className="w-5 h-5"
               resizeMode="contain"
             />

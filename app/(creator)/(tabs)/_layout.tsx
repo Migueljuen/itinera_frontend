@@ -111,7 +111,7 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={Trip}
-              title="dashboard" />
+              title="Dashboard" />
           )
         }}
       />
@@ -125,7 +125,7 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={Saved}
-              title="experiences" />
+              title="Experiences" />
 
             // <Home  title="Saved"  focused={focused} width={24} height={24} />
           )
@@ -141,7 +141,7 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={Saved}
-              title="bookings" />
+              title="Bookings" />
 
             // <Home  title="Saved"  focused={focused} width={24} height={24} />
           )
