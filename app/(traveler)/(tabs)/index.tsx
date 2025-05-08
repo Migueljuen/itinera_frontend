@@ -84,7 +84,7 @@ const App = () => {
   const fetchExperiences = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/experience/`);
+      const response = await axios.get(`${API_URL}/experience/active`);
 
 
       setExperiences(response.data);

@@ -94,6 +94,7 @@ const login = async (email, password) => {
  
     // Don't forget to return success if everything works
     return { success: true , user};
+
   } catch (error) {
     console.error('Actual error caught in login():', error);
     const errorMessage =

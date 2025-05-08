@@ -15,7 +15,6 @@ export default function App() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // State for form data - matches your destination table
     const [name, setName] = useState('');
     const [city, setCity] = useState('');
     const [description, setDescription] = useState('');

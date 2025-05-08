@@ -10,8 +10,10 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
-
+import axios from 'axios';
 import API_URL from '../../../constants/api';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 interface Experience {
   id: string;
   title: string;
@@ -24,73 +26,56 @@ interface Experience {
   images: string[];
 }
 
-
 const CreatorDashboard: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [firstName, setFirstName] = useState<string>('Sarah');
+  const [firstName, setFirstName] = useState<string>('');
+  const [userID, setUserID] = useState<string | null>(null);
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [selectedTab, setSelectedTab] = useState<string>('Active');
   const [myExperiences, setMyExperiences] = useState<Experience[]>([]);
 
+  const fetchUserData = async () => {
+    try {
+      const user = await AsyncStorage.getItem('user');
 
-  // Dummy data for demonstration
-  const dummyExperiences: Experience[] = [
-    {
-      id: '1',
-      title: 'Sunrise Hike & Breakfast',
-      location: 'Mount Rainier, WA',
-      price: 79,
-      unit: 'per person',
-      status: 'Active',
-      bookings: 34,
-      rating: 4.9,
-      images: ['../../../assets/images/siargao.jpg']
-    },
-    {
-      id: '2',
-      title: 'Wine Tasting Tour',
-      location: 'Napa Valley, CA',
-      price: 149,
-      unit: 'per person',
-      status: 'Active',
-      bookings: 28,
-      rating: 4.7,
-      images: ['../../../assets/images/silay.jpg']
-    },
-    {
-      id: '3',
-      title: 'City Architecture Walk',
-      location: 'Chicago, IL',
-      price: 65,
-      unit: 'per person',
-      status: 'Draft',
-      bookings: 0,
-      rating: 0,
-      images: ['../../../assets/images/manokan.jpg']
-    },
-    {
-      id: '4',
-      title: 'Kayaking Adventure',
-      location: 'Seattle, WA',
-      price: 95,
-      unit: 'per person',
-      status: 'Inactive',
-      bookings: 23,
-      rating: 4.6,
-      images: ['../../../assets/images/ruins.jpg']
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setFirstName(parsedUser.first_name);
+        setProfilePic(parsedUser.profile_pic);
+        setUserID(parsedUser.user_id); // Assuming user ID is stored in the user object
+      } else {
+        console.log('No user found in AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
     }
-  ];
+  };
 
   useEffect(() => {
-    // Simulating API fetch
-    setLoading(true);
-    setTimeout(() => {
-      setMyExperiences(dummyExperiences);
-      setLoading(false);
-    }, 800);
+    fetchUserData();
   }, []);
+
+  // Function to fetch experiences
+  const fetchExperiences = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/experience/user/${userID}`);
+      setMyExperiences(response.data);
+    } catch (error) {
+      console.error('Error fetching experiences:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data loading
+  useEffect(() => {
+    if (userID) {
+      fetchExperiences();
+    }
+  }, [userID]);
 
   const filteredExperiences: Experience[] = myExperiences.filter(exp => {
     // Filter by search text
@@ -98,7 +83,8 @@ const CreatorDashboard: React.FC = () => {
       exp.location.toLowerCase().includes(searchText.toLowerCase());
 
     // Filter by selected tab (status)
-    const matchesTab = selectedTab === 'All' || exp.status === selectedTab;
+    const matchesTab =
+      selectedTab === 'All' || exp.status.toLowerCase() === selectedTab.toLowerCase();
 
     return matchesSearch && matchesTab;
   });
@@ -111,14 +97,13 @@ const CreatorDashboard: React.FC = () => {
         <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
           <View className='flex items-center justify-between flex-row p-6'>
             <View className="">
-              <Text className="text-normal text-3xl font-onest-semibold">Creator Dashboard</Text>
+              <Text className="text-normal text-3xl font-onest-semibold">Your Experiences</Text>
               <Text className="text-gray-400 font-onest">Manage your experiences</Text>
             </View>
             {profilePic ? (
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
-
               />
             ) : (
               <Image
@@ -127,8 +112,6 @@ const CreatorDashboard: React.FC = () => {
               />
             )}
           </View>
-
-
 
           <View className='flex flex-row items-center justify-between p-4 bg-[#fff] rounded-xl mx-4'>
             <Image
@@ -157,7 +140,7 @@ const CreatorDashboard: React.FC = () => {
                 const isSelected = selectedTab === tab;
                 return (
                   <TouchableOpacity
-                    key={index}
+                    key={`tab-${index}`}
                     onPress={() => setSelectedTab(tab)}
                     className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
                   >
@@ -175,15 +158,15 @@ const CreatorDashboard: React.FC = () => {
               ) : filteredExperiences.length === 0 ? (
                 <Text className="text-center text-gray-500 py-10">No experiences found</Text>
               ) : (
-                filteredExperiences.map((item) => (
+                filteredExperiences.map((item, index) => (
                   <View
-                    key={item.id}
+                    key={`experience-${item.id}-${index}`}
                     className="w-full bg-white rounded-xl overflow-hidden mb-6 border border-gray-200"
                   >
                     <View className="relative">
                       {item.images && item.images.length > 0 ? (
                         <Image
-                          source={{ uri: `${item.images[0]}` }}
+                          source={{ uri: `${API_URL}/${item.images[0]}` }}
                           style={{ width: '100%', height: 160 }}
                           resizeMode="cover"
                         />
@@ -239,6 +222,7 @@ const CreatorDashboard: React.FC = () => {
 
                         <View className="flex-row">
                           <TouchableOpacity
+                            key={`edit-${item.id}`}
                             className="p-2 mr-2"
                             onPress={() => router.push(`/(creator)/edit/${item.id}`)}
                           >
@@ -249,6 +233,7 @@ const CreatorDashboard: React.FC = () => {
                             />
                           </TouchableOpacity>
                           <TouchableOpacity
+                            key={`delete-${item.id}`}
                             className="p-2"
                             onPress={() => console.log('Delete experience')}
                           >

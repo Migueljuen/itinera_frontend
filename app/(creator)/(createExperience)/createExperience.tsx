@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 import API_URL from '../../../constants/api';
@@ -39,6 +39,7 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 const ExperienceCreationForm: React.FC = () => {
     const [step, setStep] = useState<number>(1);
     const stepCount = 6;
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState<ExperienceFormData>({
         title: '',
@@ -60,8 +61,6 @@ const ExperienceCreationForm: React.FC = () => {
     // Step navigation
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
-
-
 
     const validateFormData = () => {
         const requiredUnits = ['Entry', 'Hour', 'Day', 'Package'];
@@ -101,7 +100,7 @@ const ExperienceCreationForm: React.FC = () => {
         return true;
     };
 
-    // Handle form submission
+
     const handleSubmit = async () => {
         if (!validateFormData()) {
             Alert.alert('Validation Error', 'Please fill out all required fields.');
@@ -109,27 +108,124 @@ const ExperienceCreationForm: React.FC = () => {
         }
 
         try {
+            setIsSubmitting(true);
+
+            // Create FormData object for multipart/form-data
+            const formDataObj = new FormData();
+
+            // Add text fields
+            formDataObj.append('creator_id', '12'); // replace with actual creator ID
+            formDataObj.append('title', formData.title);
+            formDataObj.append('description', formData.description);
+            formDataObj.append('price', Number(formData.price).toString());
+            formDataObj.append('unit', formData.unit);
+            formDataObj.append('status', 'draft'); // default status
+
+            // Add tags as a JSON string
+            formDataObj.append('tags', JSON.stringify(formData.tags));
+
+            // formData.append('tags', JSON.stringify(tags));
+
+            // Add availability as a JSON string
+            formDataObj.append('availability', JSON.stringify(formData.availability));
+
+            // Handle destination data
+            if (formData.useExistingDestination && formData.destination_id) {
+                formDataObj.append('destination_id', formData.destination_id.toString());
+            } else {
+                formDataObj.append('destination_name', formData.destination_name);
+                formDataObj.append('city', formData.city);
+                formDataObj.append('destination_description', formData.destination_description);
+                formDataObj.append('latitude', formData.latitude);
+                formDataObj.append('longitude', formData.longitude);
+            }
+
+            // Add image files - FIXED: Use the correct field name 'image' instead of 'photos'
+            if (formData.images && formData.images.length > 0) {
+                formData.images.forEach((img, index) => {
+                    // Check if img is a string or an object
+                    if (typeof img === 'string') {
+                        // Handle legacy format (just uri string)
+                        const uriParts = img.split('/');
+                        const name = uriParts[uriParts.length - 1];
+                        const fileExtension = name.split('.').pop() || '';
+                        const type = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+
+                        // Create a file object with necessary properties for React Native FormData
+                        const fileObj: any = {
+                            uri: img,
+                            name,
+                            type,
+                        };
+                        formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
+                    } else {
+                        // Handle new format (object with uri, name, type)
+                        const fileObj: any = {
+                            uri: img.uri,
+                            name: img.name || `image${index}.jpg`,
+                            type: img.type || 'image/jpeg',
+                        };
+                        formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
+                    }
+                });
+            }
+
+            console.log('Submitting form data:', formDataObj);
+
+            // Make multipart form-data request
             const response = await fetch(`${API_URL}/experience/create`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    creator_id: 12, // replace with actual creator ID
-                    ...formData,
-                    price: Number(formData.price), // ensure it's a number
-                }),
+                headers: {
+                    'Accept': 'application/json',
+                    // Don't set Content-Type as FormData will set it with the correct boundary
+                },
+                body: formDataObj,
             });
 
-            const data = await response.json();
+            // Check response type and handle errors
+            const contentType = response.headers.get('content-type');
 
             if (!response.ok) {
-                console.error('Server error:', data);
-                throw new Error('Failed to create experience');
+                let errorMessage = 'Failed to create experience';
+
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } else {
+                    // For HTML error responses or other non-JSON responses
+                    const errorText = await response.text();
+                    console.error('Server error response:', errorText);
+
+                    // Try to extract error message from HTML if possible
+                    if (errorText.includes('MulterError')) {
+                        errorMessage = 'File upload error: ' +
+                            (errorText.includes('Unexpected field') ?
+                                'Server is expecting different field names for files' :
+                                'Unknown file upload error');
+                    }
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            // Handle success response
+            let data;
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+                console.log('Success response:', data);
+            } else {
+                const text = await response.text();
+                console.log('Success response (non-JSON):', text);
             }
 
             Alert.alert('Success', 'Experience created successfully!');
+            // You might want to navigate away or reset the form here
+
         } catch (err) {
             console.error('Submit error:', err);
-            Alert.alert('Error', 'Something went wrong.');
+            Alert.alert('Error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -148,7 +244,13 @@ const ExperienceCreationForm: React.FC = () => {
             case 5:
                 return <Step5Images formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
             case 6:
-                return <ReviewSubmit formData={formData} onBack={handleBack} onSubmit={handleSubmit} />;
+                // ReviewSubmit has a different interface than the other step components
+                return <ReviewSubmit
+                    formData={formData}
+                    onBack={handleBack}
+                    onSubmit={handleSubmit}
+                    isSubmitting={isSubmitting}
+                />;
             default:
                 return null;
         }
@@ -156,13 +258,11 @@ const ExperienceCreationForm: React.FC = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
-
             {/* Step content */}
             <View className="flex-1 px-6 py-4">
                 <ProgressBar currentStep={step} totalSteps={stepCount} />
                 {renderStep()}
             </View>
-
         </SafeAreaView>
     );
 };
