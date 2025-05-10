@@ -128,106 +128,232 @@ const Step4Destination: React.FC<StepProps> = ({
             formData.longitude !== undefined
         );
     };
-
-    const renderDestinationForm = () => (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Create New Destination</Text>
-
-            {loading ? (
-                <View style={styles.loading}>
-                    <ActivityIndicator size="large" color="#0000ff" />
-                    <Text style={styles.loadingText}>Loading location...</Text>
-                </View>
-            ) : errorMsg ? (
-                <Text style={styles.errorText}>{errorMsg}</Text>
-            ) : (
-                <>
-                    {location && (
-                        <MapView
-                            style={styles.map}
-                            initialRegion={{
-                                latitude: selectedLocation?.latitude || location.latitude,
-                                longitude: selectedLocation?.longitude || location.longitude,
-                                latitudeDelta: 0.01,
-                                longitudeDelta: 0.01,
-                            }}
-                            onPress={handleMapPress}
-                        >
-                            {selectedLocation && (
-                                <Marker
-                                    coordinate={selectedLocation}
-                                    pinColor="red"
-                                    title={formData.destination_name || "Selected Location"}
-                                    description={formData.destination_description || "This location will be saved"}
-                                />
-                            )}
-                        </MapView>
-                    )}
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Destination Name"
-                        value={formData.destination_name}
-                        onChangeText={(value) => handleChange('destination_name', value)}
-                    />
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="City"
-                        value={formData.city}
-                        onChangeText={(value) => handleChange('city', value)}
-                    />
-
-                    <TextInput
-                        style={styles.textArea}
-                        placeholder="Description"
-                        value={formData.destination_description}
-                        onChangeText={(value) => handleChange('destination_description', value)}
-                        multiline={true}
-                        numberOfLines={4}
-                    />
-
-                    {selectedLocation && (
-                        <View style={styles.locationInfo}>
-                            <Text style={styles.locationText}>
-                                Location: {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
-                            </Text>
-                        </View>
-                    )}
-
-                    <Text style={styles.helpText}>
-                        Tap anywhere on the map to select a location
-                    </Text>
-                </>
-            )}
-        </View>
-    );
-
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.container}
+            className="flex-1 bg-white"
         >
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.title}>Add Destination</Text>
+            <ScrollView className="flex-1">
+                <View className="px-4 py-6">
+                    <Text className="text-xl font-onest-semibold mb-2 text-center">Add Destination</Text>
+                    <Text className="text-sm text-gray-500 font-onest mb-6 text-center">Create a new destination for your experience</Text>
 
-                {renderDestinationForm()}
+                    <View className="flex gap-6 border-t pt-6 border-gray-200">
+                        {/* Map Section */}
+                        {loading ? (
+                            <View className="items-center justify-center py-8">
+                                <ActivityIndicator size="large" color="#0000ff" />
+                                <Text className="text-gray-500 mt-4 font-onest">Loading location...</Text>
+                            </View>
+                        ) : errorMsg ? (
+                            <Text className="text-red-500 py-2">{errorMsg}</Text>
+                        ) : location ? (
+                            <View className="mb-2">
+                                <Text className="font-onest-medium mb-2 text-gray-800">Select Location</Text>
+                                <View className="w-full h-52 rounded-lg overflow-hidden">
+                                    <MapView
+                                        style={{ width: '100%', height: '100%' }}
+                                        initialRegion={{
+                                            latitude: selectedLocation?.latitude || location.latitude,
+                                            longitude: selectedLocation?.longitude || location.longitude,
+                                            latitudeDelta: 0.01,
+                                            longitudeDelta: 0.01,
+                                        }}
+                                        onPress={handleMapPress}
+                                    >
+                                        {selectedLocation && (
+                                            <Marker
+                                                coordinate={selectedLocation}
+                                                pinColor="red"
+                                                title={formData.destination_name || "Selected Location"}
+                                            />
+                                        )}
+                                    </MapView>
+                                </View>
 
-                <View style={styles.navigationButtons}>
-                    <Pressable style={styles.backButton} onPress={onBack}>
-                        <Text style={styles.buttonText}>Back</Text>
-                    </Pressable>
-                    <Pressable
-                        style={[styles.nextButton, !isValid() && styles.disabledButton]}
-                        onPress={onNext}
-                        disabled={!isValid()}
-                    >
-                        <Text style={styles.buttonText}>Next</Text>
-                    </Pressable>
+                                <Text className="text-xs text-gray-500 font-onest mt-2 italic">
+                                    Tap anywhere on the map to select a location
+                                </Text>
+
+                                {selectedLocation && (
+                                    <View className="bg-gray-100 p-2 rounded-md mt-2">
+                                        <Text className="text-gray-700 text-xs font-onest">
+                                            Location: {selectedLocation.latitude.toFixed(5)}, {selectedLocation.longitude.toFixed(5)}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        ) : null}
+
+                        {/* Essential Information */}
+                        <View className="mb-4">
+                            <Text className="font-onest-medium mb-2 text-gray-800">Essential Information</Text>
+
+                            <TextInput
+                                className="border border-gray-200 rounded-lg p-3 text-gray-800 mb-3"
+                                placeholder="Destination Name"
+                                value={formData.destination_name}
+                                onChangeText={(value) => handleChange('destination_name', value)}
+                            />
+
+                            <TextInput
+                                className="border border-gray-200 rounded-lg p-3 text-gray-800"
+                                placeholder="City"
+                                value={formData.city}
+                                onChangeText={(value) => handleChange('city', value)}
+                            />
+                        </View>
+
+                        {/* Description */}
+                        <View className="mb-6">
+                            <Text className="font-onest-medium mb-2 text-gray-800">Description</Text>
+
+                            <TextInput
+                                className="border border-gray-200 rounded-lg p-3 text-gray-800 h-24"
+                                placeholder="Tell visitors about this destination..."
+                                value={formData.destination_description}
+                                onChangeText={(value) => handleChange('destination_description', value)}
+                                multiline={true}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Navigation Buttons - Fixed at bottom */}
+                        <View className="flex-row justify-between pt-2">
+
+                            <Pressable onPress={onBack} className="border border-primary p-4 rounded-xl">
+                                <Text className="text-gray-800">Previous step</Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={isValid() ? onNext : undefined}
+                                className={`p-4 px-6 rounded-xl ${isValid() ? 'bg-primary' : 'bg-gray-200'
+                                    }`}
+                            >
+                                <Text className="text-center font-onest-medium text-base text-gray-300">Next step</Text>
+                            </Pressable>
+                        </View>
+                    </View>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
+
+    // return (
+    //     <KeyboardAvoidingView
+    //         behavior={Platform.OS === "ios" ? "padding" : "height"}
+    //         className="flex-1 bg-white"
+    //     >
+    //         <ScrollView className="flex-1">
+    //             <View className="text-center py-2">
+    //                 <Text className="text-center text-xl font-onest-semibold mb-2">Add Destination</Text>
+    //                 <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">Create a new destination by selecting a location and providing details.</Text>
+
+    //                 <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200">
+    //                     <View className="bg-white pb-4">
+    //                         <Text className="font-onest-medium py-2 text-gray-800">Destination Location</Text>
+
+    //                         {loading ? (
+    //                             <View className="items-center justify-center py-8">
+    //                                 <ActivityIndicator size="large" color="#0000ff" />
+    //                                 <Text className="text-gray-500 mt-4 font-onest">Loading location...</Text>
+    //                             </View>
+    //                         ) : errorMsg ? (
+    //                             <Text className="text-red-500 py-2">{errorMsg}</Text>
+    //                         ) : (
+    //                             <>
+    //                                 {location && (
+    //                                     <View className="w-full h-64 rounded-lg overflow-hidden mb-4 ">
+    //                                         <MapView
+    //                                             style={{ width: '100%', height: '100%' }}
+
+    //                                             initialRegion={{
+    //                                                 latitude: selectedLocation?.latitude || location.latitude,
+    //                                                 longitude: selectedLocation?.longitude || location.longitude,
+    //                                                 latitudeDelta: 0.01,
+    //                                                 longitudeDelta: 0.01,
+    //                                             }}
+    //                                             onPress={handleMapPress}
+    //                                         >
+    //                                             {selectedLocation && (
+    //                                                 <Marker
+    //                                                     coordinate={selectedLocation}
+    //                                                     pinColor="red"
+    //                                                     title={formData.destination_name || "Selected Location"}
+    //                                                     description={formData.destination_description || "This location will be saved"}
+    //                                                 />
+    //                                             )}
+    //                                         </MapView>
+    //                                     </View>
+    //                                 )}
+
+    //                                 <Text className="text-sm text-gray-500 font-onest mb-4">
+    //                                     Tap anywhere on the map to select a location
+    //                                 </Text>
+
+    //                                 {selectedLocation && (
+    //                                     <View className="bg-gray-100 p-3 rounded-lg mb-4">
+    //                                         <Text className="text-gray-700 text-sm font-onest">
+    //                                             Location: {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
+    //                                         </Text>
+    //                                     </View>
+    //                                 )}
+    //                             </>
+    //                         )}
+    //                     </View>
+
+    //                     <View className="bg-white pb-4">
+    //                         <Text className="font-onest-medium py-2 text-gray-800">Destination Details</Text>
+
+    //                         <View className="mb-4">
+    //                             <TextInput
+    //                                 className="border border-gray-200 rounded-lg p-4 text-gray-800 mb-3"
+    //                                 placeholder="Destination Name"
+    //                                 placeholderTextColor="#9CA3AF"
+    //                                 value={formData.destination_name}
+    //                                 onChangeText={(value) => handleChange('destination_name', value)}
+    //                             />
+    //                         </View>
+
+    //                         <View className="mb-4">
+    //                             <TextInput
+    //                                 className="border border-gray-200 rounded-lg p-4 text-gray-800 mb-3"
+    //                                 placeholder="City"
+    //                                 value={formData.city}
+    //                                 onChangeText={(value) => handleChange('city', value)}
+    //                             />
+    //                         </View>
+
+    //                         <View className="mb-4">
+    //                             <TextInput
+    //                                 className="border border-gray-200 rounded-lg p-4 text-gray-800 h-32"
+    //                                 placeholder="Description"
+    //                                 value={formData.destination_description}
+    //                                 onChangeText={(value) => handleChange('destination_description', value)}
+    //                                 multiline={true}
+    //                                 numberOfLines={4}
+    //                                 textAlignVertical="top"
+    //                                 placeholderTextColor="#9CA3AF"
+    //                             />
+    //                         </View>
+    //                     </View>
+
+    //                     <View className="flex-row justify-between mt-4">
+    //                         <Pressable onPress={onBack} className="border border-primary p-4 rounded-xl">
+    //                             <Text className="text-gray-800">Previous step</Text>
+    //                         </Pressable>
+    //                         <Pressable
+    //                             onPress={isValid() ? onNext : undefined}
+    //                             className={`p-4 px-6 rounded-xl ${isValid() ? 'bg-primary' : 'bg-gray-200'
+    //                                 }`}
+    //                         >
+    //                             <Text className="text-center font-onest-medium text-base text-gray-300">Next step</Text>
+    //                         </Pressable>
+    //                     </View>
+    //                 </View>
+    //             </View>
+    //         </ScrollView>
+    //     </KeyboardAvoidingView>
+    // );
 };
 
 const styles = StyleSheet.create({

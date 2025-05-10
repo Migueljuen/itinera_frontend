@@ -159,7 +159,7 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
                 </Pressable>
 
                 <FlatList
-                    className='h-28'
+                    className='h-36'
                     data={formData.availability}
                     keyExtractor={(_, index) => index.toString()}
                     renderItem={({ item, index }) => (
