@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import axios from 'axios';
 import API_URL from '../../../constants/api';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import SafeViewAndroid from '../../globalStyle';
 interface Experience {
   id: string;
   title: string;
@@ -92,7 +92,7 @@ const CreatorDashboard: React.FC = () => {
   const tabs: string[] = ['All', 'Active', 'Draft', 'Inactive'];
 
   return (
-    <SafeAreaView className='bg-gray-50'>
+    <SafeAreaView className='bg-gray-50' style={SafeViewAndroid.AndroidSafeArea}>
       <View className='w-full h-screen'>
         <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
           <View className='flex items-center justify-between flex-row p-6'>

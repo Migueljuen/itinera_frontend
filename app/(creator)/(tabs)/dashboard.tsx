@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  StatusBar
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Star from '../../../assets/icons/star.svg';
@@ -50,7 +53,7 @@ const CreatorDashboard: React.FC = () => {
 
 
   return (
-    <SafeAreaView className='bg-gray-50'>
+    <SafeAreaView className='bg-gray-50' style={styles.AndroidSafeArea}>
       <View className='w-full h-screen'>
         <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
           <View className='flex items-center justify-between flex-row p-6'>
@@ -184,5 +187,11 @@ const CreatorDashboard: React.FC = () => {
     </SafeAreaView>
   );
 };
-
+const styles = StyleSheet.create({
+  AndroidSafeArea: {
+    flex: 1,
+    backgroundColor: "white",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
+  }
+});
 export default CreatorDashboard;

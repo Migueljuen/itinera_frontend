@@ -48,7 +48,7 @@ const ExperienceCreationForm: React.FC = () => {
         unit: '',
         availability: [],
         tags: [],
-        useExistingDestination: true,
+        useExistingDestination: false,
         destination_id: null,
         destination_name: '',
         city: '',
@@ -57,10 +57,6 @@ const ExperienceCreationForm: React.FC = () => {
         longitude: '',
         images: [],
     });
-
-    // Step navigation
-    const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
-    const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
     const validateFormData = () => {
         const requiredUnits = ['Entry', 'Hour', 'Day', 'Package'];
@@ -74,15 +70,39 @@ const ExperienceCreationForm: React.FC = () => {
             !Array.isArray(formData.tags) ||
             formData.tags.length === 0 ||
             !Array.isArray(formData.availability) ||
-            formData.availability.length === 0 ||
-            formData.availability.some(
-                slot =>
-                    !slot.day_of_week ||
-                    !slot.start_time ||
-                    !slot.end_time
-            )
+            formData.availability.length === 0
         ) {
+            console.log('Basic form data validation failed');
             return false;
+        }
+
+        for (const day of formData.availability) {
+            if (!day.day_of_week) {
+                console.log('Missing day_of_week:', day);
+                return false;
+            }
+            if (!Array.isArray(day.time_slots)) {
+                console.log('Missing or invalid time_slots:', day);
+                return false;
+            }
+            if (day.time_slots.length === 0) {
+                console.log('Empty time_slots array:', day);
+                return false;
+            }
+
+            for (const slot of day.time_slots) {
+                if (!slot.start_time || !slot.end_time) {
+                    console.log('Missing start or end time in slot:', slot, 'Day:', day.day_of_week);
+                    return false;
+                }
+
+                const startTime = new Date(`2000-01-01T${slot.start_time}`);
+                const endTime = new Date(`2000-01-01T${slot.end_time}`);
+                if (endTime <= startTime) {
+                    Alert.alert('Invalid Time', `End time must be after start time for ${day.day_of_week}`);
+                    return false;
+                }
+            }
         }
 
         if (!formData.useExistingDestination) {
@@ -93,15 +113,20 @@ const ExperienceCreationForm: React.FC = () => {
                 !formData.latitude ||
                 !formData.longitude
             ) {
+                console.log('Missing destination info');
                 return false;
             }
+        } else if (!formData.destination_id) {
+            console.log('Missing destination_id');
+            return false;
         }
 
         return true;
     };
 
+    const handleSubmit = async (status = 'draft') => {
+        console.log('Submitting formData:', formData);
 
-    const handleSubmit = async () => {
         if (!validateFormData()) {
             Alert.alert('Validation Error', 'Please fill out all required fields.');
             return;
@@ -119,15 +144,27 @@ const ExperienceCreationForm: React.FC = () => {
             formDataObj.append('description', formData.description);
             formDataObj.append('price', Number(formData.price).toString());
             formDataObj.append('unit', formData.unit);
-            formDataObj.append('status', 'draft'); // default status
+            formDataObj.append('status', status); // Set status based on button clicked
 
-            // Add tags as a JSON string
+            // Add tags
             formDataObj.append('tags', JSON.stringify(formData.tags));
 
-            // formData.append('tags', JSON.stringify(tags));
+            // Transform availability with the proper structure
+            // We need to ensure that each time slot has the proper fields as expected by the backend
+            const transformedAvailability = formData.availability.map((day) => ({
+                availability_id: day.availability_id, // Include if it exists (for editing scenarios)
+                experience_id: day.experience_id, // Include if it exists (for editing scenarios)
+                day_of_week: day.day_of_week,
+                time_slots: day.time_slots.map(slot => ({
+                    slot_id: slot.slot_id, // Include if it exists (for editing scenarios)
+                    availability_id: slot.availability_id, // Include if it exists (for editing scenarios)
+                    start_time: slot.start_time.length === 5 ? slot.start_time + ':00' : slot.start_time,
+                    end_time: slot.end_time.length === 5 ? slot.end_time + ':00' : slot.end_time,
+                })),
+            }));
 
-            // Add availability as a JSON string
-            formDataObj.append('availability', JSON.stringify(formData.availability));
+            console.log('Transformed availability:', JSON.stringify(transformedAvailability));
+            formDataObj.append('availability', JSON.stringify(transformedAvailability));
 
             // Handle destination data
             if (formData.useExistingDestination && formData.destination_id) {
@@ -140,7 +177,7 @@ const ExperienceCreationForm: React.FC = () => {
                 formDataObj.append('longitude', formData.longitude);
             }
 
-            // Add image files - FIXED: Use the correct field name 'image' instead of 'photos'
+            // Add image files
             if (formData.images && formData.images.length > 0) {
                 formData.images.forEach((img, index) => {
                     // Check if img is a string or an object
@@ -157,7 +194,7 @@ const ExperienceCreationForm: React.FC = () => {
                             name,
                             type,
                         };
-                        formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
+                        formDataObj.append('images', fileObj as any);
                     } else {
                         // Handle new format (object with uri, name, type)
                         const fileObj: any = {
@@ -165,72 +202,48 @@ const ExperienceCreationForm: React.FC = () => {
                             name: img.name || `image${index}.jpg`,
                             type: img.type || 'image/jpeg',
                         };
-                        formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
+                        formDataObj.append('images', fileObj as any);
                     }
                 });
             }
 
             console.log('Submitting form data:', formDataObj);
 
-            // Make multipart form-data request
+            // Your API call and response handling
             const response = await fetch(`${API_URL}/experience/create`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
-                    // Don't set Content-Type as FormData will set it with the correct boundary
                 },
                 body: formDataObj,
             });
 
-            // Check response type and handle errors
-            const contentType = response.headers.get('content-type');
+            const responseData = await response.json();
 
             if (!response.ok) {
-                let errorMessage = 'Failed to create experience';
-
-                if (contentType && contentType.includes('application/json')) {
-                    const errorData = await response.json();
-                    errorMessage = errorData.message || errorMessage;
-                } else {
-                    // For HTML error responses or other non-JSON responses
-                    const errorText = await response.text();
-                    console.error('Server error response:', errorText);
-
-                    // Try to extract error message from HTML if possible
-                    if (errorText.includes('MulterError')) {
-                        errorMessage = 'File upload error: ' +
-                            (errorText.includes('Unexpected field') ?
-                                'Server is expecting different field names for files' :
-                                'Unknown file upload error');
-                    }
-                }
-
-                throw new Error(errorMessage);
+                throw new Error(responseData.message || 'Failed to create experience');
             }
 
-            // Handle success response
-            let data;
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-                console.log('Success response:', data);
-            } else {
-                const text = await response.text();
-                console.log('Success response (non-JSON):', text);
-            }
+            const successMessage = status === 'active'
+                ? 'Experience published successfully!'
+                : 'Experience saved as draft successfully!';
 
-            Alert.alert('Success', 'Experience created successfully!');
-            // You might want to navigate away or reset the form here
+            Alert.alert('Success', successMessage);
+            // Navigation or reset logic here
 
         } catch (err) {
             console.error('Submit error:', err);
-            Alert.alert('Error');
+            Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit experience');
         } finally {
             setIsSubmitting(false);
         }
     };
+    // Step navigation
+    const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
+    const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
 
-    // Render active step component
+
     const renderStep = () => {
         switch (step) {
             case 1:
@@ -244,7 +257,7 @@ const ExperienceCreationForm: React.FC = () => {
             case 5:
                 return <Step5Images formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
             case 6:
-                // ReviewSubmit has a different interface than the other step components
+                // Pass both onSubmit and onSubmitAsDraft to ReviewSubmit
                 return <ReviewSubmit
                     formData={formData}
                     onBack={handleBack}
@@ -255,7 +268,6 @@ const ExperienceCreationForm: React.FC = () => {
                 return null;
         }
     };
-
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             {/* Step content */}

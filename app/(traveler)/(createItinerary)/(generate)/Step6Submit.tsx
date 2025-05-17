@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { ExperienceFormData } from '../../../../types/types';
-import { useRouter } from "expo-router";
+
 interface ReviewSubmitProps {
     formData: ExperienceFormData;
     onBack: () => void;
@@ -11,7 +11,7 @@ interface ReviewSubmitProps {
 }
 
 const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit, isSubmitting }) => {
-    const router = useRouter();
+
 
     return (
         <ScrollView className="text-center py-2">
@@ -45,24 +45,16 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                     <Text className="font-onest-medium py-2 text-gray-800">Availability</Text>
                     <View className="rounded-xl border border-gray-200 p-4">
                         {formData.availability.length > 0 ? (
-                            formData.availability.map((day, dayIndex) => (
-                                <View key={dayIndex} className="mb-3">
-                                    <Text className="text-gray-900 font-medium mb-1">{day.day_of_week}</Text>
-                                    {day.time_slots.map((slot, slotIndex) => (
-                                        <View
-                                            key={slotIndex}
-                                            className="flex-row justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
-                                        >
-                                            <Text className="text-gray-800">{slot.start_time} - {slot.end_time}</Text>
-                                        </View>
-                                    ))}
+                            formData.availability.map((slot, index) => (
+                                <View key={index} className="flex-row justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                                    <Text className="text-gray-800">{slot.day_of_week}</Text>
+                                    <Text className="text-gray-800">{slot.start_time} - {slot.end_time}</Text>
                                 </View>
                             ))
                         ) : (
                             <Text className="text-gray-500 text-center py-2">No availability set</Text>
                         )}
                     </View>
-
                 </View>
 
                 {/* Tags Section */}
@@ -133,6 +125,28 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                     </View>
                 </View>
 
+                {/* Navigation Buttons */}
+                {/* <View className="flex-row justify-between mt-4">
+                    <Pressable
+                        onPress={onBack}
+                        className="border border-primary p-4 rounded-xl"
+                        disabled={isSubmitting}
+                    >
+                        <Text className="text-gray-800 font-onest-medium">Previous step</Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={onSubmit}
+                        disabled={isSubmitting}
+                        className={`p-4 px-6 rounded-xl ${isSubmitting ? 'bg-gray-400' : 'bg-primary'}`}
+                    >
+                        {isSubmitting ? (
+                            <ActivityIndicator color="white" size="small" />
+                        ) : (
+                            <Text className="text-center font-onest-medium text-base text-gray-300">Submit</Text>
+                        )}
+                    </Pressable>
+                </View> */}
                 <View className="flex-row justify-between mt-4">
                     <Pressable
                         onPress={onBack}
@@ -144,8 +158,7 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
 
                     <View className="flex-row gap-3">
                         <Pressable
-                            onPress={() => { onSubmit('draft'); router.replace("/dashboard") }}
-
+                            onPress={() => onSubmit('draft')}
                             disabled={isSubmitting}
                             className={`p-4 px-6 rounded-xl border border-primary ${isSubmitting ? 'bg-gray-100' : 'bg-white'}`}
                         >
@@ -157,7 +170,7 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                         </Pressable>
 
                         <Pressable
-                            onPress={() => { onSubmit('active'); router.replace("/dashboard") }}
+                            onPress={() => onSubmit('active')}
                             disabled={isSubmitting}
                             className={`p-4 px-6 rounded-xl ${isSubmitting ? 'bg-gray-400' : 'bg-primary'}`}
                         >

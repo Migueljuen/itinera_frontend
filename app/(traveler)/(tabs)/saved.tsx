@@ -6,9 +6,10 @@ import {
     TouchableOpacity,
     ScrollView,
     RefreshControl,
-    SafeAreaView
+    SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import SafeViewAndroid from '../../globalStyle'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { experiences } from '../../../data/experiences'
 type SavedExperience = {
@@ -47,7 +48,7 @@ const SavedScreen = () => {
 
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
+        <SafeAreaView className="flex-1 bg-gray-50" style={SafeViewAndroid.AndroidSafeArea}>
             <View className="w-full h-full">
                 <ScrollView
                     refreshControl={
@@ -162,5 +163,6 @@ const SavedScreen = () => {
         </SafeAreaView>
     );
 };
+
 
 export default SavedScreen;

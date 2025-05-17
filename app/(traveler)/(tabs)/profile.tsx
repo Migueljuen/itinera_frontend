@@ -7,12 +7,16 @@ import {
   ScrollView,
   Switch,
   SafeAreaView,
-  useWindowDimensions
+  useWindowDimensions,
+  StyleSheet,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import SafeViewAndroid from '../../globalStyle';
 import Pencil from '../../../assets/icons/pencil.svg'
 import Logout from '../../../assets/icons/logout.svg'
 import Plus from '../../../assets/icons/plus.svg'
@@ -84,7 +88,7 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50" style={SafeViewAndroid.AndroidSafeArea}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
