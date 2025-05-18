@@ -7,34 +7,30 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
-    FlatList,
     Animated,
     Dimensions,
     ScrollView
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Add this import if using Expo
+import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
+import { format, addDays, differenceInDays } from 'date-fns';
 
-interface AvailabilitySlot {
-    day_of_week: string;
-    start_time: string;
-    end_time: string;
+export interface ItineraryFormData {
+    traveler_id: number;
+    start_date: string;
+    end_date: string;
+    title: string;
+    notes?: string;
+    city: string;
+    items: ItineraryItem[];
 }
 
-interface ItineraryFormData {
-    title: string;
-    description: string;
-    price: string;
-    unit: string;
-    availability: AvailabilitySlot[];
-    tags: number[];
-    useExistingDestination: boolean;
-    destination_id: number | null;
-    destination_name: string;
-    city: string;
-    destination_description: string;
-    latitude: string;
-    longitude: string;
-    images: any[];
+export interface ItineraryItem {
+    experience_id: number;
+    day_number: number;         // Must be between 1 and total number of days in the itinerary
+    start_time: string;         // Format: 'HH:mm'
+    end_time: string;           // Format: 'HH:mm'
+    custom_note?: string;
 }
 
 interface StepProps {
@@ -53,6 +49,13 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
     const [localCity, setLocalCity] = useState<string | null>(formData.city || null);
     const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
     const [selectedLabel, setSelectedLabel] = useState<string>('Select a city...');
+
+    // Calendar states
+    const [showCalendar, setShowCalendar] = useState<boolean>(false);
+    const [startDate, setStartDate] = useState<string>(formData.start_date || '');
+    const [endDate, setEndDate] = useState<string>(formData.end_date || '');
+    const [markedDates, setMarkedDates] = useState<any>({});
+    const [selectingEndDate, setSelectingEndDate] = useState<boolean>(false);
 
     // Animation value for dropdown height
     const dropdownHeight = useRef(new Animated.Value(0)).current;
@@ -107,6 +110,26 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         }
     }, [localCity]);
 
+    // Update formData when dates change
+    useEffect(() => {
+        if (startDate || endDate) {
+            setFormData({
+                ...formData,
+                start_date: startDate,
+                end_date: endDate
+            });
+        }
+    }, [startDate, endDate]);
+
+    // Initialize marked dates if dates already exist in formData
+    useEffect(() => {
+        if (formData.start_date && formData.end_date) {
+            setStartDate(formData.start_date);
+            setEndDate(formData.end_date);
+            setMarkedDates(getDateRange(formData.start_date, formData.end_date));
+        }
+    }, []);
+
     // Update selected label when component mounts or city changes
     useEffect(() => {
         if (localCity) {
@@ -128,13 +151,25 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
 
     const toggleDropdown = () => {
         setDropdownOpen(!dropdownOpen);
+        if (showCalendar) {
+            setShowCalendar(false);
+        }
+        // Close keyboard if open
+        Keyboard.dismiss();
+    };
 
+    // Toggle calendar visibility
+    const toggleCalendar = () => {
+        setShowCalendar(!showCalendar);
+        if (dropdownOpen) {
+            setDropdownOpen(false);
+        }
         // Close keyboard if open
         Keyboard.dismiss();
     };
 
     const isValid = () => {
-        return localCity !== null;
+        return localCity !== null && startDate !== '' && endDate !== '';
     };
 
     const handleNext = () => {
@@ -149,14 +184,103 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         setDropdownOpen(false);
     };
 
-    const renderCityItem = ({ item }: { item: City }) => (
-        <TouchableOpacity
-            className="px-4 py-3 border-b border-gray-200"
-            onPress={() => selectCity(item)}
-        >
-            <Text className="text-base font-onest">{item.label}</Text>
-        </TouchableOpacity>
-    );
+    // Format date for display
+    const formatDisplayDate = (dateString: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return format(date, 'MMM dd, yyyy');
+    };
+
+    // Handle date selection on calendar
+    const handleDayPress = (day: { dateString: string }) => {
+        const selectedDate = day.dateString;
+
+        if (!startDate || selectingEndDate) {
+            // If no start date is selected or we're selecting end date
+            if (!startDate) {
+                // Set start date
+                setStartDate(selectedDate);
+                setSelectingEndDate(true);
+
+                // Mark this date
+                setMarkedDates({
+                    [selectedDate]: {
+                        selected: true,
+                        startingDay: true,
+                        color: '#4F46E5'
+                    }
+                });
+            } else {
+                // Selecting end date
+                // Ensure end date is after start date
+                if (selectedDate < startDate) {
+                    // If selected date is before start date, swap them
+                    setEndDate(startDate);
+                    setStartDate(selectedDate);
+                } else {
+                    setEndDate(selectedDate);
+                }
+
+                setSelectingEndDate(false);
+                setShowCalendar(false);
+
+                // Create date range markers
+                const markedDateRange = getDateRange(
+                    startDate,
+                    selectedDate < startDate ? startDate : selectedDate
+                );
+                setMarkedDates(markedDateRange);
+            }
+        } else {
+            // Starting a new selection
+            setStartDate(selectedDate);
+            setEndDate('');
+            setSelectingEndDate(true);
+
+            setMarkedDates({
+                [selectedDate]: {
+                    selected: true,
+                    startingDay: true,
+                    color: '#4F46E5'
+                }
+            });
+        }
+    };
+
+    // Create date range markers for the calendar
+    const getDateRange = (startDateStr: string, endDateStr: string) => {
+        const start = new Date(startDateStr);
+        const end = new Date(endDateStr);
+        const range: Record<string, any> = {};
+
+        // Calculate the difference in days
+        const dayCount = differenceInDays(end, start);
+
+        // Mark start date
+        range[startDateStr] = {
+            selected: true,
+            startingDay: true,
+            color: '#4F46E5'
+        };
+
+        // Mark dates in between
+        for (let i = 1; i < dayCount; i++) {
+            const date = format(addDays(start, i), 'yyyy-MM-dd');
+            range[date] = {
+                selected: true,
+                color: '#E0E7FF'
+            };
+        }
+
+        // Mark end date
+        range[endDateStr] = {
+            selected: true,
+            endingDay: true,
+            color: '#4F46E5'
+        };
+
+        return range;
+    };
 
     return (
         <KeyboardAvoidingView
@@ -167,6 +291,9 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                 Keyboard.dismiss();
                 if (dropdownOpen) {
                     setDropdownOpen(false);
+                }
+                if (showCalendar) {
+                    setShowCalendar(false);
                 }
             }}>
                 <View className="flex-1 p-4">
@@ -179,7 +306,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                         </Text>
 
                         <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
-                            {/* Custom Dropdown */}
+                            {/* Custom Dropdown for City Selection */}
                             <View className="bg-white pb-4 z-10">
                                 <Text className="font-onest-medium py-2">Select City in Negros Occidental</Text>
 
@@ -216,7 +343,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                         zIndex: 999,
                                     }}
                                 >
-
                                     <ScrollView>
                                         {cities.map((city, index) => (
                                             <TouchableOpacity
@@ -229,6 +355,84 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                         ))}
                                     </ScrollView>
                                 </Animated.View>
+                            </View>
+
+                            {/* Date Selection */}
+                            <View className="bg-white pb-4 mt-4 z-9">
+                                <Text className="font-onest-medium py-2">Travel Dates</Text>
+                                <TouchableOpacity
+                                    className={`flex-row items-center justify-between px-3 py-3 border ${showCalendar ? 'border-primary' : 'border-gray-300'} rounded-md bg-white`}
+                                    onPress={toggleCalendar}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className={`text-base ${startDate ? 'text-black font-onest' : 'text-gray-500'}`}>
+                                        {startDate && endDate
+                                            ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`
+                                            : startDate
+                                                ? `${formatDisplayDate(startDate)} - Select end date`
+                                                : "Select travel dates"}
+                                    </Text>
+                                    <Ionicons
+                                        name={showCalendar ? "calendar" : "calendar-outline"}
+                                        size={20}
+                                        color={showCalendar ? "#4F46E5" : "gray"}
+                                    />
+                                </TouchableOpacity>
+
+                                {/* Calendar popup */}
+                                {showCalendar && (
+                                    <View className="bg-white border border-gray-200 rounded-md mt-1 shadow-sm z-20">
+                                        <Calendar
+                                            onDayPress={handleDayPress}
+                                            markedDates={markedDates}
+                                            markingType={'period'}
+                                            minDate={new Date().toISOString().split('T')[0]}
+                                            theme={{
+                                                calendarBackground: '#FFFFFF',
+                                                selectedDayBackgroundColor: '#4F46E5',
+                                                selectedDayTextColor: '#FFFFFF',
+                                                todayTextColor: '#4F46E5',
+                                                textSectionTitleColor: '#6B7280',
+                                                arrowColor: '#4F46E5',
+                                            }}
+                                            // @ts-ignore - stylesheet.day.period is valid but not in type definitions
+                                            style={{
+                                                height: 350
+                                            }}
+                                        />
+                                        <View className="p-3 border-t border-gray-200">
+                                            <Text className="text-center text-sm text-gray-500 font-onest mb-1">
+                                                {selectingEndDate
+                                                    ? 'Now select your end date'
+                                                    : 'Select your travel dates'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Date selection indicator */}
+                                {startDate && !showCalendar && (
+                                    <View className="flex-row justify-between mt-2">
+                                        <View className="flex-1">
+                                            <Text className="text-xs text-gray-500 font-onest">Start Date</Text>
+                                            <Text className="text-sm font-onest-medium">{formatDisplayDate(startDate)}</Text>
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-xs text-gray-500 font-onest">End Date</Text>
+                                            <Text className="text-sm font-onest-medium">
+                                                {endDate ? formatDisplayDate(endDate) : 'Not selected'}
+                                            </Text>
+                                        </View>
+                                        {startDate && endDate && (
+                                            <View className="flex-1">
+                                                <Text className="text-xs text-gray-500 font-onest">Duration</Text>
+                                                <Text className="text-sm font-onest-medium">
+                                                    {differenceInDays(new Date(endDate), new Date(startDate)) + 1} days
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
                             </View>
 
                             {/* Submit Button */}

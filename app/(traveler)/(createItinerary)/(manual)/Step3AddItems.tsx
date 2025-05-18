@@ -14,7 +14,7 @@ type Tag = {
     name: string;
 };
 
-const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
+const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -110,4 +110,4 @@ const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack 
     );
 };
 
-export default Step3Tags;
+export default Step3AddItems;
