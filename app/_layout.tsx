@@ -5,7 +5,7 @@ import "./global.css";
 import { useEffect, useState } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import { RefreshProvider } from "../contexts/RefreshContext";
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -34,13 +34,15 @@ export default function RootLayout() {
   if (!appIsReady) return null;
 
   return (
-    <AuthProvider>
-      <RefreshProvider>
-        <SafeAreaProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }} />
-        </SafeAreaProvider>
-      </RefreshProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <RefreshProvider>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </SafeAreaProvider>
+        </RefreshProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

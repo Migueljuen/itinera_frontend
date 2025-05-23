@@ -14,4 +14,7 @@ config.resolver = {
   sourceExts: [...config.resolver.sourceExts, "svg"],
 };
 
+config.resolver.assetExts.push("hcscript");
+config.transformer.assetPlugins = ["expo-asset/tools/hashAssetFiles"];
+
 module.exports = withNativeWind(config, { input: "./app/global.css" });

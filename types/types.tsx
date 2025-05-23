@@ -1,10 +1,3 @@
-// types.ts
-
-export interface AvailabilitySlot {
-    day_of_week: string;
-    start_time: string;
-    end_time: string;
-}
 
 export interface ImageInfo {
     uri: string;
@@ -14,17 +7,28 @@ export interface ImageInfo {
 }
 
 
+export interface TimeSlot {
+    slot_id?: number;
+    availability_id?: number;
+    start_time: string;
+    end_time: string;
+}
+
+export interface AvailabilityDay {
+    availability_id?: number;
+    experience_id?: number;
+    day_of_week: string;
+    time_slots: TimeSlot[];
+}
+
 export interface ExperienceFormData {
     title: string;
     description: string;
     price: string;
     unit: string;
-    availability: {
-        day_of_week: string;
-        start_time: string;
-        end_time: string;
-    }[];
-    tags: number[];  // Tag IDs
+    availability: AvailabilityDay[];
+    tags: number[];
+    travel_companion: 'Solo' | 'Partner' | 'Family' | 'Friends' | 'Group' | 'Any' | '';
     useExistingDestination: boolean;
     destination_id: number | null;
     destination_name: string;
@@ -33,5 +37,5 @@ export interface ExperienceFormData {
     latitude: string;
     longitude: string;
     images: (string | ImageInfo)[];// This will store local URIs initially, then server URLs after upload
-    status?: string;   // Optional status field: 'draft', 'inactive', 'active'
+    status?: string;
 }

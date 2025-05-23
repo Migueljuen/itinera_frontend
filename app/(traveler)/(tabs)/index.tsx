@@ -243,7 +243,7 @@ const App = () => {
 
         <TouchableOpacity
           className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
-          onPress={() => console.log('Create Itinerary')}
+          onPress={() => router.push('/(createItinerary)/selectionScreen')}
         >
           <View className="flex-row items-center">
             <Image

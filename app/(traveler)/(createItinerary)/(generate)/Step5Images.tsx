@@ -68,7 +68,7 @@ const Step5ImageUpload: React.FC<StepProps> = ({ formData, setFormData, onNext, 
         }
     };
 
-    const isValid = (): boolean => !!formData.images && formData.images.length >= 0;
+    const isValid = (): boolean => !!formData.images && formData.images.length > 0;
 
     const removeImage = (uri: string) => {
         setFormData({

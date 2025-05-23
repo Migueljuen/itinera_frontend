@@ -11,10 +11,25 @@ import {
     TouchableWithoutFeedback,
     Platform
 } from 'react-native';
-import { ExperienceFormData } from '../../../../types/types';
+
 const units = ['Entry', 'Hour', 'Day', 'Package'];
 
-
+interface ExperienceFormData {
+    title: string;
+    description: string;
+    price: string;
+    unit: string;
+    availability: Array<any>;
+    tags: number[];
+    useExistingDestination: boolean;
+    destination_id: number | null;
+    destination_name: string;
+    city: string;
+    destination_description: string;
+    latitude: string;
+    longitude: string;
+    images: any[];
+}
 
 interface StepProps {
     formData: ExperienceFormData;

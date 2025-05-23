@@ -34,6 +34,7 @@ export default function TravelerLayout() {
                     ),
                 }}
             />
+            <Stack.Screen name="(createItinerary)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
     );
