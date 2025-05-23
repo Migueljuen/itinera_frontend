@@ -26,6 +26,7 @@ interface Experience {
     images: string[];  // from experience_images table
     availability: AvailabilityInfo[];  // from experience_availability joined with availability_time_slots
     budget_category: 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';  // calculated based on price
+    type?: 'recommended' | 'other';
 }
 
 interface AvailabilityInfo {
@@ -55,7 +56,6 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedExperiences, setSelectedExperiences] = useState<Record<number, boolean>>({});
-    const [activeFilterTab, setActiveFilterTab] = useState<string>('All');
 
     useEffect(() => {
         console.log('=== User selections from previous steps ===');
@@ -80,87 +80,90 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         console.log('==========================================');
     }, []);
 
-    // Fetch experiences from the backend
+
     useEffect(() => {
         const fetchExperiences = async () => {
             try {
                 setLoading(true);
 
-                // Build query parameters object
-                const params = new URLSearchParams();
+                // ========== 1. Fetch recommended experiences (with preferences) ==========
+                const fullParams = new URLSearchParams();
+                fullParams.append('location', formData.city);
+                fullParams.append('start_date', formData.start_date);
+                fullParams.append('end_date', formData.end_date);
 
-                // Required parameters from Step 1
-                params.append('location', formData.city);
-                params.append('start_date', formData.start_date);
-                params.append('end_date', formData.end_date);
-
-                // Optional parameters from Step 2 preferences
                 if (formData.preferences) {
-                    // Handle experiences array - convert to comma-separated string
-                    if (formData.preferences.experiences && formData.preferences.experiences.length > 0) {
-                        const experienceNames = formData.preferences.experiences.join(',');
-                        params.append('tags', experienceNames);
+                    if (formData.preferences.experiences?.length) {
+                        fullParams.append('tags', formData.preferences.experiences.join(','));
                     }
-
-                    // Add other preference parameters
                     if (formData.preferences.budget) {
-                        params.append('budget', formData.preferences.budget);
+                        fullParams.append('budget', formData.preferences.budget);
                     }
-
                     if (formData.preferences.exploreTime) {
-                        params.append('explore_time', formData.preferences.exploreTime);
+                        fullParams.append('explore_time', formData.preferences.exploreTime);
                     }
-
                     if (formData.preferences.travelCompanion) {
-                        params.append('travel_companion', formData.preferences.travelCompanion);
+                        fullParams.append('travel_companion', formData.preferences.travelCompanion);
                     }
                 }
 
-                // Construct final API URL
-                const apiUrl = `${API_URL}/experience?${params.toString()}`;
+                const recommendedUrl = `${API_URL}/experience?${fullParams.toString()}`;
+                const recommendedResponse = await fetch(recommendedUrl);
 
-                console.log('API URL:', apiUrl);  // For debugging
-
-                const response = await fetch(apiUrl);
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch experiences');
+                if (!recommendedResponse.ok) {
+                    throw new Error('Failed to fetch recommended experiences');
                 }
 
-                const data = await response.json();
-                setExperiences(data);
-                // Initialize filtered experiences with all data
-                setFilteredExperiences(data);
+                const recommendedData = await recommendedResponse.json();
+                const recommendedExperiences = recommendedData.map((exp: any) => ({
+                    ...exp,
+                    type: 'recommended',
+                }));
+
+                // ========== 2. Fetch other experiences (only by date) ==========
+                const fallbackParams = new URLSearchParams();
+                fallbackParams.append('start_date', formData.start_date);
+                fallbackParams.append('end_date', formData.end_date);
+
+                if (formData.preferences?.experiences?.length) {
+                    fallbackParams.append('tags', formData.preferences.experiences.join(','));
+                }
+
+                const otherUrl = `${API_URL}/experience?${fallbackParams.toString()}`;
+                const otherResponse = await fetch(otherUrl);
+
+                if (!otherResponse.ok) {
+                    throw new Error('Failed to fetch fallback experiences');
+                }
+
+                const otherData = await otherResponse.json();
+
+                // Filter out duplicates (experiences already in recommended)
+                const recommendedIds = new Set(recommendedData.map((exp: any) => exp.id));
+                const otherExperiences = otherData
+                    .filter((exp: any) => !recommendedIds.has(exp.id))
+                    .map((exp: any) => ({
+                        ...exp,
+                        type: 'other',
+                    }));
+
+                // ========== Final merge ==========
+                const allExperiences = [...recommendedExperiences, ...otherExperiences];
+
+                setExperiences(allExperiences);
+                setFilteredExperiences(allExperiences);
                 setLoading(false);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An error occurred');
                 setLoading(false);
             }
         };
+
         fetchExperiences();
     }, [formData.city, formData.start_date, formData.end_date, formData.preferences]);
 
-    // Apply filters based on selected tab
-    const applyFilters = (experienceList: Experience[], filterTab: string) => {
-        if (filterTab === 'All') {
-            setFilteredExperiences(experienceList);
-        } else {
-            // Filter by tag matching the selected tab
-            const filtered = experienceList.filter(exp =>
-                exp.tags.some(tag =>
-                    tag.toLowerCase().includes(filterTab.toLowerCase()) ||
-                    filterTab.toLowerCase().includes(tag.toLowerCase())
-                )
-            );
-            setFilteredExperiences(filtered);
-        }
-    };
 
-    // Handle filter tab selection
-    const handleFilterTabChange = (tab: string) => {
-        setActiveFilterTab(tab);
-        applyFilters(experiences, tab);
-    };
+
 
     // Toggle experience selection
     const toggleExperienceSelection = (experienceId: number) => {
@@ -168,15 +171,6 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             ...prev,
             [experienceId]: !prev[experienceId]
         }));
-    };
-
-    // Create filter tabs based on preferences
-    const getFilterTabs = () => {
-        const tabs = ['All'];
-        if (formData.preferences?.experiences) {
-            tabs.push(...formData.preferences.experiences);
-        }
-        return tabs;
     };
 
     // Check if Next button should be enabled
@@ -303,17 +297,17 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     {/* Tags */}
                     <View className="flex-row flex-wrap">
                         {item.tags.slice(0, 3).map((tag, index) => (
-                            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
+                            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2 ">
                                 <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
                             </View>
                         ))}
                     </View>
 
                     {/* Budget Category */}
-                    <View className="flex-row items-center mt-1">
+                    {/* <View className="flex-row items-center mt-1">
                         <Ionicons name="cash-outline" size={16} color="#4F46E5" />
                         <Text className="text-xs text-gray-600 ml-1">{item.budget_category}</Text>
-                    </View>
+                    </View> */}
                 </View>
             </TouchableOpacity>
         );
@@ -324,124 +318,107 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1"
         >
-            <View className="flex-1 p-4">
-                {/* Header */}
-                <View className="text-center py-2">
-                    <Text className="text-center text-xl font-onest-semibold mb-2">
-                        Select Experiences
-                    </Text>
-                    <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-                        Choose the experiences you'd like to add to your itinerary for {formData.city}.
-                    </Text>
-                </View>
+            <ScrollView
+                contentContainerStyle={{ flexGrow: 1 }}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View className="p-4 flex-1">
+                    {/* Header */}
+                    <View className="text-center py-2">
+                        <Text className="text-center text-xl font-onest-semibold mb-2">
+                            Select Experiences
+                        </Text>
+                        <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
+                            Choose the experiences you'd like to add to your itinerary for {formData.city}.
+                        </Text>
+                    </View>
 
-                {/* Filter Tabs */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="flex-row pb-3 mb-3"
-                >
-                    {getFilterTabs().map((tab) => (
-                        <TouchableOpacity
-                            key={tab}
-                            onPress={() => handleFilterTabChange(tab)}
-                            className={`px-4 py-2 mr-2 rounded-full ${activeFilterTab === tab ? 'bg-primary' : 'bg-gray-100'
-                                }`}
-                        >
-                            <Text
-                                className={`font-onest-medium ${activeFilterTab === tab ? 'text-white' : 'text-gray-700'
-                                    }`}
+                    {/* Loading/Error/Content */}
+                    {loading ? (
+                        <View className="flex-1 justify-center items-center">
+                            <ActivityIndicator size="large" color="#4F46E5" />
+                        </View>
+                    ) : error ? (
+                        <View className="flex-1 justify-center items-center">
+                            <Text className="text-red-500 font-onest-medium">{error}</Text>
+                            <TouchableOpacity
+                                onPress={retryFetch}
+                                className="mt-4 bg-primary px-4 py-2 rounded-lg"
                             >
-                                {tab}
+                                <Text className="text-white font-onest-medium">Try Again</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            {filteredExperiences.filter(exp => exp.type === 'recommended').length > 0 && (
+                                <>
+                                    <Text className="text-xl font-onest-bold mb-2">Recommended for You</Text>
+                                    <FlatList
+                                        data={filteredExperiences.filter(exp => exp.type === 'recommended')}
+                                        renderItem={renderExperienceCard}
+                                        keyExtractor={(item) => item.id.toString()}
+                                        scrollEnabled={false} // prevent inner scroll
+                                        showsVerticalScrollIndicator={false}
+                                        className="mb-4"
+                                    />
+                                </>
+                            )}
+
+                            {filteredExperiences.filter(exp => exp.type === 'other').length > 0 && (
+                                <>
+                                    <Text className="text-xl font-onest-bold mb-2">Other Experiences</Text>
+                                    <FlatList
+                                        data={filteredExperiences.filter(exp => exp.type === 'other')}
+                                        renderItem={renderExperienceCard}
+                                        keyExtractor={(item) => item.id.toString()}
+                                        scrollEnabled={false} // prevent inner scroll
+                                        showsVerticalScrollIndicator={false}
+                                    />
+                                </>
+                            )}
+                        </>
+                    )}
+
+                    {/* Selected Count Indicator */}
+                    {Object.values(selectedExperiences).filter(Boolean).length > 0 && (
+                        <View className="bg-indigo-50 p-2 rounded-lg mt-2 mb-2 flex-row justify-between items-center">
+                            <Text className="font-onest-medium text-primary">
+                                {Object.values(selectedExperiences).filter(Boolean).length} experiences selected
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setSelectedExperiences({})}
+                                className="px-2 py-1"
+                            >
+                                <Text className="text-gray-500 font-onest-medium">Clear</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Navigation Buttons */}
+                    <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-200">
+                        <TouchableOpacity
+                            onPress={onBack}
+                            className="py-4 px-6 rounded-xl border border-gray-300"
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-center font-onest-medium text-base text-gray-700">
+                                Back
                             </Text>
                         </TouchableOpacity>
-                    ))}
-                </ScrollView>
 
-                {/* Experiences List */}
-                {loading ? (
-                    <View className="flex-1 justify-center items-center">
-                        <ActivityIndicator size="large" color="#4F46E5" />
-                    </View>
-                ) : error ? (
-                    <View className="flex-1 justify-center items-center">
-                        <Text className="text-red-500 font-onest-medium">{error}</Text>
                         <TouchableOpacity
-                            onPress={retryFetch}
-                            className="mt-4 bg-primary px-4 py-2 rounded-lg"
+                            onPress={handleNext}
+                            className={`py-4 px-8 rounded-xl ${isNextEnabled() ? 'bg-primary' : 'bg-gray-200'}`}
+                            disabled={!isNextEnabled()}
+                            activeOpacity={0.7}
                         >
-                            <Text className="text-white font-onest-medium">Try Again</Text>
+                            <Text className="text-center font-onest-medium text-base text-white">
+                                Next step
+                            </Text>
                         </TouchableOpacity>
                     </View>
-                ) : filteredExperiences.length === 0 ? (
-                    <View className="flex-1 justify-center items-center">
-                        <Ionicons name="search-outline" size={50} color="#A0AEC0" />
-                        <Text className="text-lg font-onest-medium text-gray-700 mt-2">
-                            No experiences found
-                        </Text>
-                        <Text className="text-sm text-gray-500 text-center mt-1 mb-4">
-                            Try changing your filters or preferences
-                        </Text>
-                        {activeFilterTab !== 'All' && (
-                            <TouchableOpacity
-                                onPress={() => handleFilterTabChange('All')}
-                                className="mt-2 bg-primary px-4 py-2 rounded-lg"
-                            >
-                                <Text className="text-white font-onest-medium">View All Experiences</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                ) : (
-                    <FlatList
-                        data={filteredExperiences}
-                        renderItem={renderExperienceCard}
-                        keyExtractor={(item) => item.id.toString()}
-                        showsVerticalScrollIndicator={false}
-                        className="flex-1"
-                        numColumns={1}
-                        contentContainerStyle={{ paddingBottom: 80 }}
-                    />
-                )}
-
-                {/* Selected Count Indicator */}
-                {Object.values(selectedExperiences).filter(Boolean).length > 0 && (
-                    <View className="bg-indigo-50 p-2 rounded-lg mt-2 mb-2 flex-row justify-between items-center">
-                        <Text className="font-onest-medium text-primary">
-                            {Object.values(selectedExperiences).filter(Boolean).length} experiences selected
-                        </Text>
-                        <TouchableOpacity
-                            onPress={() => setSelectedExperiences({})}
-                            className="px-2 py-1"
-                        >
-                            <Text className="text-gray-500 font-onest-medium">Clear</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-                {/* Navigation Buttons */}
-                <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-200">
-                    <TouchableOpacity
-                        onPress={onBack}
-                        className="py-4 px-6 rounded-xl border border-gray-300"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-onest-medium text-base text-gray-700">
-                            Back
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        className={`py-4 px-8 rounded-xl ${isNextEnabled() ? 'bg-primary' : 'bg-gray-200'}`}
-                        disabled={!isNextEnabled()}
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-onest-medium text-base text-white">
-                            Next step
-                        </Text>
-                    </TouchableOpacity>
                 </View>
-            </View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 };
