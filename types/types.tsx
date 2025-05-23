@@ -28,6 +28,7 @@ export interface ExperienceFormData {
     unit: string;
     availability: AvailabilityDay[];
     tags: number[];
+    travel_companion: 'Solo' | 'Partner' | 'Family' | 'Friends' | 'Group' | 'Any' | '';
     useExistingDestination: boolean;
     destination_id: number | null;
     destination_name: string;

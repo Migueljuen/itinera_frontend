@@ -48,6 +48,7 @@ const ExperienceCreationForm: React.FC = () => {
         unit: '',
         availability: [],
         tags: [],
+        travel_companion: '',
         useExistingDestination: false,
         destination_id: null,
         destination_name: '',
@@ -149,6 +150,8 @@ const ExperienceCreationForm: React.FC = () => {
             // Add tags
             formDataObj.append('tags', JSON.stringify(formData.tags));
 
+            // Add travel companion
+            formDataObj.append('travel_companion', formData.travel_companion);
             // Transform availability with the proper structure
             // We need to ensure that each time slot has the proper fields as expected by the backend
             const transformedAvailability = formData.availability.map((day) => ({

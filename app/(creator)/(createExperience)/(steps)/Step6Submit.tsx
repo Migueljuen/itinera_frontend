@@ -65,23 +65,24 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
 
                 </View>
 
-                {/* Tags Section */}
+                {/* Travel Companion Section */}
                 <View className="bg-white pb-4">
-                    <Text className="font-onest-medium py-2 text-gray-800">Tags</Text>
+                    <Text className="font-onest-medium py-2 text-gray-800">Travel Companion</Text>
                     <View className="rounded-xl border border-gray-200 p-4">
-                        {formData.tags.length > 0 ? (
-                            <View className="flex-row flex-wrap gap-2">
-                                {formData.tags.map((tagId, index) => (
-                                    <View key={index} className="bg-gray-100 px-4 py-2 rounded-full">
-                                        <Text className="text-gray-800">{tagId}</Text>
-                                    </View>
-                                ))}
+                        {formData.travel_companion ? (
+                            <View className="bg-gray-100 px-4 py-2 rounded-full self-start">
+                                <Text className="text-gray-800">
+                                    {formData.travel_companion}
+                                </Text>
                             </View>
                         ) : (
-                            <Text className="text-gray-500 text-center py-2">No tags selected</Text>
+                            <Text className="text-gray-500 text-center py-2">No companion selected</Text>
                         )}
                     </View>
                 </View>
+
+
+
 
                 {/* Destination Section */}
                 <View className="bg-white pb-4">

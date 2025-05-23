@@ -2,40 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, FlatList, Platform, ScrollView } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
-
+import { ExperienceFormData, AvailabilityDay, TimeSlot } from '../../../../types/types';
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Updated interfaces to match backend requirements
-interface TimeSlot {
-    slot_id?: number;
-    availability_id?: number;
-    start_time: string;
-    end_time: string;
-}
-
-interface AvailabilityDay {
-    availability_id?: number;
-    experience_id?: number;
-    day_of_week: string;
-    time_slots: TimeSlot[];
-}
-
-interface ExperienceFormData {
-    title: string;
-    description: string;
-    price: string;
-    unit: string;
-    availability: AvailabilityDay[];
-    tags: number[];
-    useExistingDestination: boolean;
-    destination_id: number | null;
-    destination_name: string;
-    city: string;
-    destination_description: string;
-    latitude: string;
-    longitude: string;
-    images: any[];
-}
 
 interface StepProps {
     formData: ExperienceFormData;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Define preference types
 type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
-type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family';
+type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
 
@@ -65,9 +65,19 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
         formData.preferences?.budget || null
     );
 
+    useEffect(() => {
+        console.log('User selections from Step 1:');
+        console.log('Selected city:', formData.city);
+        console.log('Start date:', formData.start_date);
+        console.log('End date:', formData.end_date);
+
+        // You can also log the entire formData object
+        console.log('Complete form data:', formData);
+    }, []);
+
     // Available options
     const experienceOptions: Experience[] = ['Adventure', 'Cultural', 'Food', 'Nature', 'Relaxation', 'Nightlife'];
-    const companionOptions: TravelCompanion[] = ['Solo', 'Partner', 'Friends', 'Family'];
+    const companionOptions: TravelCompanion[] = ['Solo', 'Partner', 'Friends', 'Family', 'Any'];
     const exploreTimeOptions: ExploreTime[] = ['Daytime', 'Nighttime', 'Both'];
     const budgetOptions: Budget[] = ['Free', 'Budget-friendly', 'Mid-range', 'Premium'];
 
@@ -211,7 +221,9 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                                             () => setSelectedCompanion(companion),
                                             companion === 'Solo' ? 'person' :
                                                 companion === 'Partner' ? 'heart' :
-                                                    companion === 'Friends' ? 'people' : 'home'
+                                                    companion === 'Friends' ? 'people' :
+                                                        companion === 'Family' ? 'home' :
+                                                            companion === 'Any' ? 'person' : 'person'
                                         )
                                     )}
                                 </View>

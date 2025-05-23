@@ -6,6 +6,8 @@ export interface ItineraryFormData {
     notes?: string;
     city: string;
     items: ItineraryItem[];
+    exploreTime: string;
+    experiences: number[];
 }
 
 export interface ItineraryItem {
