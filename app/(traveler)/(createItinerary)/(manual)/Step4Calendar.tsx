@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Modal,
@@ -10,6 +11,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import API_URL from '../../../../constants/api';
 import { ItineraryFormData, ItineraryItem } from './Step2Preference';
 
 interface Experience {
@@ -70,8 +72,10 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [timeSlotModalVisible, setTimeSlotModalVisible] = useState(false);
     const [daySelectionModalVisible, setDaySelectionModalVisible] = useState(false);
     const [selectedUnassignedExperience, setSelectedUnassignedExperience] = useState<UnassignedExperience | null>(null);
+    const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
     const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
     const [experiences, setExperiences] = useState<Experience[]>([]);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
 
     // Generate calendar days from trip dates
     useEffect(() => {
@@ -142,47 +146,69 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         generateUnassignedExperiences();
     }, [formData.items]);
 
-    // Fetch experiences data for time slot selection
+    // Fetch experiences data with real availability from API
     useEffect(() => {
         const fetchExperiences = async () => {
             try {
-                const mockExperiences: Experience[] = (formData.items || []).map(item => ({
-                    id: item.experience_id,
-                    title: `Experience ${item.experience_id}`,
-                    description: '',
-                    price: 0,
-                    unit: 'USD',
-                    destination_name: formData.city,
-                    location: formData.city,
-                    tags: [],
-                    images: [],
-                    availability: [
-                        {
-                            availability_id: 1,
-                            experience_id: item.experience_id,
-                            day_of_week: 'Monday',
-                            time_slots: [
-                                { slot_id: 1, availability_id: 1, start_time: '09:00:00', end_time: '11:00:00' },
-                                { slot_id: 2, availability_id: 1, start_time: '11:30:00', end_time: '13:30:00' },
-                                { slot_id: 3, availability_id: 1, start_time: '14:00:00', end_time: '16:00:00' },
-                                { slot_id: 4, availability_id: 1, start_time: '16:30:00', end_time: '18:30:00' },
-                                { slot_id: 5, availability_id: 1, start_time: '19:00:00', end_time: '21:00:00' }
-                            ]
-                        }
-                    ],
-                    budget_category: 'Budget-friendly'
-                }));
+                setLoadingAvailability(true);
+                const uniqueExperienceIds = [...new Set((formData.items || []).map(item => item.experience_id))];
                 
-                setExperiences(mockExperiences);
+                const experiencePromises = uniqueExperienceIds.map(async (experienceId) => {
+                    try {
+                        // Fetch availability data for each experience
+                        const response = await fetch(`${API_URL}/experience/availability/${experienceId}`);
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch availability for experience ${experienceId}`);
+                        }
+                        const availabilityData = await response.json();
+                        
+                        return {
+                            id: experienceId,
+                            title: `Experience ${experienceId}`,
+                            description: '',
+                            price: 0,
+                            unit: 'PHP',
+                            destination_name: formData.city,
+                            location: formData.city,
+                            tags: [],
+                            images: [],
+                            availability: availabilityData.availability || [],
+                            budget_category: 'Budget-friendly' as const
+                        };
+                    } catch (error) {
+                        console.error(`Error fetching availability for experience ${experienceId}:`, error);
+                        // Return experience with empty availability on error
+                        return {
+                            id: experienceId,
+                            title: `Experience ${experienceId}`,
+                            description: '',
+                            price: 0,
+                            unit: 'PHP',
+                            destination_name: formData.city,
+                            location: formData.city,
+                            tags: [],
+                            images: [],
+                            availability: [],
+                            budget_category: 'Budget-friendly' as const
+                        };
+                    }
+                });
+
+                const fetchedExperiences = await Promise.all(experiencePromises);
+                setExperiences(fetchedExperiences);
             } catch (error) {
                 console.error('Error fetching experiences:', error);
+                // Set empty experiences on error
+                setExperiences([]);
+            } finally {
+                setLoadingAvailability(false);
             }
         };
 
         if (formData.items && formData.items.length > 0) {
             fetchExperiences();
         }
-    }, [formData.items]);
+    }, [formData.items, formData.city]);
 
     // Handle unassigned experience click to select day
     const handleUnassignedExperienceClick = (experience: UnassignedExperience) => {
@@ -191,32 +217,35 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     };
 
     // Handle day selection for unassigned experience
-    const handleDaySelection = (day: CalendarDay) => {
+    const handleDaySelection = async (day: CalendarDay) => {
         if (!selectedUnassignedExperience) return;
 
-        // Check available time slots for this day
-        const experience = experiences.find(exp => exp.id === selectedUnassignedExperience.experience_id);
-        if (!experience) return;
+        setSelectedDay(day);
+        setDaySelectionModalVisible(false);
 
+        // Find the experience data
+        const experience = experiences.find(exp => exp.id === selectedUnassignedExperience.experience_id);
+        if (!experience) {
+            Alert.alert('Error', 'Experience data not found');
+            return;
+        }
+
+        // Find availability for this day
         const dayAvailability = experience.availability.find(avail => 
             avail.day_of_week === day.dayName
         );
 
-        if (dayAvailability) {
-            setAvailableTimeSlots(dayAvailability.time_slots);
-        } else {
-            setAvailableTimeSlots([
-                { slot_id: 1, availability_id: 1, start_time: '09:00:00', end_time: '11:00:00' },
-                { slot_id: 2, availability_id: 1, start_time: '11:30:00', end_time: '13:30:00' },
-                { slot_id: 3, availability_id: 1, start_time: '14:00:00', end_time: '16:00:00' },
-                { slot_id: 4, availability_id: 1, start_time: '16:30:00', end_time: '18:30:00' },
-                { slot_id: 5, availability_id: 1, start_time: '19:00:00', end_time: '21:00:00' }
-            ]);
+        if (!dayAvailability || !dayAvailability.time_slots || dayAvailability.time_slots.length === 0) {
+            Alert.alert(
+                'No Availability', 
+                `This experience is not available on ${day.dayName}. Please select a different day.`
+            );
+            return;
         }
 
-        // Filter out conflicting time slots
+        // Filter out conflicting time slots with existing items on this day
         const dayItems = day.items;
-        const availableSlots = availableTimeSlots.filter(slot => {
+        const availableSlots = dayAvailability.time_slots.filter(slot => {
             const slotStart = slot.start_time;
             const slotEnd = slot.end_time;
             
@@ -229,33 +258,40 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             });
         });
 
+        if (availableSlots.length === 0) {
+            Alert.alert(
+                'No Available Slots', 
+                `All time slots for this experience are conflicting with your existing schedule on ${day.dayName}.`
+            );
+            return;
+        }
+
         setAvailableTimeSlots(availableSlots);
-        setDaySelectionModalVisible(false);
         setTimeSlotModalVisible(true);
     };
 
     // Handle assigned item click to change time slot
     const handleAssignedItemClick = (item: ItineraryItem, day: CalendarDay) => {
         const experience = experiences.find(exp => exp.id === item.experience_id);
-        if (!experience) return;
+        if (!experience) {
+            Alert.alert('Error', 'Experience data not found');
+            return;
+        }
 
         setSelectedItem(item);
         setSelectedExperience(experience);
+        setSelectedDay(day);
 
         const dayAvailability = experience.availability.find(avail => 
             avail.day_of_week === day.dayName
         );
 
-        if (dayAvailability) {
-            setAvailableTimeSlots(dayAvailability.time_slots);
-        } else {
-            setAvailableTimeSlots([
-                { slot_id: 1, availability_id: 1, start_time: '09:00:00', end_time: '11:00:00' },
-                { slot_id: 2, availability_id: 1, start_time: '11:30:00', end_time: '13:30:00' },
-                { slot_id: 3, availability_id: 1, start_time: '14:00:00', end_time: '16:00:00' },
-                { slot_id: 4, availability_id: 1, start_time: '16:30:00', end_time: '18:30:00' },
-                { slot_id: 5, availability_id: 1, start_time: '19:00:00', end_time: '21:00:00' }
-            ]);
+        if (!dayAvailability || !dayAvailability.time_slots || dayAvailability.time_slots.length === 0) {
+            Alert.alert(
+                'No Availability', 
+                `This experience has no available time slots on ${day.dayName}.`
+            );
+            return;
         }
 
         // Filter out conflicting time slots (excluding current item)
@@ -263,7 +299,7 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             dayItem.experience_id !== item.experience_id
         );
         
-        const availableSlots = availableTimeSlots.filter(slot => {
+        const availableSlots = dayAvailability.time_slots.filter(slot => {
             const slotStart = slot.start_time;
             const slotEnd = slot.end_time;
             
@@ -281,13 +317,11 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
     // Handle time slot selection
     const handleTimeSlotSelect = (timeSlot: TimeSlot) => {
-        if (selectedUnassignedExperience) {
+        if (selectedUnassignedExperience && selectedDay) {
             // Adding new experience to a day
             const newItem: ItineraryItem = {
                 experience_id: selectedUnassignedExperience.experience_id,
-                day_number: calendarDays.find(day => 
-                    availableTimeSlots.some(slot => slot.slot_id === timeSlot.slot_id)
-                )?.dayNumber || 1,
+                day_number: selectedDay.dayNumber,
                 start_time: timeSlot.start_time.substring(0, 5),
                 end_time: timeSlot.end_time.substring(0, 5),
                 custom_note: ''
@@ -333,6 +367,7 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             setSelectedExperience(null);
         }
 
+        setSelectedDay(null);
         setTimeSlotModalVisible(false);
     };
 
@@ -378,9 +413,16 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         });
     };
 
-    // Format time for display
-    const formatTime = (time: string) => {
-        return time.substring(0, 5);
+    // Format time for display (converts "10:24:00" to "10:24 AM")
+    const formatTime = (timeString: string) => {
+        if (timeString.includes(':')) {
+            const [hours, minutes] = timeString.split(':');
+            const hour = parseInt(hours, 10);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const formattedHour = hour % 12 || 12;
+            return `${formattedHour}:${minutes} ${ampm}`;
+        }
+        return timeString;
     };
 
     // Check if schedule is complete
@@ -454,7 +496,7 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                                             <View className="flex-row items-center mt-1">
                                                 <Ionicons name="time-outline" size={16} color="#4F46E5" />
                                                 <Text className="text-sm text-gray-600 ml-1 font-onest-medium">
-                                                    {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                                                    {formatTime(item.start_time + ':00')} - {formatTime(item.end_time + ':00')}
                                                 </Text>
                                             </View>
                                         </View>
@@ -483,6 +525,15 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             </View>
         );
     };
+
+    if (loadingAvailability) {
+        return (
+            <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#4F46E5" />
+                <Text className="mt-2 text-gray-600">Loading availability...</Text>
+            </View>
+        );
+    }
 
     return (
         <KeyboardAvoidingView
@@ -580,27 +631,41 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         </View>
 
                         <ScrollView className="flex-1">
-                            {calendarDays.map((day) => (
-                                <TouchableOpacity
-                                    key={day.dayNumber}
-                                    className="p-4 border-b border-gray-100 flex-row items-center justify-between"
-                                    onPress={() => handleDaySelection(day)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View>
-                                        <Text className="text-base font-onest-semibold">
-                                            Day {day.dayNumber} - {day.dayName}
-                                        </Text>
-                                        <Text className="text-sm text-gray-600 font-onest">
-                                            {formatDate(day.date)}
-                                        </Text>
-                                        <Text className="text-xs text-gray-500 font-onest mt-1">
-                                            {day.items.length} experience{day.items.length !== 1 ? 's' : ''} scheduled
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                                </TouchableOpacity>
-                            ))}
+                            {calendarDays.map((day) => {
+                                // Check if this experience is available on this day
+                                const experience = experiences.find(exp => exp.id === selectedUnassignedExperience?.experience_id);
+                                const hasAvailability = experience?.availability.some(avail => avail.day_of_week === day.dayName) || false;
+                                
+                                return (
+                                    <TouchableOpacity
+                                        key={day.dayNumber}
+                                        className={`p-4 border-b border-gray-100 flex-row items-center justify-between ${!hasAvailability ? 'opacity-50' : ''}`}
+                                        onPress={() => hasAvailability ? handleDaySelection(day) : null}
+                                        activeOpacity={hasAvailability ? 0.7 : 1}
+                                        disabled={!hasAvailability}
+                                    >
+                                        <View>
+                                            <Text className="text-base font-onest-semibold">
+                                                Day {day.dayNumber} - {day.dayName}
+                                            </Text>
+                                            <Text className="text-sm text-gray-600 font-onest">
+                                                {formatDate(day.date)}
+                                            </Text>
+                                            <Text className="text-xs text-gray-500 font-onest mt-1">
+                                                {day.items.length} experience{day.items.length !== 1 ? 's' : ''} scheduled
+                                            </Text>
+                                            {!hasAvailability && (
+                                                <Text className="text-xs text-red-500 font-onest mt-1">
+                                                    Not available on this day
+                                                </Text>
+                                            )}
+                                        </View>
+                                        {hasAvailability && (
+                                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </ScrollView>
                     </View>
                 </View>
@@ -630,6 +695,11 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                             <Text className="text-sm text-gray-600 mt-1 font-onest">
                                 {selectedUnassignedExperience?.title || `Experience ${selectedItem?.experience_id}`}
                             </Text>
+                            {selectedDay && (
+                                <Text className="text-xs text-gray-500 mt-1 font-onest">
+                                    {selectedDay.dayName}, {formatDate(selectedDay.date)}
+                                </Text>
+                            )}
                         </View>
 
                         <ScrollView className="flex-1">
