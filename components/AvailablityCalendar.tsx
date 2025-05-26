@@ -1,35 +1,68 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import API_URL from '../constants/api'; // Your API base URL
+import { ItineraryItem } from '../types/itineraryTypes'; // Import your types
 
 // Type definitions
 type TimeSlot = {
-    slot_id?: number;
-    availability_id?: number;
-    start_time: string;
-    end_time: string;
+  slot_id?: number;
+  availability_id?: number;
+  start_time: string;
+  end_time: string;
 };
 
 type AvailabilityDay = {
-    availability_id?: number;
-    experience_id?: number;
-    day_of_week: string;
-    time_slots: TimeSlot[];
+  availability_id?: number;
+  experience_id?: number;
+  day_of_week: string;
+  time_slots: TimeSlot[];
 };
+
 
 type AvailabilityData = {
     availability: AvailabilityDay[];
 };
 
-const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
+type SelectedTimeSlot = {
+    day_of_week: string;
+    date: Date;
+    day_number: number;
+    start_time: string;
+    end_time: string;
+};
+
+interface AvailabilityCalendarProps {
+    experienceId: number;
+    tripStartDate: string; // Format: 'YYYY-MM-DD'
+    tripEndDate: string;   // Format: 'YYYY-MM-DD'
+    selectedItems: ItineraryItem[]; // Currently selected items for this experience
+    onTimeSlotSelect: (item: ItineraryItem) => void;
+    onTimeSlotDeselect: (item: ItineraryItem) => void;
+}
+
+const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({ 
+    experienceId, 
+    tripStartDate, 
+    tripEndDate,
+    selectedItems,
+    onTimeSlotSelect,
+    onTimeSlotDeselect
+}) => {
+    console.log('AvailabilityCalendar rendered with:', {
+        experienceId,
+        tripStartDate,
+        tripEndDate,
+        selectedItemsCount: selectedItems?.length
+    });
     // State for availability data
     const [availabilityData, setAvailabilityData] = useState<AvailabilityData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
-    // Current date for display context
-    const [currentDate] = useState(new Date());
+    // Parse trip dates
+    const tripStart = new Date(tripStartDate);
+    const tripEnd = new Date(tripEndDate);
 
     // Fetch availability data
     useEffect(() => {
@@ -62,25 +95,33 @@ const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
         return `${formattedHour}:${minutes} ${ampm}`;
     };
 
-    // Find the current week's dates
-    const getWeekDates = () => {
+    // Convert time to HH:mm format for form data
+    const convertToFormTimeFormat = (timeString: string) => {
+        const [hours, minutes] = timeString.split(':');
+        return `${hours}:${minutes}`;
+    };
+
+    // Get dates within the trip period
+    const getTripDates = () => {
         const dates = [];
-        const currentDay = currentDate.getDay(); // 0 is Sunday, 1 is Monday, etc.
-        const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // Calculate days to Monday
-
-        const monday = new Date(currentDate);
-        monday.setDate(currentDate.getDate() + mondayOffset);
-
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(monday);
-            date.setDate(monday.getDate() + i);
-            dates.push(date);
+        const currentDate = new Date(tripStart);
+        
+        while (currentDate <= tripEnd) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
         }
-
+        
         return dates;
     };
 
-    const weekDates = getWeekDates();
+    const tripDates = getTripDates();
+
+    // Calculate day number relative to trip start
+    const getDayNumber = (date: Date) => {
+        const diffTime = date.getTime() - tripStart.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays + 1; // 1-based indexing
+    };
 
     // Order days of week correctly
     const daysOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -91,6 +132,42 @@ const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
             setExpandedDay(null);
         } else {
             setExpandedDay(day);
+        }
+    };
+
+    // Check if a time slot is selected
+    const isTimeSlotSelected = (date: Date, startTime: string, endTime: string) => {
+        const dayNumber = getDayNumber(date);
+        const formattedStartTime = convertToFormTimeFormat(startTime);
+        const formattedEndTime = convertToFormTimeFormat(endTime);
+        
+        return selectedItems.some(item => 
+            item.experience_id === experienceId &&
+            item.day_number === dayNumber &&
+            item.start_time === formattedStartTime &&
+            item.end_time === formattedEndTime
+        );
+    };
+
+    // Handle time slot selection/deselection
+    const handleTimeSlotPress = (date: Date, startTime: string, endTime: string) => {
+        const dayNumber = getDayNumber(date);
+        const formattedStartTime = convertToFormTimeFormat(startTime);
+        const formattedEndTime = convertToFormTimeFormat(endTime);
+        
+        const newItem: ItineraryItem = {
+            experience_id: experienceId,
+            day_number: dayNumber,
+            start_time: formattedStartTime,
+            end_time: formattedEndTime
+        };
+
+        if (isTimeSlotSelected(date, startTime, endTime)) {
+            // Deselect
+            onTimeSlotDeselect(newItem);
+        } else {
+            // Select
+            onTimeSlotSelect(newItem);
         }
     };
 
@@ -127,22 +204,23 @@ const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
 
     return (
         <View className="mb-6">
-            <View className="bg-blue-600 py-4 px-4 rounded-t-xl ">
+            <View className="bg-blue-600 py-4 px-4 rounded-t-xl">
                 <View className="flex-row items-center justify-between">
-                    <Text className="text-normal text-xl font-semibold">Availability</Text>
+                    <Text className="text-white text-xl font-semibold">Availability</Text>
                     <Text className="text-blue-100">
-                        {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        {tripStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </Text>
                 </View>
             </View>
 
-            {/* Calendar Week View */}
+            {/* Calendar Trip Dates View */}
             <View className="bg-white rounded-b-xl shadow-md overflow-hidden">
-                {weekDates.map((date, index) => {
+                {tripDates.map((date, index) => {
                     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
                     const dayAvailability = sortedAvailability.find(item => item.day_of_week === dayName);
                     const hasAvailability = !!dayAvailability;
                     const isExpanded = expandedDay === dayName;
+                    const dayNumber = getDayNumber(date);
 
                     return (
                         <TouchableOpacity
@@ -160,7 +238,7 @@ const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
                                     </View>
                                     <View>
                                         <Text className={`font-medium ${hasAvailability ? 'text-gray-800' : 'text-gray-400'}`}>
-                                            {dayName}
+                                            {dayName} (Day {dayNumber})
                                         </Text>
                                         <Text className={`text-xs ${hasAvailability ? 'text-gray-600' : 'text-gray-400'}`}>
                                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -183,13 +261,35 @@ const AvailabilityCalendar = ({ experienceId }: { experienceId: number }) => {
                             {/* Expanded view with all time slots */}
                             {hasAvailability && isExpanded && (
                                 <View className="p-4 space-y-2">
-                                    {dayAvailability.time_slots.map((slot, idx) => (
-                                        <View key={idx} className="bg-blue-50 rounded-lg p-3 mb-1 border border-gray-100">
-                                            <Text className="text-normal font-medium">
-                                                {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                                            </Text>
-                                        </View>
-                                    ))}
+                                    {dayAvailability.time_slots.map((slot, idx) => {
+                                        const isSelected = isTimeSlotSelected(date, slot.start_time, slot.end_time);
+                                        
+                                        return (
+                                            <TouchableOpacity
+                                                key={idx}
+                                                onPress={() => handleTimeSlotPress(date, slot.start_time, slot.end_time)}
+                                                className={`rounded-lg p-3 mb-1 border ${
+                                                    isSelected 
+                                                        ? 'bg-blue-100 border-blue-500' 
+                                                        : 'bg-blue-50 border-gray-100'
+                                                }`}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View className="flex-row items-center justify-between">
+                                                    <Text className={`font-medium ${
+                                                        isSelected ? 'text-blue-800' : 'text-gray-800'
+                                                    }`}>
+                                                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                                    </Text>
+                                                    {isSelected && (
+                                                        <View className="bg-blue-500 w-6 h-6 rounded-full items-center justify-center">
+                                                            <Text className="text-white text-xs font-bold">✓</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             )}
                         </TouchableOpacity>
