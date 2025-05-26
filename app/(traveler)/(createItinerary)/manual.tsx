@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 import API_URL from '../../../constants/api';
@@ -7,10 +7,11 @@ import API_URL from '../../../constants/api';
 import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
-import ReviewSubmit from './(manual)/Step4Submit';
+import Step4Calendar from './(manual)/Step4Calendar';
+// import ReviewSubmit from './(manual)/Step4Submit';
 
 // Types
-import { ItineraryFormData, ItineraryItem } from '../../../types/itineraryTypes';
+import { ItineraryFormData, ItineraryItem } from './(manual)/Step1SelectLocation';
 
 
 // Progress bar component
@@ -310,14 +311,18 @@ const ItineraryCreationForm: React.FC = () => {
             case 3:
 
                 return <Step3AddItems formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-            case 4:
-                // Pass both onSubmit and onSubmitAsDraft to ReviewSubmit
-                return <ReviewSubmit
-                    formData={formData}
-                    onBack={handleBack}
-                    onSubmit={handleSubmit}
-                    isSubmitting={isSubmitting}
-                />;
+              case 4:
+
+                return <Step4Calendar formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+            
+                // case 5:
+                // // Pass both onSubmit and onSubmitAsDraft to ReviewSubmit
+                // return <ReviewSubmit
+                //     formData={formData}
+                //     onBack={handleBack}
+                //     onSubmit={handleSubmit}
+                //     isSubmitting={isSubmitting}
+                // />;
             default:
                 return null;
         }
