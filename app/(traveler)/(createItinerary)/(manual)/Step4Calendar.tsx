@@ -77,6 +77,35 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+//     useEffect(() => {
+//     console.log('Step 4 - Form data items:', formData.items);
+//     formData.items?.forEach((item, index) => {
+//         console.log(`Item ${index}:`, {
+//             experience_id: item.experience_id,
+//             day_number: item.day_number,
+//             start_time: item.start_time,
+//             end_time: item.end_time
+//         });
+//     });
+// }, []);
+
+useEffect(() => {
+    // Reset scheduling data when component mounts - clear any pre-existing day/time assignments
+    const resetItems = (formData.items || []).map(item => ({
+        ...item,
+        day_number: 0, // Reset to unassigned
+        start_time: '',
+        end_time: ''
+    }));
+
+    if (resetItems.length > 0) {
+        setFormData({
+            ...formData,
+            items: resetItems
+        });
+    }
+}, []); 
+
     // Generate calendar days from trip dates
     useEffect(() => {
         const generateCalendarDays = () => {

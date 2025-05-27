@@ -3,16 +3,38 @@ import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 import API_URL from '../../../constants/api';
+
 // Step components
 import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
 import Step4Calendar from './(manual)/Step4Calendar';
-// import ReviewSubmit from './(manual)/Step4Submit';
+import Step5ReviewSubmit from './(manual)/Step5ReviewSubmit'; // Add this import
 
-// Types
-import { ItineraryFormData, ItineraryItem } from './(manual)/Step1SelectLocation';
+// Types - you should move these to a separate types file
+interface ItineraryItem {
+    experience_id: number;
+    day_number: number;
+    start_time: string;
+    end_time: string;
+    custom_note?: string;
+}
 
+interface ItineraryFormData {
+    traveler_id: number;
+    start_date: string;
+    end_date: string;
+    title: string;
+    notes?: string;
+    city: string;
+    items: ItineraryItem[];
+    preferences?: {
+        experiences: any[];
+        travelCompanion: any;
+        exploreTime: any;
+        budget: any;
+    };
+}
 
 // Progress bar component
 interface ProgressBarProps {
@@ -34,68 +56,65 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
     );
 });
 
-
 const ItineraryCreationForm: React.FC = () => {
     const [step, setStep] = useState<number>(1);
-    const stepCount = 6;
+    const stepCount = 5; // Updated from 6 to 5
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState<ItineraryFormData>({
-        traveler_id: 0,
+        traveler_id: 12,
         start_date: '',
         end_date: '',
-        title: '',
-        notes: '',
+        title: 'Test',
+        notes: 'sample note',
         city: '',
         items: [] as ItineraryItem[]
     });
-
 
     // Step navigation
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-    const validateFormData = () => {
-        if (
-            !formData.title ||
-            !formData.start_date ||
-            !formData.end_date ||
-            !Array.isArray(formData.items) ||
-            formData.items.length === 0
-        ) {
-            return false;
-        }
+  const validateFormData = () => {
+    const { start_date, end_date, items } = formData;
 
-        const start = new Date(formData.start_date);
-        const end = new Date(formData.end_date);
-
-        // Ensure valid dates
+    // If dates are provided, check validity
+    if (start_date && end_date) {
+        const start = new Date(start_date);
+        const end = new Date(end_date);
         if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
             return false;
         }
 
         const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-        // Validate each itinerary item
-        for (const item of formData.items) {
-            if (
-                !item.experience_id ||
-                !item.day_number ||
-                !item.start_time ||
-                !item.end_time ||
-                item.day_number < 1 ||
-                item.day_number > totalDays
-            ) {
-                return false;
+        // If items are provided, validate them
+        if (Array.isArray(items) && items.length > 0) {
+            for (const item of items) {
+                if (
+                    !item.experience_id ||
+                    !item.day_number ||
+                    !item.start_time ||
+                    !item.end_time ||
+                    item.day_number < 1 ||
+                    item.day_number > totalDays
+                ) {
+                    return false;
+                }
             }
         }
+    }
 
-        return true;
-    };
+    // Allow submission even if title or items are empty
+    return true;
+};
 
-    const handleSubmit = async () => {
+
+    const handleSubmit = async (status = 'active') => {
+        console.log('Submitting formData:', formData);
+
         if (!validateFormData()) {
-            Alert.alert('Validation Error', 'Please fill out all required fields.');
+            Alert.alert('Validation Error', 'Please fill out all required fields and ensure all experiences are scheduled.');
             return;
         }
 
@@ -103,7 +122,7 @@ const ItineraryCreationForm: React.FC = () => {
             setIsSubmitting(true);
 
             const payload = {
-                traveler_id: 12, // Replace `user.id` with your logged-in user's ID
+                traveler_id: 12, // Replace with your logged-in user's ID
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 title: formData.title,
@@ -147,186 +166,28 @@ const ItineraryCreationForm: React.FC = () => {
         }
     };
 
-
-    //     if (!validateFormData()) {
-    //         Alert.alert('Validation Error', 'Please fill out all required fields.');
-    //         return;
-    //     }
-
-    //     try {
-    //         setIsSubmitting(true);
-
-    //         // Create FormData object for multipart/form-data
-    //         const formDataObj = new FormData();
-
-    //         // Add text fields
-    //         formDataObj.append('creator_id', '12'); // replace with actual creator ID
-    //         formDataObj.append('title', formData.title);
-    //         formDataObj.append('description', formData.description);
-    //         formDataObj.append('price', Number(formData.price).toString());
-    //         formDataObj.append('unit', formData.unit);
-    //         formDataObj.append('status', 'draft'); // default status
-
-    //         // Add tags as a JSON string
-    //         formDataObj.append('tags', JSON.stringify(formData.tags));
-
-    //         // formData.append('tags', JSON.stringify(tags));
-
-    //         // Add availability as a JSON string
-    //         formDataObj.append('availability', JSON.stringify(formData.availability));
-
-    //         // Handle destination data
-    //         if (formData.useExistingDestination && formData.destination_id) {
-    //             formDataObj.append('destination_id', formData.destination_id.toString());
-    //         } else {
-    //             formDataObj.append('destination_name', formData.destination_name);
-    //             formDataObj.append('city', formData.city);
-    //             formDataObj.append('destination_description', formData.destination_description);
-    //             formDataObj.append('latitude', formData.latitude);
-    //             formDataObj.append('longitude', formData.longitude);
-    //         }
-
-    //         // Add image files - FIXED: Use the correct field name 'image' instead of 'photos'
-    //         if (formData.images && formData.images.length > 0) {
-    //             formData.images.forEach((img, index) => {
-    //                 // Check if img is a string or an object
-    //                 if (typeof img === 'string') {
-    //                     // Handle legacy format (just uri string)
-    //                     const uriParts = img.split('/');
-    //                     const name = uriParts[uriParts.length - 1];
-    //                     const fileExtension = name.split('.').pop() || '';
-    //                     const type = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-
-    //                     // Create a file object with necessary properties for React Native FormData
-    //                     const fileObj: any = {
-    //                         uri: img,
-    //                         name,
-    //                         type,
-    //                     };
-    //                     formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
-    //                 } else {
-    //                     // Handle new format (object with uri, name, type)
-    //                     const fileObj: any = {
-    //                         uri: img.uri,
-    //                         name: img.name || `image${index}.jpg`,
-    //                         type: img.type || 'image/jpeg',
-    //                     };
-    //                     formDataObj.append('images', fileObj as any);  // Changed from 'photos' to 'image'
-    //                 }
-    //             });
-    //         }
-
-    //         console.log('Submitting form data:', formDataObj);
-
-    //         // Make multipart form-data request
-    //         const response = await fetch(`${API_URL}/experience/create`, {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Accept': 'application/json',
-    //                 // Don't set Content-Type as FormData will set it with the correct boundary
-    //             },
-    //             body: formDataObj,
-    //         });
-
-    //         // Check response type and handle errors
-    //         const contentType = response.headers.get('content-type');
-
-    //         if (!response.ok) {
-    //             let errorMessage = 'Failed to create experience';
-
-    //             if (contentType && contentType.includes('application/json')) {
-    //                 const errorData = await response.json();
-    //                 errorMessage = errorData.message || errorMessage;
-    //             } else {
-    //                 // For HTML error responses or other non-JSON responses
-    //                 const errorText = await response.text();
-    //                 console.error('Server error response:', errorText);
-
-    //                 // Try to extract error message from HTML if possible
-    //                 if (errorText.includes('MulterError')) {
-    //                     errorMessage = 'File upload error: ' +
-    //                         (errorText.includes('Unexpected field') ?
-    //                             'Server is expecting different field names for files' :
-    //                             'Unknown file upload error');
-    //                 }
-    //             }
-
-    //             throw new Error(errorMessage);
-    //         }
-
-    //         // Handle success response
-    //         let data;
-    //         if (contentType && contentType.includes('application/json')) {
-    //             data = await response.json();
-    //             console.log('Success response:', data);
-    //         } else {
-    //             const text = await response.text();
-    //             console.log('Success response (non-JSON):', text);
-    //         }
-
-    //         Alert.alert('Success', 'Experience created successfully!');
-    //         // You might want to navigate away or reset the form here
-
-    //     } catch (err) {
-    //         console.error('Submit error:', err);
-    //         Alert.alert('Error');
-    //     } finally {
-    //         setIsSubmitting(false);
-    //     }
-    // };
-
-
-    // Render active step component
-    // const renderStep = () => {
-    //     switch (step) {
-    //         case 1:
-    //             return <Step1ExperienceDetails formData={formData} setFormData={setFormData} onNext={handleNext} />;
-    //         case 2:
-    //             return <Step2Availability formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-    //         case 3:
-    //             return <Step3Tags formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-    //         case 4:
-    //             return <Step4Destination formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-    //         case 5:
-    //             return <Step5Images formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-    //         case 6:
-    //             // ReviewSubmit has a different interface than the other step components
-    //             return <ReviewSubmit
-    //                 formData={formData}
-    //                 onBack={handleBack}
-    //                 onSubmit={handleSubmit}
-    //                 isSubmitting={isSubmitting}
-    //             />;
-    //         default:
-    //             return null;
-    //     }
-    // };
     const renderStep = () => {
         switch (step) {
             case 1:
                 return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
             case 2:
-
                 return <Step2Preference formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
             case 3:
-
                 return <Step3AddItems formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-              case 4:
-
+            case 4:
                 return <Step4Calendar formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-            
-                // case 5:
-                // // Pass both onSubmit and onSubmitAsDraft to ReviewSubmit
-                // return <ReviewSubmit
-                //     formData={formData}
-                //     onBack={handleBack}
-                //     onSubmit={handleSubmit}
-                //     isSubmitting={isSubmitting}
-                // />;
+            case 5:
+                return <Step5ReviewSubmit
+                    formData={formData}
+                    onBack={handleBack}
+                    onSubmit={handleSubmit}
+                    isSubmitting={isSubmitting}
+                />;
             default:
                 return null;
         }
     };
+
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             {/* Step content */}
@@ -350,7 +211,7 @@ const loadingBarStyles = {
     separatorStrokeFinishedWidth: 6,
 
     // Colors
-    separatorFinishedColor: '#376a63', // Updated to use an actual color value
+    separatorFinishedColor: '#376a63',
     separatorUnFinishedColor: '#E5E7EB',
 
     // Remove labels
