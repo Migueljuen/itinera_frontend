@@ -38,37 +38,38 @@ interface ReviewSubmitProps {
 const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit, isSubmitting }) => {
     const router = useRouter();
 
-   useEffect(() => {
-    console.log('=== Scheduled Experiences ===');
-    
-    // Log all scheduled items
-    if (formData.items && formData.items.length > 0) {
-        formData.items.forEach((item, index) => {
-            console.log(`Experience ${index + 1}:`);
-            console.log(`  - Experience ID: ${item.experience_id}`);
-            console.log(`  - Day Number: ${item.day_number}`);
-            console.log(`  - Start Time: ${item.start_time}`);
-            console.log(`  - End Time: ${item.end_time}`);
-            console.log(`  - Custom Note: ${item.custom_note || 'None'}`);
-            console.log('---');
-        });
+    // Debug log to check scheduled experiences
+    useEffect(() => {
+        console.log('=== Scheduled Experiences ===');
         
-        // Summary
-        const scheduledItems = formData.items.filter(item => item.day_number > 0 && item.start_time && item.end_time);
-        const unscheduledItems = formData.items.filter(item => item.day_number === 0 || !item.start_time || !item.end_time);
+        // Log all scheduled items
+        if (formData.items && formData.items.length > 0) {
+            formData.items.forEach((item, index) => {
+                console.log(`Experience ${index + 1}:`);
+                console.log(`  - Experience ID: ${item.experience_id}`);
+                console.log(`  - Day Number: ${item.day_number}`);
+                console.log(`  - Start Time: ${item.start_time}`);
+                console.log(`  - End Time: ${item.end_time}`);
+                console.log(`  - Custom Note: ${item.custom_note || 'None'}`);
+                console.log('---');
+            });
+            
+            // Summary
+            const scheduledItems = formData.items.filter(item => item.day_number > 0 && item.start_time && item.end_time);
+            const unscheduledItems = formData.items.filter(item => item.day_number === 0 || !item.start_time || !item.end_time);
+            
+            console.log(`Total experiences: ${formData.items.length}`);
+            console.log(`Scheduled: ${scheduledItems.length}`);
+            console.log(`Unscheduled: ${unscheduledItems.length}`);
+        } else {
+            console.log('No experiences found in formData.items');
+        }
         
-        console.log(`Total experiences: ${formData.items.length}`);
-        console.log(`Scheduled: ${scheduledItems.length}`);
-        console.log(`Unscheduled: ${unscheduledItems.length}`);
-    } else {
-        console.log('No experiences found in formData.items');
-    }
-    
-    console.log('=========================');
+        console.log('=========================');
+        console.log('Complete form data:', formData);
+    }, [formData.items]);
 
-       console.log('Complete form data:', formData);
-}, [formData.items]);
-    // Helper function to format date
+    // Convert date string to readable format
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -79,7 +80,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
         });
     };
 
-    // Helper function to format time
+    // Convert 24hr time to 12hr format
     const formatTime = (timeString: string) => {
         if (!timeString) return '';
         const [hours, minutes] = timeString.split(':');
@@ -89,7 +90,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
         return `${formattedHour}:${minutes} ${ampm}`;
     };
 
-    // Calculate trip duration
+    // Calculate total trip days
     const getTripDuration = () => {
         const start = new Date(formData.start_date);
         const end = new Date(formData.end_date);
@@ -98,7 +99,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
         return diffDays;
     };
 
-    // Group items by day
+    // Group experiences by day number
     const getItemsByDay = () => {
         const itemsByDay: { [key: number]: ItineraryItem[] } = {};
         
@@ -117,7 +118,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
         return itemsByDay;
     };
 
-    // Get date for specific day number
+    // Get actual date for day number
     const getDateForDay = (dayNumber: number) => {
         const startDate = new Date(formData.start_date);
         const targetDate = new Date(startDate);
@@ -174,6 +175,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                     <Text className="font-onest-medium py-2 text-gray-800">Daily Schedule</Text>
                     <View className="rounded-xl border border-gray-200 p-4">
                         {Object.keys(itemsByDay).length > 0 ? (
+                            // Render each day with its experiences
                             Object.keys(itemsByDay)
                                 .map(day => parseInt(day))
                                 .sort((a, b) => a - b)
@@ -198,7 +200,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                                                 </Text>
                                             </View>
 
-                                            {/* Day Items */}
+                                            {/* Render experiences for this day */}
                                             {items.map((item, index) => (
                                                 <View 
                                                     key={`${item.experience_id}-${index}`}
@@ -229,6 +231,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                                     );
                                 })
                         ) : (
+                            // Show empty state when no experiences
                             <View className="items-center py-8">
                                 <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
                                 <Text className="text-gray-500 text-center mt-2 font-onest">
@@ -276,6 +279,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
 
                 {/* Action Buttons */}
                 <View className="flex-row justify-between mt-6 pb-4">
+                    {/* Back button */}
                     <Pressable
                         onPress={onBack}
                         className="border border-primary p-4 rounded-xl"
@@ -284,10 +288,11 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                         <Text className="text-primary font-onest-medium">Previous Step</Text>
                     </Pressable>
 
+                    {/* Submit button with loading state */}
                     <Pressable
                         onPress={() => { 
                             onSubmit(); 
-                            router.replace("/"); 
+                            router.replace("/"); // Navigate to home after submit
                         }}
                         disabled={isSubmitting}
                         className={`p-4 px-8 rounded-xl ${isSubmitting ? 'bg-gray-400' : 'bg-primary'}`}

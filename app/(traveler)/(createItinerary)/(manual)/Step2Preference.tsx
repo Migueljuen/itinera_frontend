@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    TouchableOpacity,
-    ScrollView,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
     TouchableWithoutFeedback,
-    Keyboard
+    View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 // Define preference types
 type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
@@ -51,7 +51,7 @@ interface StepProps {
 }
 
 const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
-    // Initialize state from formData if preferences exist, otherwise use defaults
+   
     const [selectedExperiences, setSelectedExperiences] = useState<Experience[]>(
         formData.preferences?.experiences || []
     );
@@ -65,14 +65,15 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
         formData.preferences?.budget || null
     );
 
+
+    // check user input in console
     useEffect(() => {
-        console.log('User selections from Step 1:');
+           console.log('=== User selections from STEP 1 ===');
         console.log('Selected city:', formData.city);
         console.log('Start date:', formData.start_date);
         console.log('End date:', formData.end_date);
 
-        // You can also log the entire formData object
-        console.log('Complete form data:', formData);
+          console.log('==========================================');
     }, []);
 
     // Available options

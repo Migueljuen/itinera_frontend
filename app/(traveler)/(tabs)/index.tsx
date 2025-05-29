@@ -1,14 +1,14 @@
-import { View, Text, Image, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native'
-import axios from 'axios';
-import React, { useState, useEffect } from 'react';
-import { Link, useRouter } from 'expo-router'
-import { SafeAreaView } from "react-native-safe-area-context";
-import Adjustment from '../../../assets/icons/adjustment.svg'
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import API_URL from '../../../constants/api'
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import Adjustment from '../../../assets/icons/adjustment.svg';
+import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
-
 type Experience = {
   id: number;
   title: string;
@@ -198,46 +198,66 @@ const App = () => {
               })}
             </ScrollView>
 
-            <View className="mt-8 min-h-fit">
-              {loading ? (
-                <ActivityIndicator size="large" color="#0000ff" />
-              ) : filteredExperiences.length === 0 ? (
-                <Text className="text-center text-gray-500 py-10">No experiences found</Text>
-              ) : (
-                filteredExperiences.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => router.push(`/(experience)/${item.id}`)}
-                    className="w-full bg-white rounded-xl overflow-hidden mb-6 border border-gray-200"
-                  >
-                    {item.images && item.images.length > 0 ? (
-                      <Image
-                        source={{ uri: `${API_URL}/${item.images[0]}` }}
-                        style={{ width: '100%', height: 160 }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={{ width: '100%', height: 160, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
-                        <Text>No Image</Text>
-                      </View>
-                    )}
-                    <View className="p-3">
-                      <Text className="text-base font-semibold">{item.title}</Text>
-                      <View className="flex-row items-center justify-between mt-1">
-                        <Text className="text-sm text-gray-600">{item.location || item.destination_name}</Text>
-                        {/* Removed distance since it's not in your API */}
-                      </View>
-                      <View className="flex-row justify-between mt-2">
-                        <Text className="text-base font-bold text-blue-500">
-                          {item.price ? `$${item.price}` : 'Price not available'}
-                        </Text>
-                        <Text className="text-xs text-gray-500">{item.unit || 'per person'}</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
+         <View className="mt-8 min-h-fit">
+  {loading ? (
+    <ActivityIndicator size="large" color="#0000ff" />
+  ) : filteredExperiences.length === 0 ? (
+    <Text className="text-center text-gray-500 py-10">No experiences found</Text>
+  ) : (
+    filteredExperiences.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => router.push(`/(experience)/${item.id}`)}
+        className="mb-4 rounded-lg overflow-hidden border border-gray-200"
+        activeOpacity={0.7}
+      >
+        <View className="relative">
+          {/* Image */}
+          {item.images && item.images.length > 0 ? (
+            <Image
+              source={{ uri: `${API_URL}/${item.images[0]}` }}
+              className="w-full h-40"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-full h-40 bg-gray-200 items-center justify-center">
+              <Ionicons name="image-outline" size={40} color="#A0AEC0" />
             </View>
+          )}
+
+          {/* Price Badge */}
+          <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
+            <Text className="font-onest-medium">
+              {item.price === '0' || !item.price ? 'Free' : `${item.price} ${item.unit || 'per person'}`}
+            </Text>
+          </View>
+        </View>
+
+        <View className="p-3">
+          {/* Title */}
+          <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
+
+          {/* Location */}
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="location-outline" size={16} color="#4F46E5" />
+            <Text className="text-sm text-gray-600 ml-1">{item.location || item.destination_name}</Text>
+          </View>
+
+          {/* Tags */}
+          {item.tags && item.tags.length > 0 && (
+            <View className="flex-row flex-wrap">
+              {item.tags.slice(0, 3).map((tag, index) => (
+                <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
+                  <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    ))
+  )}
+</View>
           </View>
         </ScrollView>
 

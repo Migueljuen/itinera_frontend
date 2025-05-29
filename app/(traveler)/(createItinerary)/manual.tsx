@@ -9,9 +9,9 @@ import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
 import Step4Calendar from './(manual)/Step4Calendar';
-import Step5ReviewSubmit from './(manual)/Step5ReviewSubmit'; // Add this import
+import Step5ReviewSubmit from './(manual)/Step5ReviewSubmit';
 
-// Types - you should move these to a separate types file
+// Types - move these to a separate types file
 interface ItineraryItem {
     experience_id: number;
     day_number: number;
@@ -57,10 +57,12 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 });
 
 const ItineraryCreationForm: React.FC = () => {
+    // Step state management
     const [step, setStep] = useState<number>(1);
-    const stepCount = 5; // Updated from 6 to 5
+    const stepCount = 5; // Total number of steps
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Form data state with default values
     const [formData, setFormData] = useState<ItineraryFormData>({
         traveler_id: 12,
         start_date: '',
@@ -71,45 +73,46 @@ const ItineraryCreationForm: React.FC = () => {
         items: [] as ItineraryItem[]
     });
 
-    // Step navigation
+    // Step navigation handlers
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  const validateFormData = () => {
-    const { start_date, end_date, items } = formData;
+    // Validate form data before submission
+    const validateFormData = () => {
+        const { start_date, end_date, items } = formData;
 
-    // If dates are provided, check validity
-    if (start_date && end_date) {
-        const start = new Date(start_date);
-        const end = new Date(end_date);
-        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
-            return false;
-        }
+        // Check date validity if provided
+        if (start_date && end_date) {
+            const start = new Date(start_date);
+            const end = new Date(end_date);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+                return false;
+            }
 
-        const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-        // If items are provided, validate them
-        if (Array.isArray(items) && items.length > 0) {
-            for (const item of items) {
-                if (
-                    !item.experience_id ||
-                    !item.day_number ||
-                    !item.start_time ||
-                    !item.end_time ||
-                    item.day_number < 1 ||
-                    item.day_number > totalDays
-                ) {
-                    return false;
+            // Validate items if provided
+            if (Array.isArray(items) && items.length > 0) {
+                for (const item of items) {
+                    if (
+                        !item.experience_id ||
+                        !item.day_number ||
+                        !item.start_time ||
+                        !item.end_time ||
+                        item.day_number < 1 ||
+                        item.day_number > totalDays
+                    ) {
+                        return false;
+                    }
                 }
             }
         }
-    }
 
-    // Allow submission even if title or items are empty
-    return true;
-};
+        // Allow submission even if title or items are empty
+        return true;
+    };
 
-
+    // Submit form data to API
     const handleSubmit = async (status = 'active') => {
         console.log('Submitting formData:', formData);
 
@@ -121,8 +124,9 @@ const ItineraryCreationForm: React.FC = () => {
         try {
             setIsSubmitting(true);
 
+            // Prepare API payload
             const payload = {
-                traveler_id: 12, // Replace with your logged-in user's ID
+                traveler_id: 12, // Replace with logged-in user's ID
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 title: formData.title,
@@ -138,6 +142,7 @@ const ItineraryCreationForm: React.FC = () => {
 
             console.log('Submitting payload:', payload);
 
+            // Make API call
             const response = await fetch(`${API_URL}/itinerary/create`, {
                 method: 'POST',
                 headers: {
@@ -149,6 +154,7 @@ const ItineraryCreationForm: React.FC = () => {
 
             const result = await response.json();
 
+            // Handle API response
             if (!response.ok) {
                 console.error('Server error:', result);
                 Alert.alert('Error', result.message || 'Failed to create itinerary.');
@@ -156,7 +162,7 @@ const ItineraryCreationForm: React.FC = () => {
             }
 
             Alert.alert('Success', 'Itinerary created successfully!');
-            // Navigation or form reset logic here
+            // Add navigation or form reset logic here
 
         } catch (err) {
             console.error('Submit error:', err);
@@ -166,6 +172,7 @@ const ItineraryCreationForm: React.FC = () => {
         }
     };
 
+    // Render current step component
     const renderStep = () => {
         switch (step) {
             case 1:
@@ -199,7 +206,7 @@ const ItineraryCreationForm: React.FC = () => {
     );
 };
 
-// Progress bar styles
+// Progress bar styles - hide circles, show bar only
 const loadingBarStyles = {
     // Hide the circles
     stepIndicatorSize: 0,
@@ -217,7 +224,7 @@ const loadingBarStyles = {
     // Remove labels
     labelSize: 0,
 
-    // Additional styles to hide any remaining elements
+    // Hide any remaining elements
     stepStrokeWidth: 0,
     currentStepStrokeWidth: 0
 };

@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    TouchableOpacity,
-    ScrollView,
+    ActivityIndicator,
+    FlatList,
+    Image,
     KeyboardAvoidingView,
     Platform,
-    ActivityIndicator,
-    Image,
-    FlatList
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import API_URL from '../../../../constants/api';
 import { ItineraryFormData, ItineraryItem } from './Step2Preference';
-import API_URL from '../../../../constants/api'
 
+interface StepProps {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+    onBack: () => void;
+}
+
+ // ==========  TYPESSSSSSSSSS ==========
 interface Experience {
     id: number;  // matches experience_id in your schema
     title: string;
@@ -43,13 +51,6 @@ interface TimeSlot {
     end_time: string;  // matches end_time in your schema
 }
 
-interface StepProps {
-    formData: ItineraryFormData;
-    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-    onNext: () => void;
-    onBack: () => void;
-}
-
 const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [filteredExperiences, setFilteredExperiences] = useState<Experience[]>([]);
@@ -58,13 +59,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [selectedExperiences, setSelectedExperiences] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
-        console.log('=== User selections from previous steps ===');
-
-        // Step 1 data
-        console.log('From Step 1:');
-        console.log('  City:', formData.city);
-        console.log('  Start date:', formData.start_date);
-        console.log('  End date:', formData.end_date);
+        console.log('=== User selections from STEP 2 ===');
 
         // Step 2 preferences data
         if (formData.preferences) {
@@ -76,11 +71,11 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         }
 
         // Complete form data
-        console.log('Complete form data:', formData);
+        // console.log('Complete form data:', formData);
         console.log('==========================================');
     }, []);
 
-
+  // ==========  Fetch recommended experiences ==========
     useEffect(() => {
         const fetchExperiences = async () => {
             try {
@@ -88,7 +83,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
                 // ========== 1. Fetch recommended experiences (with preferences) ==========
                 const fullParams = new URLSearchParams();
-                fullParams.append('location', formData.city);
+                // fullParams.append('location', formData.city);
                 fullParams.append('start_date', formData.start_date);
                 fullParams.append('end_date', formData.end_date);
 
@@ -164,8 +159,8 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
 
 
-
-    // Toggle experience selection
+ // ==========  Toggle experience selection ==========
+    
     const toggleExperienceSelection = (experienceId: number) => {
         setSelectedExperiences(prev => ({
             ...prev,
@@ -329,7 +324,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                             Select Experiences
                         </Text>
                         <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-                            Choose the experiences you'd like to add to your itinerary for {formData.city}.
+                            Choose the experiences you'd like to add to your itinerary.
                         </Text>
                     </View>
 

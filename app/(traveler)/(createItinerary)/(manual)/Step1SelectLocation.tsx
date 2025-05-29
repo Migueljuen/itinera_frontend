@@ -1,20 +1,29 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { addDays, differenceInDays, format } from 'date-fns';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    TouchableWithoutFeedback,
-    Keyboard,
     Animated,
     Dimensions,
-    ScrollView
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
-import { format, addDays, differenceInDays } from 'date-fns';
 
+
+// step prop
+interface StepProps {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+}
+
+// itinerary type
 export interface ItineraryFormData {
     traveler_id: number;
     start_date: string;
@@ -25,6 +34,7 @@ export interface ItineraryFormData {
     items: ItineraryItem[];
 }
 
+// itinerary type
 export interface ItineraryItem {
     experience_id: number;
     day_number: number;         // Must be between 1 and total number of days in the itinerary
@@ -33,19 +43,14 @@ export interface ItineraryItem {
     custom_note?: string;
 }
 
-interface StepProps {
-    formData: ItineraryFormData;
-    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-    onNext: () => void;
-}
-
+// city type
 interface City {
     label: string;
     value: string;
 }
 
 const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNext }) => {
-    // Use formData.city instead of a separate state
+   
     const [localCity, setLocalCity] = useState<string | null>(formData.city || null);
     const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
     const [selectedLabel, setSelectedLabel] = useState<string>('Select a city...');
@@ -64,7 +69,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
     const { height: screenHeight } = Dimensions.get('window');
     const maxDropdownHeight = screenHeight * 0.4; // 40% of screen height
 
-    // All cities and municipalities in Negros Occidental, alphabetically ordered
+    // All cities and municipalities in Negros Occidental 
     const cities = useMemo(() => [
         { label: 'Bacolod City', value: 'bacolod' },
         { label: 'Bago City', value: 'bago' },
@@ -395,7 +400,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                                 textSectionTitleColor: '#6B7280',
                                                 arrowColor: '#4F46E5',
                                             }}
-                                            // @ts-ignore - stylesheet.day.period is valid but not in type definitions
+                                            
                                             style={{
                                                 height: 350
                                             }}

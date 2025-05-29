@@ -14,6 +14,14 @@ import {
 import API_URL from '../../../../constants/api';
 import { ItineraryFormData, ItineraryItem } from './Step2Preference';
 
+interface StepProps {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+    onBack: () => void;
+}
+
+ // ==========  TYPESSSSSSSSSS ==========
 interface Experience {
     id: number;
     title: string;
@@ -57,12 +65,6 @@ interface UnassignedExperience {
     isAssigned: boolean;
 }
 
-interface StepProps {
-    formData: ItineraryFormData;
-    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-    onNext: () => void;
-    onBack: () => void;
-}
 
 const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
@@ -77,20 +79,9 @@ const Step4Calendar: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [loadingAvailability, setLoadingAvailability] = useState(false);
 
-//     useEffect(() => {
-//     console.log('Step 4 - Form data items:', formData.items);
-//     formData.items?.forEach((item, index) => {
-//         console.log(`Item ${index}:`, {
-//             experience_id: item.experience_id,
-//             day_number: item.day_number,
-//             start_time: item.start_time,
-//             end_time: item.end_time
-//         });
-//     });
-// }, []);
-
+ // Reset scheduling data when component mounts 
 useEffect(() => {
-    // Reset scheduling data when component mounts - clear any pre-existing day/time assignments
+   
     const resetItems = (formData.items || []).map(item => ({
         ...item,
         day_number: 0, // Reset to unassigned
