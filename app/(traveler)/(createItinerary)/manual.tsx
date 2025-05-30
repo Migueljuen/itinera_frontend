@@ -67,8 +67,8 @@ const ItineraryCreationForm: React.FC = () => {
         traveler_id: 12,
         start_date: '',
         end_date: '',
-        title: 'Test',
-        notes: 'sample note',
+        title: 'test69',
+        notes: 'test69',
         city: '',
         items: [] as ItineraryItem[]
     });

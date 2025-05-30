@@ -137,99 +137,113 @@ useEffect(() => {
         generateCalendarDays();
     }, [formData.start_date, formData.end_date, formData.items]);
 
-    // Generate unassigned experiences list
-    useEffect(() => {
-        const generateUnassignedExperiences = () => {
-            const assignedExperienceIds = (formData.items || [])
-                .filter(item => item.start_time && item.end_time)
-                .map(item => item.experience_id);
+// Generate unassigned experiences list
+useEffect(() => {
+    const generateUnassignedExperiences = () => {
+        const assignedExperienceIds = (formData.items || [])
+            .filter(item => item.start_time && item.end_time)
+            .map(item => item.experience_id);
 
-            const allSelectedExperiences = (formData.items || []);
-            
-            const unassigned = allSelectedExperiences
-                .filter(item => !assignedExperienceIds.includes(item.experience_id))
-                .map((item, index) => ({
+        const allSelectedExperiences = (formData.items || []);
+        
+        const unassigned = allSelectedExperiences
+            .filter(item => !assignedExperienceIds.includes(item.experience_id))
+            .map((item, index) => {
+                // Find the corresponding experience data to get the real title
+                const experienceData = experiences.find(exp => exp.id === item.experience_id);
+                
+                return {
                     experience_id: item.experience_id,
-                    title: `Experience ${item.experience_id}`,
+                    title: experienceData?.title || `Experience ${item.experience_id}`, // Use real title or fallback
                     duration: '2 hours', // Default duration
                     isAssigned: false
-                }));
+                };
+            });
 
-            // Remove duplicates based on experience_id
-            const uniqueUnassigned = unassigned.filter((experience, index, self) =>
-                index === self.findIndex(e => e.experience_id === experience.experience_id)
-            );
+        // Remove duplicates based on experience_id
+        const uniqueUnassigned = unassigned.filter((experience, index, self) =>
+            index === self.findIndex(e => e.experience_id === experience.experience_id)
+        );
 
-            setUnassignedExperiences(uniqueUnassigned);
-        };
+        setUnassignedExperiences(uniqueUnassigned);
+    };
 
-        generateUnassignedExperiences();
-    }, [formData.items]);
+    generateUnassignedExperiences();
+}, [formData.items, experiences]); // Add experiences as a dependency
 
     // Fetch experiences data with real availability from API
-    useEffect(() => {
-        const fetchExperiences = async () => {
-            try {
-                setLoadingAvailability(true);
-                const uniqueExperienceIds = [...new Set((formData.items || []).map(item => item.experience_id))];
-                
-                const experiencePromises = uniqueExperienceIds.map(async (experienceId) => {
-                    try {
-                        // Fetch availability data for each experience
-                        const response = await fetch(`${API_URL}/experience/availability/${experienceId}`);
-                        if (!response.ok) {
-                            throw new Error(`Failed to fetch availability for experience ${experienceId}`);
-                        }
-                        const availabilityData = await response.json();
-                        
-                        return {
-                            id: experienceId,
-                            title: `Experience ${experienceId}`,
-                            description: '',
-                            price: 0,
-                            unit: 'PHP',
-                            destination_name: formData.city,
-                            location: formData.city,
-                            tags: [],
-                            images: [],
-                            availability: availabilityData.availability || [],
-                            budget_category: 'Budget-friendly' as const
-                        };
-                    } catch (error) {
-                        console.error(`Error fetching availability for experience ${experienceId}:`, error);
-                        // Return experience with empty availability on error
-                        return {
-                            id: experienceId,
-                            title: `Experience ${experienceId}`,
-                            description: '',
-                            price: 0,
-                            unit: 'PHP',
-                            destination_name: formData.city,
-                            location: formData.city,
-                            tags: [],
-                            images: [],
-                            availability: [],
-                            budget_category: 'Budget-friendly' as const
-                        };
+useEffect(() => {
+    const fetchExperiences = async () => {
+        try {
+            setLoadingAvailability(true);
+            const uniqueExperienceIds = [...new Set((formData.items || []).map(item => item.experience_id))];
+            
+            const experiencePromises = uniqueExperienceIds.map(async (experienceId) => {
+                try {
+                    // Fetch full experience data including title
+                    const experienceResponse = await fetch(`${API_URL}/experience/${experienceId}`);
+                    let experienceTitle = `Experience ${experienceId}`;
+                    
+                    if (experienceResponse.ok) {
+                        const experienceData = await experienceResponse.json();
+                        experienceTitle = experienceData.title || experienceTitle;
                     }
-                });
+                    
+                    // Fetch availability data for each experience
+                    const availabilityResponse = await fetch(`${API_URL}/experience/availability/${experienceId}`);
+                    let availabilityData = { availability: [] };
+                    
+                    if (availabilityResponse.ok) {
+                        availabilityData = await availabilityResponse.json();
+                    }
+                    
+                    return {
+                        id: experienceId,
+                        title: experienceTitle, // Use the real title here
+                        description: '',
+                        price: 0,
+                        unit: 'PHP',
+                        destination_name: formData.city,
+                        location: formData.city,
+                        tags: [],
+                        images: [],
+                        availability: availabilityData.availability || [],
+                        budget_category: 'Budget-friendly' as const
+                    };
+                } catch (error) {
+                    console.error(`Error fetching data for experience ${experienceId}:`, error);
+                    // Return experience with empty availability on error
+                    return {
+                        id: experienceId,
+                        title: `Experience ${experienceId}`, // Fallback title
+                        description: '',
+                        price: 0,
+                        unit: 'PHP',
+                        destination_name: formData.city,
+                        location: formData.city,
+                        tags: [],
+                        images: [],
+                        availability: [],
+                        budget_category: 'Budget-friendly' as const
+                    };
+                }
+            });
 
-                const fetchedExperiences = await Promise.all(experiencePromises);
-                setExperiences(fetchedExperiences);
-            } catch (error) {
-                console.error('Error fetching experiences:', error);
-                // Set empty experiences on error
-                setExperiences([]);
-            } finally {
-                setLoadingAvailability(false);
-            }
-        };
-
-        if (formData.items && formData.items.length > 0) {
-            fetchExperiences();
+            const fetchedExperiences = await Promise.all(experiencePromises);
+            setExperiences(fetchedExperiences);
+        } catch (error) {
+            console.error('Error fetching experiences:', error);
+            // Set empty experiences on error
+            setExperiences([]);
+        } finally {
+            setLoadingAvailability(false);
         }
-    }, [formData.items, formData.city]);
+    };
 
+    if (formData.items && formData.items.length > 0) {
+        fetchExperiences();
+    }
+}, [formData.items, formData.city]);
     // Handle unassigned experience click to select day
     const handleUnassignedExperienceClick = (experience: UnassignedExperience) => {
         setSelectedUnassignedExperience(experience);
@@ -510,9 +524,9 @@ useEffect(() => {
                                         activeOpacity={0.7}
                                     >
                                         <View className="flex-1">
-                                            <Text className="font-onest-semibold text-base text-gray-800">
-                                                Experience {item.experience_id}
-                                            </Text>
+                                         <Text className="font-onest-semibold text-base text-gray-800">
+    {experiences.find(exp => exp.id === item.experience_id)?.title || `Experience ${item.experience_id}`}
+</Text>
                                             <View className="flex-row items-center mt-1">
                                                 <Ionicons name="time-outline" size={16} color="#4F46E5" />
                                                 <Text className="text-sm text-gray-600 ml-1 font-onest-medium">
@@ -571,7 +585,7 @@ useEffect(() => {
                             Schedule Your Experiences
                         </Text>
                         <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-                            Assign your selected experiences to specific days and time slots in {formData.city}.
+                            Assign your selected experiences to specific days and time slots.
                         </Text>
                     </View>
 
