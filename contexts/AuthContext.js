@@ -1,10 +1,8 @@
 // contexts/AuthContext.js
-import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
 import axios from 'axios';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode'; // Changed this line
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import API_URL from '../constants/api.js';
 
 const AuthContext = createContext();
@@ -12,14 +10,34 @@ const AuthContext = createContext();
 export const useAuth = () => {
   return useContext(AuthContext);
 };
+
 const isTokenExpired = (token) => {
+    if (!token || typeof token !== 'string') {
+      console.log('Invalid token type:', typeof token);
+      return true;
+    }
+    
+    // Check if token has the basic JWT structure (3 parts separated by dots)
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.log('Token does not have 3 parts:', parts.length);
+      return true;
+    }
+    
     try {
       const decoded = jwtDecode(token);
-      return decoded.exp * 1000 < Date.now(); // JWT exp is in seconds
+      const isExpired = decoded.exp * 1000 < Date.now();
+      console.log('Token expiration check:', { 
+        exp: decoded.exp, 
+        now: Date.now() / 1000, 
+        isExpired 
+      });
+      return isExpired;
     } catch (e) {
+      console.log('Token decode error in isTokenExpired:', e);
       return true; // Treat errors as expired
     }
-  };
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -27,100 +45,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
- 
-
-  useEffect(() => {
-    // Check if token exists in AsyncStorage on app load
-    const loadStoredAuth = async () => {
-      try {
-        const storedToken = await AsyncStorage.getItem('token');
-        const storedUser = await AsyncStorage.getItem('user');
-        
-        if (storedToken && storedUser && !isTokenExpired(storedToken)) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-          } else {
-            await logout(); // Clean up expired session
-          }
-          
-      } catch (error) {
-        console.error('Error loading auth data', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStoredAuth();
-  }, []);
-
-  useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        console.log(new Date(decoded.exp * 1000));
-        const expiresAt = decoded.exp * 1000; // JWT exp is in seconds
-        const timeout = expiresAt - Date.now();
-  
-        if (timeout > 0) {
-          const timer = setTimeout(() => {
-            logout(); // Auto logout when token expires
-          }, timeout);
-  
-          return () => clearTimeout(timer); // Clean up on token/user change
-        } else {
-          logout(); // If token already expired somehow
-        }
-      } catch (err) {
-        logout(); // Malformed token
-      }
-    }
-  }, [token]);
-
-  // Login function
-const login = async (email, password) => {
-  setError('');
-  try {
-    const response = await axios.post(`${API_URL}/api/login`, { email, password });
-
-    const { token, user } = response.data;
-   
-
-    await AsyncStorage.setItem('token', token);
-    await AsyncStorage.setItem('user', JSON.stringify(user));
-
-    
-    const storedUser = await AsyncStorage.getItem('user');
- 
-    // Don't forget to return success if everything works
-    return { success: true , user};
-
-  } catch (error) {
-    console.error('Actual error caught in login():', error);
-    const errorMessage =
-      error?.response?.data?.error || 'Login failed. Please try again.';
-    setError(errorMessage);
-    return { success: false, error: errorMessage };
-  }
-};
-
-
-  // Register function
-  const register = async (userData) => {
-    setError('');
+  // Logout function (defined first so it can be used in useEffect)
+  const logout = useCallback(async () => {
     try {
-      const response = await axios.post(`${API_URL}/users/register`, userData);
-      return { success: true, message: response.data.message };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Logout function
-  const logout = async () => {
-    try {
+      console.log('Logging out...');
       // Clear state
       setToken(null);
       setUser(null);
@@ -137,6 +65,116 @@ const login = async (email, password) => {
       console.error('Logout error', error);
       return { success: false };
     }
+  }, []);
+
+  useEffect(() => {
+    // Check if token exists in AsyncStorage on app load
+    const loadStoredAuth = async () => {
+      try {
+        console.log('Loading stored auth...');
+        const storedToken = await AsyncStorage.getItem('token');
+        const storedUser = await AsyncStorage.getItem('user');
+        
+        console.log('Stored token exists:', !!storedToken);
+        console.log('Stored user exists:', !!storedUser);
+        
+        if (storedToken && storedUser && !isTokenExpired(storedToken)) {
+            const parsedUser = JSON.parse(storedUser);
+            console.log('Restoring user session:', parsedUser);
+            
+            setToken(storedToken);
+            setUser(parsedUser);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          } else {
+            console.log('No valid stored session found');
+            await logout(); // Clean up expired session
+          }
+          
+      } catch (error) {
+        console.error('Error loading auth data', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStoredAuth();
+  }, [logout]);
+
+  useEffect(() => {
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        console.log('Token expires at:', new Date(decoded.exp * 1000));
+        const expiresAt = decoded.exp * 1000; // JWT exp is in seconds
+        const timeout = expiresAt - Date.now();
+  
+        if (timeout > 0) {
+          const timer = setTimeout(() => {
+            console.log('Token expired, auto-logging out');
+            logout(); // Auto logout when token expires
+          }, timeout);
+  
+          return () => clearTimeout(timer); // Clean up on token/user change
+        } else {
+          console.log('Token already expired');
+          logout(); // If token already expired somehow
+        }
+      } catch (err) {
+        console.log('JWT decode error:', err);
+        logout(); // Malformed token
+      }
+    }
+  }, [token, logout]);
+
+  // Login function
+  const login = async (email, password) => {
+    setError('');
+    setLoading(true); // Set loading during login
+    try {
+      console.log('Attempting login...');
+      const response = await axios.post(`${API_URL}/api/login`, { email, password });
+
+      const { token, user } = response.data;
+      
+      console.log('Login response received:', { token: !!token, user });
+      
+      // Store in AsyncStorage first
+      await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+
+      // Then update state
+      setToken(token);
+      setUser(user);
+      
+      // Set default authorization header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      console.log('Login successful, user set:', user);
+
+      return { success: true, user };
+
+    } catch (error) {
+      console.error('Login error:', error);
+      const errorMessage =
+        error?.response?.data?.error || 'Login failed. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Register function
+  const register = async (userData) => {
+    setError('');
+    try {
+      const response = await axios.post(`${API_URL}/users/register`, userData);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
   };
 
   const value = {
@@ -148,6 +186,13 @@ const login = async (email, password) => {
     register,
     logout
   };
+
+  // Add debug logging to see when context value changes
+  console.log('AuthContext value:', { 
+    user: user ? `User ID: ${user.user_id}` : 'null', 
+    token: !!token, 
+    loading 
+  });
 
   return (
     <AuthContext.Provider value={value}>

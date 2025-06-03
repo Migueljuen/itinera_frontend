@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 import API_URL from '../../../constants/api';
 
 // Step components
+import { useAuth } from '@/contexts/AuthContext';
 import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
@@ -57,21 +58,46 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 });
 
 const ItineraryCreationForm: React.FC = () => {
+    // Get the logged-in user from AuthContext
+    const { user, token, loading: authLoading } = useAuth();
+    
     // Step state management
     const [step, setStep] = useState<number>(1);
-    const stepCount = 5; // Total number of steps
+    const stepCount = 5;
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form data state with default values
     const [formData, setFormData] = useState<ItineraryFormData>({
-        traveler_id: 12,
+        traveler_id: 0,
         start_date: '',
         end_date: '',
-        title: 'test69',
-        notes: 'test69',
+        title: 'test itinerary',
+        notes: 'test note',
         city: '',
         items: [] as ItineraryItem[]
     });
+
+    // Debug logging
+    useEffect(() => {
+        console.log('=== ItineraryCreationForm Debug ===');
+        console.log('Auth loading:', authLoading);
+        console.log('Current user object:', user);
+        console.log('User ID:', user?.user_id);
+        console.log('Token exists:', !!token);
+        console.log('Form traveler_id:', formData.traveler_id);
+        console.log('=====================================');
+    }, [user, token, authLoading, formData.traveler_id]);
+
+    // Update traveler_id when user is available
+    useEffect(() => {
+        if (user?.user_id && formData.traveler_id !== user.user_id) {
+            console.log('Setting traveler_id to:', user.user_id);
+            setFormData(prev => ({
+                ...prev,
+                traveler_id: user.user_id
+            }));
+        }
+    }, [user, formData.traveler_id]);
 
     // Step navigation handlers
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
@@ -79,7 +105,12 @@ const ItineraryCreationForm: React.FC = () => {
 
     // Validate form data before submission
     const validateFormData = () => {
-        const { start_date, end_date, items } = formData;
+        const { start_date, end_date, items, traveler_id } = formData;
+
+        // Check if user is logged in
+        if (!traveler_id) {
+            return false;
+        }
 
         // Check date validity if provided
         if (start_date && end_date) {
@@ -108,7 +139,6 @@ const ItineraryCreationForm: React.FC = () => {
             }
         }
 
-        // Allow submission even if title or items are empty
         return true;
     };
 
@@ -117,16 +147,19 @@ const ItineraryCreationForm: React.FC = () => {
         console.log('Submitting formData:', formData);
 
         if (!validateFormData()) {
-            Alert.alert('Validation Error', 'Please fill out all required fields and ensure all experiences are scheduled.');
+            if (!formData.traveler_id) {
+                Alert.alert('Authentication Error', 'Please log in to create an itinerary.');
+            } else {
+                Alert.alert('Validation Error', 'Please fill out all required fields and ensure all experiences are scheduled.');
+            }
             return;
         }
 
         try {
             setIsSubmitting(true);
 
-            // Prepare API payload
             const payload = {
-                traveler_id: 12, // Replace with logged-in user's ID
+                traveler_id: formData.traveler_id,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 title: formData.title,
@@ -142,19 +175,18 @@ const ItineraryCreationForm: React.FC = () => {
 
             console.log('Submitting payload:', payload);
 
-            // Make API call
             const response = await fetch(`${API_URL}/itinerary/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 },
                 body: JSON.stringify(payload),
             });
 
             const result = await response.json();
 
-            // Handle API response
             if (!response.ok) {
                 console.error('Server error:', result);
                 Alert.alert('Error', result.message || 'Failed to create itinerary.');
@@ -162,7 +194,6 @@ const ItineraryCreationForm: React.FC = () => {
             }
 
             Alert.alert('Success', 'Itinerary created successfully!');
-            // Add navigation or form reset logic here
 
         } catch (err) {
             console.error('Submit error:', err);
@@ -171,6 +202,30 @@ const ItineraryCreationForm: React.FC = () => {
             setIsSubmitting(false);
         }
     };
+
+    // Show loading spinner while auth is loading
+    if (authLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+                <ActivityIndicator size="large" color="#376a63" />
+                <Text className="mt-4 text-gray-600">Loading...</Text>
+            </SafeAreaView>
+        );
+    }
+
+    // Show error/redirect if not authenticated
+    if (!user) {
+        return (
+            <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+                <Text className="text-lg text-red-600 text-center px-6">
+                    You need to be logged in to create an itinerary.
+                </Text>
+                <Text className="text-sm text-gray-600 text-center px-6 mt-2">
+                    Please go back and log in first.
+                </Text>
+            </SafeAreaView>
+        );
+    }
 
     // Render current step component
     const renderStep = () => {
@@ -197,7 +252,6 @@ const ItineraryCreationForm: React.FC = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
-            {/* Step content */}
             <View className="flex-1 px-6 py-4">
                 <ProgressBar currentStep={step} totalSteps={stepCount} />
                 {renderStep()}
@@ -206,25 +260,16 @@ const ItineraryCreationForm: React.FC = () => {
     );
 };
 
-// Progress bar styles - hide circles, show bar only
+// Progress bar styles
 const loadingBarStyles = {
-    // Hide the circles
     stepIndicatorSize: 0,
     currentStepIndicatorSize: 0,
-
-    // Make the separator into a bar
     separatorStrokeWidth: 6,
     separatorStrokeUnfinishedWidth: 6,
     separatorStrokeFinishedWidth: 6,
-
-    // Colors
     separatorFinishedColor: '#376a63',
     separatorUnFinishedColor: '#E5E7EB',
-
-    // Remove labels
     labelSize: 0,
-
-    // Hide any remaining elements
     stepStrokeWidth: 0,
     currentStepStrokeWidth: 0
 };
