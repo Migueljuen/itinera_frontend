@@ -27,11 +27,7 @@ const isTokenExpired = (token) => {
     try {
       const decoded = jwtDecode(token);
       const isExpired = decoded.exp * 1000 < Date.now();
-      console.log('Token expiration check:', { 
-        exp: decoded.exp, 
-        now: Date.now() / 1000, 
-        isExpired 
-      });
+
       return isExpired;
     } catch (e) {
       console.log('Token decode error in isTokenExpired:', e);
@@ -71,22 +67,20 @@ export const AuthProvider = ({ children }) => {
     // Check if token exists in AsyncStorage on app load
     const loadStoredAuth = async () => {
       try {
-        console.log('Loading stored auth...');
+   
         const storedToken = await AsyncStorage.getItem('token');
         const storedUser = await AsyncStorage.getItem('user');
         
-        console.log('Stored token exists:', !!storedToken);
-        console.log('Stored user exists:', !!storedUser);
-        
+    
         if (storedToken && storedUser && !isTokenExpired(storedToken)) {
             const parsedUser = JSON.parse(storedUser);
-            console.log('Restoring user session:', parsedUser);
+     
             
             setToken(storedToken);
             setUser(parsedUser);
             axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           } else {
-            console.log('No valid stored session found');
+     
             await logout(); // Clean up expired session
           }
           
@@ -104,13 +98,13 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        console.log('Token expires at:', new Date(decoded.exp * 1000));
+  
         const expiresAt = decoded.exp * 1000; // JWT exp is in seconds
         const timeout = expiresAt - Date.now();
   
         if (timeout > 0) {
           const timer = setTimeout(() => {
-            console.log('Token expired, auto-logging out');
+         
             logout(); // Auto logout when token expires
           }, timeout);
   
@@ -136,8 +130,7 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = response.data;
       
-      console.log('Login response received:', { token: !!token, user });
-      
+ 
       // Store in AsyncStorage first
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('user', JSON.stringify(user));
@@ -149,8 +142,7 @@ export const AuthProvider = ({ children }) => {
       // Set default authorization header
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
-      console.log('Login successful, user set:', user);
-
+  
       return { success: true, user };
 
     } catch (error) {
@@ -187,12 +179,6 @@ export const AuthProvider = ({ children }) => {
     logout
   };
 
-  // Add debug logging to see when context value changes
-  console.log('AuthContext value:', { 
-    user: user ? `User ID: ${user.user_id}` : 'null', 
-    token: !!token, 
-    loading 
-  });
 
   return (
     <AuthContext.Provider value={value}>

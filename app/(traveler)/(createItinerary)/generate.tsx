@@ -6,11 +6,11 @@ import API_URL from '../../../constants/api';
 
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
-import Step1SelectLocation from './(generate)/Step1SelectLocation';
-import Step2Preference from './(generate)/Step2Preference';
 import Step3AddItems from './(generate)/Step3AddItems';
 import Step4Calendar from './(generate)/Step4Calendar';
 import Step5ReviewSubmit from './(generate)/Step5ReviewSubmit';
+import Step1SelectLocation from './(manual)/Step1SelectLocation';
+import Step2Preference from './(manual)/Step2Preference';
 
 // Types - move these to a separate types file
 interface ItineraryItem {

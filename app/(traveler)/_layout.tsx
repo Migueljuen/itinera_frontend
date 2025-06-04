@@ -1,7 +1,6 @@
-import { Stack } from "expo-router";
-import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { Pressable, View } from 'react-native';
 
 export default function TravelerLayout() {
     const router = useRouter();
@@ -29,6 +28,28 @@ export default function TravelerLayout() {
                                 elevation: 5,
                             }}>
                                 <Ionicons name="arrow-back" size={24} color="#fff" />
+                            </View>
+                        </Pressable>
+                    ),
+                }}
+            />
+
+             <Stack.Screen
+                name="(itinerary)"
+                options={{
+                    headerShown: true,
+                    title: '',
+                    headerTransparent: true,
+                    headerTintColor: '#fff',
+                    headerLeft: () => (
+                        <Pressable onPress={() => router.back()}>
+                            <View style={{
+                                padding: 8,
+                                borderRadius: 999,
+                                shadowRadius: 4,
+                                elevation: 5,
+                            }}>
+                                <Ionicons name="arrow-back" size={24} color="#1f1f1f" />
                             </View>
                         </Pressable>
                     ),

@@ -296,7 +296,7 @@ export default function TripScreen() {
                             filteredItineraries.map((itinerary, index) => (
                                 <TouchableOpacity
                                     key={itinerary.itinerary_id}
-                                    onPress={() => router.push(`/(itineraryFlow)/${itinerary.itinerary_id}`)}
+                                    onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
                                     className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
                                     style={{
                                         shadowColor: '#000',
