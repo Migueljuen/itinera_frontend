@@ -183,19 +183,12 @@ export default function ItineraryDetailScreen() {
         <SafeAreaView className="bg-gray-50">
             <View className="w-full h-screen">
                 {/* Header - Consistent with main UI */}
-                <View className="flex items-center justify-between flex-row p-6">
-                    {/* <TouchableOpacity 
-                        onPress={() => router.back()}
-                        className="mr-4"
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="arrow-back" size={24} color="#374151" />
-                    </TouchableOpacity> */}
-                    <View className="flex-1">
+                    <View className="p-4 ">
                         <Text className="text-normal text-xl font-onest-semibold text-center">Trip Details</Text>
                     </View>
-                    <View className="w-6" />
-                </View>
+
+                    <View className="w-6 mt-4" />
+               
 
                 <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 142 }}>
                     {/* Trip Header Card - Consistent styling */}

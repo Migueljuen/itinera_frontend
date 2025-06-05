@@ -95,8 +95,7 @@ export default function TripScreen() {
             }
 
             const data: ApiResponse = await response.json();
-            console.log('API Response:', data); // For debugging
-            
+       
             setItineraries(data.itineraries || []);
             setLoading(false);
         } catch (error) {

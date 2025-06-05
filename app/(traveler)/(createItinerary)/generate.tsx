@@ -6,19 +6,52 @@ import API_URL from '../../../constants/api';
 
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
-import Step3AddItems from './(generate)/Step3AddItems';
-import Step4Calendar from './(generate)/Step4Calendar';
-import Step5ReviewSubmit from './(generate)/Step5ReviewSubmit';
-import Step1SelectLocation from './(manual)/Step1SelectLocation';
-import Step2Preference from './(manual)/Step2Preference';
+import Step2Preference from './(generate)/Step2Preference';
+import Step3GeneratedItinerary from './(generate)/Step3GeneratedItinerary';
+import Step1SelectLocation from './(manual)/Step1SelectLocation'; // Reusing from manual
 
-// Types - move these to a separate types file
+// Component prop interfaces to match your existing components
+interface Step1Props {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+}
+
+interface Step2Props {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+    onBack: () => void;
+}
+
+interface Step3Props {
+    formData: ItineraryFormData;
+    setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+    onNext: () => void;
+    onBack: () => void;
+}
+
+// Types
+type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
+type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
+type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
+type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
+type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+
 interface ItineraryItem {
     experience_id: number;
     day_number: number;
     start_time: string;
     end_time: string;
     custom_note?: string;
+    experience_name?: string;
+    experience_description?: string;
+    destination_name?: string;
+    destination_city?: string;
+    images?: string[];
+    primary_image?: string;
+    price?: number;
+    unit?: string;
 }
 
 interface ItineraryFormData {
@@ -30,10 +63,11 @@ interface ItineraryFormData {
     city: string;
     items: ItineraryItem[];
     preferences?: {
-        experiences: any[];
-        travelCompanion: any;
-        exploreTime: any;
-        budget: any;
+        experiences: Experience[];
+        travelCompanion: TravelCompanion;
+        exploreTime: ExploreTime;
+        budget: Budget;
+        activityIntensity: ActivityIntensity;
     };
 }
 
@@ -57,36 +91,45 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
     );
 });
 
-const ItineraryCreationForm: React.FC = () => {
+const GenerateItineraryForm: React.FC = () => {
     // Get the logged-in user from AuthContext
     const { user, token, loading: authLoading } = useAuth();
     
-    // Step state management
+    // Step state management - only 3 steps for generate flow
     const [step, setStep] = useState<number>(1);
-    const stepCount = 5;
+    const stepCount = 3;
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form data state with default values
-    const [formData, setFormData] = useState<ItineraryFormData>({
-        traveler_id: 0,
-        start_date: '',
-        end_date: '',
-        title: 'test itinerary',
-        notes: 'test note',
-        city: '',
-        items: [] as ItineraryItem[]
-    });
+const [formData, setFormData] = useState<ItineraryFormData>({
+    traveler_id: 0,
+    start_date: '',
+    end_date: '',
+    title: 'Generated Itinerary',
+    notes: 'Auto-generated based on preferences',
+    city: '',
+    items: [] as ItineraryItem[],
+    preferences: {
+        experiences: [],
+        travelCompanion: '' as TravelCompanion, // or use a default like 'Any' if needed
+        exploreTime: '' as ExploreTime,
+        budget: '' as Budget,
+        activityIntensity: '' as ActivityIntensity
+    }
+});
 
     // Debug logging
     useEffect(() => {
-        console.log('=== ItineraryCreationForm Debug ===');
+        console.log('=== GenerateItineraryForm Debug ===');
         console.log('Auth loading:', authLoading);
         console.log('Current user object:', user);
         console.log('User ID:', user?.user_id);
         console.log('Token exists:', !!token);
         console.log('Form traveler_id:', formData.traveler_id);
-        console.log('=====================================');
-    }, [user, token, authLoading, formData.traveler_id]);
+        console.log('Current step:', step);
+        console.log('Form preferences:', formData.preferences);
+        console.log('====================================');
+    }, [user, token, authLoading, formData.traveler_id, step, formData.preferences]);
 
     // Update traveler_id when user is available
     useEffect(() => {
@@ -103,54 +146,77 @@ const ItineraryCreationForm: React.FC = () => {
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-    // Validate form data before submission
+    // Validate form data for generate flow
     const validateFormData = () => {
-        const { start_date, end_date, items, traveler_id } = formData;
+        const { traveler_id, city, start_date, end_date, preferences } = formData;
+
+        console.log('Validating form data:', { traveler_id, city, start_date, end_date, preferences });
 
         // Check if user is logged in
         if (!traveler_id) {
+            console.log('Validation failed: No traveler_id');
             return false;
         }
 
-        // Check date validity if provided
-        if (start_date && end_date) {
-            const start = new Date(start_date);
-            const end = new Date(end_date);
-            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
-                return false;
-            }
-
-            const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-            // Validate items if provided
-            if (Array.isArray(items) && items.length > 0) {
-                for (const item of items) {
-                    if (
-                        !item.experience_id ||
-                        !item.day_number ||
-                        !item.start_time ||
-                        !item.end_time ||
-                        item.day_number < 1 ||
-                        item.day_number > totalDays
-                    ) {
-                        return false;
-                    }
-                }
-            }
+        // Check if city is selected (Step 1)
+        if (!city || city.trim() === '') {
+            console.log('Validation failed: No city selected');
+            return false;
         }
 
+        // Check if dates are provided (Step 1)
+        if (!start_date || !end_date) {
+            console.log('Validation failed: Missing dates');
+            return false;
+        }
+
+        // Check date validity
+        const start = new Date(start_date);
+        const end = new Date(end_date);
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+            console.log('Validation failed: Invalid dates');
+            return false;
+        }
+
+        // Check if preferences are set (Step 2)
+        if (!preferences) {
+            console.log('Validation failed: No preferences');
+            return false;
+        }
+
+        // Check if at least one experience type is selected
+        if (!preferences.experiences || preferences.experiences.length === 0) {
+            console.log('Validation failed: No experience types selected');
+            return false;
+        }
+
+        // For step 3, check if itinerary has been generated
+        if (step === 3 && (!formData.items || formData.items.length === 0)) {
+            console.log('Validation failed: No generated itinerary items');
+            return false;
+        }
+
+        console.log('Validation passed');
         return true;
     };
 
-    // Submit form data to API
-    const handleSubmit = async (status = 'active') => {
-        console.log('Submitting formData:', formData);
+    // Handle final submission after generation
+    const handleSubmit = async () => {
+        console.log('Submitting generated itinerary:', formData);
 
         if (!validateFormData()) {
             if (!formData.traveler_id) {
                 Alert.alert('Authentication Error', 'Please log in to create an itinerary.');
+            } else if (!formData.city) {
+                Alert.alert('Validation Error', 'Please select a destination city.');
+            } else if (!formData.start_date || !formData.end_date) {
+                Alert.alert('Validation Error', 'Please select travel dates.');
+            } else if (!formData.preferences?.experiences?.length) {
+                Alert.alert('Validation Error', 'Please select at least one experience type.');
+            } else if (!formData.items?.length) {
+                Alert.alert('Validation Error', 'Please generate an itinerary first.');
             } else {
-                Alert.alert('Validation Error', 'Please fill out all required fields and ensure all experiences are scheduled.');
+                Alert.alert('Validation Error', 'Please fill out all required fields.');
             }
             return;
         }
@@ -164,6 +230,7 @@ const ItineraryCreationForm: React.FC = () => {
                 end_date: formData.end_date,
                 title: formData.title,
                 notes: formData.notes || '',
+                status: 'active',
                 items: formData.items.map(item => ({
                     experience_id: item.experience_id,
                     day_number: item.day_number,
@@ -173,7 +240,7 @@ const ItineraryCreationForm: React.FC = () => {
                 }))
             };
 
-            console.log('Submitting payload:', payload);
+            console.log('Submitting final payload:', payload);
 
             const response = await fetch(`${API_URL}/itinerary/create`, {
                 method: 'POST',
@@ -189,15 +256,23 @@ const ItineraryCreationForm: React.FC = () => {
 
             if (!response.ok) {
                 console.error('Server error:', result);
-                Alert.alert('Error', result.message || 'Failed to create itinerary.');
+                Alert.alert('Error', result.message || 'Failed to save itinerary.');
                 return;
             }
 
-            Alert.alert('Success', 'Itinerary created successfully!');
+            Alert.alert('Success', 'Your generated itinerary has been saved successfully!', [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        // Navigate back or to itinerary list
+                        // You can add navigation logic here
+                    }
+                }
+            ]);
 
         } catch (err) {
             console.error('Submit error:', err);
-            Alert.alert('Error', 'An unexpected error occurred.');
+            Alert.alert('Error', 'An unexpected error occurred while saving your itinerary.');
         } finally {
             setIsSubmitting(false);
         }
@@ -218,7 +293,7 @@ const ItineraryCreationForm: React.FC = () => {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
                 <Text className="text-lg text-red-600 text-center px-6">
-                    You need to be logged in to create an itinerary.
+                    You need to be logged in to generate an itinerary.
                 </Text>
                 <Text className="text-sm text-gray-600 text-center px-6 mt-2">
                     Please go back and log in first.
@@ -231,20 +306,31 @@ const ItineraryCreationForm: React.FC = () => {
     const renderStep = () => {
         switch (step) {
             case 1:
-                return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
+                return (
+                    <Step1SelectLocation 
+                        formData={formData} 
+                        setFormData={setFormData} 
+                        onNext={handleNext}
+                    />
+                );
             case 2:
-                return <Step2Preference formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+                return (
+                    <Step2Preference 
+                        formData={formData} 
+                        setFormData={setFormData} 
+                        onNext={handleNext} 
+                        onBack={handleBack}
+                    />
+                );
             case 3:
-                return <Step3AddItems formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-            case 4:
-                return <Step4Calendar formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
-            case 5:
-                return <Step5ReviewSubmit
-                    formData={formData}
-                    onBack={handleBack}
-                    onSubmit={handleSubmit}
-                    isSubmitting={isSubmitting}
-                />;
+                return (
+                    <Step3GeneratedItinerary 
+                        formData={formData} 
+                        setFormData={setFormData} 
+                        onNext={handleSubmit}
+                        onBack={handleBack}
+                    />
+                );
             default:
                 return null;
         }
@@ -260,7 +346,7 @@ const ItineraryCreationForm: React.FC = () => {
     );
 };
 
-// Progress bar styles
+// Progress bar styles - consistent with manual form
 const loadingBarStyles = {
     stepIndicatorSize: 0,
     currentStepIndicatorSize: 0,
@@ -274,4 +360,4 @@ const loadingBarStyles = {
     currentStepStrokeWidth: 0
 };
 
-export default ItineraryCreationForm;
+export default GenerateItineraryForm;
