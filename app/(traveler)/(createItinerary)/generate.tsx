@@ -1,9 +1,8 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
-import API_URL from '../../../constants/api';
-
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
 import Step2Preference from './(generate)/Step2Preference';
@@ -37,6 +36,7 @@ type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
 type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+const router = useRouter();
 
 interface ItineraryItem {
     experience_id: number;
@@ -200,84 +200,20 @@ const [formData, setFormData] = useState<ItineraryFormData>({
         return true;
     };
 
-    // Handle final submission after generation
-    const handleSubmit = async () => {
-        console.log('Submitting generated itinerary:', formData);
-
-        if (!validateFormData()) {
-            if (!formData.traveler_id) {
-                Alert.alert('Authentication Error', 'Please log in to create an itinerary.');
-            } else if (!formData.city) {
-                Alert.alert('Validation Error', 'Please select a destination city.');
-            } else if (!formData.start_date || !formData.end_date) {
-                Alert.alert('Validation Error', 'Please select travel dates.');
-            } else if (!formData.preferences?.experiences?.length) {
-                Alert.alert('Validation Error', 'Please select at least one experience type.');
-            } else if (!formData.items?.length) {
-                Alert.alert('Validation Error', 'Please generate an itinerary first.');
-            } else {
-                Alert.alert('Validation Error', 'Please fill out all required fields.');
+    const handleFinalStep = () => {
+    // Since Step3GeneratedItinerary handles its own saving,
+    // we just need to handle what happens after the itinerary is saved
+    console.log('Itinerary process completed');
+    
+    Alert.alert('Success', 'Your generated itinerary has been saved successfully!', [
+        {
+            text: 'OK',
+            onPress: () => {
+               router.replace("/"); 
             }
-            return;
         }
-
-        try {
-            setIsSubmitting(true);
-
-            const payload = {
-                traveler_id: formData.traveler_id,
-                start_date: formData.start_date,
-                end_date: formData.end_date,
-                title: formData.title,
-                notes: formData.notes || '',
-                status: 'active',
-                items: formData.items.map(item => ({
-                    experience_id: item.experience_id,
-                    day_number: item.day_number,
-                    start_time: item.start_time,
-                    end_time: item.end_time,
-                    custom_note: item.custom_note || ''
-                }))
-            };
-
-            console.log('Submitting final payload:', payload);
-
-            const response = await fetch(`${API_URL}/itinerary/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
-                },
-                body: JSON.stringify(payload),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                console.error('Server error:', result);
-                Alert.alert('Error', result.message || 'Failed to save itinerary.');
-                return;
-            }
-
-            Alert.alert('Success', 'Your generated itinerary has been saved successfully!', [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        // Navigate back or to itinerary list
-                        // You can add navigation logic here
-                    }
-                }
-            ]);
-
-        } catch (err) {
-            console.error('Submit error:', err);
-            Alert.alert('Error', 'An unexpected error occurred while saving your itinerary.');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
+    ]);
+};
     // Show loading spinner while auth is loading
     if (authLoading) {
         return (
@@ -324,12 +260,12 @@ const [formData, setFormData] = useState<ItineraryFormData>({
                 );
             case 3:
                 return (
-                    <Step3GeneratedItinerary 
-                        formData={formData} 
-                        setFormData={setFormData} 
-                        onNext={handleSubmit}
-                        onBack={handleBack}
-                    />
+                  <Step3GeneratedItinerary 
+            formData={formData} 
+            setFormData={setFormData} 
+            onNext={handleFinalStep}  
+            onBack={handleBack}
+        />
                 );
             default:
                 return null;

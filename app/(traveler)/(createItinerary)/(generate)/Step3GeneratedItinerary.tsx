@@ -79,8 +79,10 @@ import API_URL from '../../../../constants/api';
 
     const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
         const [loading, setLoading] = useState(false);
+         const [saving, setSaving] = useState(false);
         const [generatedItinerary, setGeneratedItinerary] = useState<GeneratedItinerary | null>(null);
         const [error, setError] = useState<string | null>(null);
+ const [isPreview, setIsPreview] = useState(true);
 
         useEffect(() => {
             generateItinerary();
@@ -142,7 +144,73 @@ import API_URL from '../../../../constants/api';
                 setLoading(false);
             }
         };
+        
+const saveItinerary = async () => {
+    // Add debugging logs
+    console.log('saveItinerary called');
+    console.log('Current state - saving:', saving, 'generatedItinerary:', !!generatedItinerary);
+    
+    if (!generatedItinerary || saving) {
+        console.log('Early return - conditions not met');
+        return;
+    }
+    
+    console.log('Proceeding with save...');
+    setSaving(true);
+    setError(null);
 
+    try {
+        const savePayload = {
+            traveler_id: generatedItinerary.traveler_id,
+            start_date: generatedItinerary.start_date,
+            end_date: generatedItinerary.end_date,
+            title: generatedItinerary.title,
+            notes: generatedItinerary.notes,
+            items: generatedItinerary.items
+        };
+
+        console.log('Saving itinerary payload:', savePayload);
+
+        const response = await fetch(`${API_URL}/itinerary/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(savePayload)
+        });
+
+        const data = await response.json();
+        console.log('Save response:', data);
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to save itinerary');
+        }
+
+        // Update the generated itinerary with the real ID
+        setGeneratedItinerary({
+            ...generatedItinerary,
+            itinerary_id: data.itinerary_id,
+            status: 'upcoming'
+        });
+
+        setIsPreview(false);
+        console.log('Save completed successfully');
+        
+        // Proceed to next step
+        setTimeout(() => {
+            console.log('Calling onNext()');
+            onNext();
+        }, 1000);
+
+    } catch (err) {
+        console.error('Error saving itinerary:', err);
+        setError(err instanceof Error ? err.message : 'Failed to save itinerary');
+    } finally {
+        console.log('Setting saving to false');
+        setSaving(false);
+    }
+};
+    
         const formatDate = (dateString: string) => {
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', {
@@ -238,15 +306,22 @@ import API_URL from '../../../../constants/api';
 
         return (
             <View className="flex-1 p-4">
+                 {isPreview && (
+                <View className="bg-blue-50 border-b border-blue-200 px-4 py-3">
+                    <View className="flex-row items-center justify-center">
+                        <Ionicons name="eye-outline" size={16} color="#3B82F6" />
+                        <Text className="ml-2 text-sm text-blue-700 font-onest-medium">
+                            Preview Mode
+                        </Text>
+                    </View>
+                </View>
+            )}
                 <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
                     {/* Header */}
                     <View className="mb-6">
-                        <Text className="text-2xl font-onest-bold text-center mb-2">
-                            Your Perfect Itinerary
-                        </Text>
-                        <Text className="text-center text-gray-600 font-onest mb-4">
+                        {/* <Text className="text-center text-gray-600 font-onest mb-4">
                             {generatedItinerary.title}
-                        </Text>
+                        </Text> */}
                         
                         {/* Stats */}
                         <View className="bg-gray-50 rounded-xl p-4 mb-4">
@@ -362,38 +437,61 @@ import API_URL from '../../../../constants/api';
                     })}
                 </ScrollView>
 
-                {/* Navigation Buttons */}
-                <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200">
-                    <TouchableOpacity
-                        onPress={onBack}
-                        className="py-4 px-6 rounded-xl border border-gray-300"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-onest-medium text-base text-gray-700">
-                            Back
-                        </Text>
-                    </TouchableOpacity>
+  {/* Navigation Buttons */}
+            <View className="px-4">
+                {isPreview ? (
+                    <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200">
+                        <TouchableOpacity
+                            onPress={onBack}
+                            className="py-4 px-6 rounded-xl border border-gray-300"
+                            activeOpacity={0.7}
+                            disabled={saving}
+                        >
+                            <Text className="text-center font-onest-medium text-base text-gray-700">
+                                Back
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={handleRetry}
-                        className="py-4 px-6 rounded-xl border border-primary"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-onest-medium text-base text-primary">
-                            Regenerate
-                        </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleRetry}
+                            className="py-4 px-6 rounded-xl border border-primary"
+                            activeOpacity={0.7}
+                            disabled={saving}
+                        >
+                            <Text className="text-center font-onest-medium text-base text-primary">
+                                Regenerate
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={onNext}
-                        className="py-4 px-8 rounded-xl bg-primary"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-onest-medium text-base text-white">
-                            Continue
+                        <TouchableOpacity
+                            onPress={saveItinerary}
+                            className="py-4 px-8 rounded-xl bg-primary"
+                            activeOpacity={0.7}
+                            disabled={saving}
+                        >
+                            {saving ? (
+                                <ActivityIndicator size="small" color="white" />
+                            ) : (
+                                <Text className="text-center font-onest-medium text-base text-white">
+                                    Continue
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View className="items-center mt-4 pt-2 border-t border-gray-200">
+                        <View className="flex-row items-center mb-3">
+                            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                            <Text className="ml-2 text-green-600 font-onest-medium">
+                                Itinerary saved successfully!
+                            </Text>
+                        </View>
+                        <Text className="text-sm text-gray-500 font-onest text-center">
+                            Proceeding to next step...
                         </Text>
-                    </TouchableOpacity>
-                </View>
+                    </View>
+                )}
+            </View>
             </View>
         );
     };
