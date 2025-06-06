@@ -311,7 +311,7 @@ import API_URL from '../../../../constants/api';
                                             {/* Image */}
                                             {item.primary_image && (
                                                 <Image
-                                                    source={{ uri: item.primary_image }}
+                                                    source={{ uri: `${API_URL}/${item.primary_image}` }}
                                                     className="w-full h-32"
                                                     resizeMode="cover"
                                                 />
