@@ -1,12 +1,12 @@
 // app/(creator)/index.tsx
-import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
 export default function CreatorIndex() {
     const router = useRouter();
 
     useEffect(() => {
-        router.replace('/(creator)/(tabs)');
+        router.replace('/(creator)/(tabs)/dashboard');
     }, []);
 
     return null;

@@ -1,29 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import axios from 'axios';
-import API_URL from '../../../constants/api';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from 'axios';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import API_URL from '../../../constants/api';
 import SafeViewAndroid from '../../globalStyle';
 interface Experience {
-  id: string;
+  id: number;
   title: string;
   location: string;
-  price: number;
+  price: string;
   unit: string;
+    destination_name: string;
   status: 'Active' | 'Draft' | 'Inactive';
   bookings: number;
   rating: number;
   images: string[];
+   tags: string[];
 }
 
 const CreatorDashboard: React.FC = () => {
@@ -158,96 +161,105 @@ const CreatorDashboard: React.FC = () => {
               ) : filteredExperiences.length === 0 ? (
                 <Text className="text-center text-gray-500 py-10">No experiences found</Text>
               ) : (
-                filteredExperiences.map((item, index) => (
-                  <View
-                    key={`experience-${item.id}-${index}`}
-                    className="w-full bg-white rounded-xl overflow-hidden mb-6 border border-gray-200"
-                  >
-                    <View className="relative">
-                      {item.images && item.images.length > 0 ? (
-                        <Image
-                          source={{ uri: `${API_URL}/${item.images[0]}` }}
-                          style={{ width: '100%', height: 160 }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={{ width: '100%', height: 160, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
-                          <Text>No Image</Text>
-                        </View>
-                      )}
-                      <View className={`absolute top-3 right-3 px-3 py-1 rounded-full ${item.status === 'Active' ? 'bg-green-100' :
-                        item.status === 'Draft' ? 'bg-amber-100' : 'bg-gray-100'
-                        }`}>
-                        <Text className={`text-xs font-medium ${item.status === 'Active' ? 'text-green-800' :
-                          item.status === 'Draft' ? 'text-amber-800' : 'text-gray-800'
-                          }`}>
-                          {item.status}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="p-3">
-                      <Text className="text-base font-semibold">{item.title}</Text>
-                      <View className="flex-row items-center justify-between mt-1">
-                        <Text className="text-sm text-gray-600">{item.location}</Text>
-                      </View>
-                      <View className="flex-row justify-between mt-2">
-                        <Text className="text-base font-bold text-blue-500">
-                          ${item.price}
-                        </Text>
-                        <Text className="text-xs text-gray-500">{item.unit}</Text>
-                      </View>
+filteredExperiences.map((item, index) => (
+  <TouchableOpacity
+    key={`experience-${item.id}-${index}`}
+    onPress={() => router.push(`/(experience)/${item.id}`)}
+    className="mb-4 rounded-lg overflow-hidden border border-gray-200"
+    activeOpacity={0.7}
+  >
+    <View className="relative">
+      {/* Image */}
+      {item.images && item.images.length > 0 ? (
+        <Image
+          source={{ uri: `${API_URL}${item.images[0]}` }}
+          className="w-full h-40"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-full h-40 bg-gray-200 items-center justify-center">
+          <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+        </View>
+      )}
 
-                      {/* Stats and actions */}
-                      <View className="flex-row items-center mt-3 pt-3 border-t border-gray-100 justify-between">
-                        <View className="flex-row">
-                          <View className="flex-row items-center mr-4">
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-3.5 h-3.5"
-                              resizeMode="contain"
-                            />
-                            <Text className="text-xs text-gray-500 ml-1">{item.bookings} bookings</Text>
-                          </View>
-                          {item.rating > 0 && (
-                            <View className="flex-row items-center">
-                              <Image
-                                source={require('../../../assets/icons/heart.svg')}
-                                className="w-3.5 h-3.5"
-                                resizeMode="contain"
-                              />
-                              <Text className="text-xs text-gray-500 ml-1">{item.rating}</Text>
-                            </View>
-                          )}
-                        </View>
+      {/* Status Badge */}
+      <View className={`absolute top-2 left-2 px-2 py-1 rounded-md ${
+        item.status === 'Active' ? 'bg-green-100' :
+        item.status === 'Draft' ? 'bg-amber-100' : 'bg-gray-100'
+      }`}>
+        <Text className={`text-xs font-onest-medium ${
+          item.status === 'Active' ? 'text-green-800' :
+          item.status === 'Draft' ? 'text-amber-800' : 'text-gray-800'
+        }`}>
+          {item.status}
+        </Text>
+      </View>
 
-                        <View className="flex-row">
-                          <TouchableOpacity
-                            key={`edit-${item.id}`}
-                            className="p-2 mr-2"
-                            onPress={() => router.push(`/(creator)/edit/${item.id}`)}
-                          >
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-4.5 h-4.5"
-                              resizeMode="contain"
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            key={`delete-${item.id}`}
-                            className="p-2"
-                            onPress={() => console.log('Delete experience')}
-                          >
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-4.5 h-4.5"
-                              resizeMode="contain"
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                ))
+      {/* Price Badge */}
+      <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
+        <Text className="font-onest-medium">
+          {item.price === "0" || !item.price ? 'Free' : `₱${item.price}`}
+        </Text>
+        {/* <Text className="text-xs text-gray-500">{item.unit}</Text> */}
+      </View>
+    </View>
+
+    <View className="p-3">
+      {/* Title */}
+      <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
+
+      {/* Location */}
+      <View className="flex-row items-center mb-2">
+        <Ionicons name="location-outline" size={16} color="#4F46E5" />
+        <Text className="text-sm text-gray-600 ml-1">{item.location}</Text>
+      </View>
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <View className="flex-row flex-wrap mb-3">
+          {item.tags.slice(0, 3).map((tag, index) => (
+            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
+              <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Stats and actions */}
+      <View className="flex-row items-center pt-3 border-t border-gray-100 justify-between">
+        <View className="flex-row">
+          <View className="flex-row items-center mr-4">
+            <Ionicons name="heart-outline" size={14} color="#6B7280" />
+            <Text className="text-xs text-gray-500 ml-1">{item.bookings} bookings</Text>
+          </View>
+          {item.rating > 0 && (
+            <View className="flex-row items-center">
+              <Ionicons name="star" size={14} color="#F59E0B" />
+              <Text className="text-xs text-gray-500 ml-1">{item.rating}</Text>
+            </View>
+          )}
+        </View>
+
+        <View className="flex-row">
+          <TouchableOpacity
+            key={`edit-${item.id}`}
+            className="p-2 mr-2"
+            onPress={() => router.push(`/(updateExperience)/updateExperience${item.id}`)}
+          >
+            <Ionicons name="pencil-outline" size={18} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            key={`delete-${item.id}`}
+            className="p-2"
+            onPress={() => console.log('Delete experience')}
+          >
+            <Ionicons name="trash-outline" size={18} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </TouchableOpacity>
+))
               )}
             </View>
           </View>

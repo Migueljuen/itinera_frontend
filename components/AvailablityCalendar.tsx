@@ -238,7 +238,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                     </View>
                                     <View>
                                         <Text className={`font-medium ${hasAvailability ? 'text-gray-800' : 'text-gray-400'}`}>
-                                            {dayName} (Day {dayNumber})
+                                            {dayName}
                                         </Text>
                                         <Text className={`text-xs ${hasAvailability ? 'text-gray-600' : 'text-gray-400'}`}>
                                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

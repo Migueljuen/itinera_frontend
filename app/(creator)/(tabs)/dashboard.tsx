@@ -1,23 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator,
-  Platform,
-  StyleSheet,
-  StatusBar
-} from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Image,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
+import Booking from '../../../assets/icons/booking.svg';
 import Star from '../../../assets/icons/star.svg';
 import Star1 from '../../../assets/icons/star1.svg';
-import Booking from '../../../assets/icons/booking.svg';
 import API_URL from '../../../constants/api';
-
 interface Stats {
   totalBookings: number;
   avgRating: number;
@@ -30,6 +27,7 @@ interface expStats {
   inactive: number;
 }
 
+
 const CreatorDashboard: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -37,6 +35,7 @@ const CreatorDashboard: React.FC = () => {
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [selectedTab, setSelectedTab] = useState<string>('Active');
+    const [userID, setUserID] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     totalBookings: 85,
     avgRating: 4.8,
@@ -49,6 +48,26 @@ const CreatorDashboard: React.FC = () => {
     inactive: 3
   });
 
+ const fetchUserData = async () => {
+    try {
+      const user = await AsyncStorage.getItem('user');
+
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setFirstName(parsedUser.first_name);
+        setProfilePic(parsedUser.profile_pic);
+        setUserID(parsedUser.user_id); // Assuming user ID is stored in the user object
+      } else {
+        console.log('No user found in AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
 
 
@@ -61,11 +80,10 @@ const CreatorDashboard: React.FC = () => {
               <Text className="text-normal text-3xl font-onest-semibold">Creator Dashboard</Text>
               <Text className="text-gray-400 font-onest">Manage your account</Text>
             </View>
-            {profilePic ? (
+          {profilePic ? (
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
-
               />
             ) : (
               <Image

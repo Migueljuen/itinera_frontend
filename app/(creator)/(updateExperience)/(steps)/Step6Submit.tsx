@@ -1,7 +1,7 @@
-import { useRouter } from "expo-router";
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { ExperienceFormData } from '../../../../types/types';
+import { useRouter } from "expo-router";
 interface ReviewSubmitProps {
     formData: ExperienceFormData;
     onBack: () => void;
@@ -35,7 +35,7 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                         </View>
                         <View>
                             <Text className="text-sm text-gray-500 font-onest">Price</Text>
-                            <Text className="text-gray-800">₱{formData.price} per {formData.unit}</Text>
+                            <Text className="text-gray-800">${formData.price} per {formData.unit}</Text>
                         </View>
                     </View>
                 </View>
