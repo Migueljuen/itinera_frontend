@@ -14,6 +14,7 @@ import {
     View
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import MapSearchComponent from '../../../../components/MapSearch'; // Add this import
 
 interface Accommodation {
     name: string;
@@ -85,6 +86,9 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
         }
     );
 
+    // Map search state
+    const [showMapSearch, setShowMapSearch] = useState(false);
+
     // Calendar states
     const [showCalendar, setShowCalendar] = useState(false);
     const [checkInDate, setCheckInDate] = useState(accommodation.check_in || formData.start_date || '');
@@ -133,6 +137,25 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
             ...prev,
             [field]: value
         }));
+    };
+
+    // Handle map search location selection
+    const handleLocationSelect = (location: { latitude: number; longitude: number }) => {
+        setAccommodation(prev => ({
+            ...prev,
+            latitude: location.latitude,
+            longitude: location.longitude
+        }));
+    };
+
+    // Open map search
+    const openMapSearch = () => {
+        setShowMapSearch(true);
+    };
+
+    // Close map search
+    const closeMapSearch = () => {
+        setShowMapSearch(false);
     };
 
     // Toggle calendar visibility
@@ -431,7 +454,7 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                     </View>
                                 </View>
 
-                                {/* Location Coordinates */}
+                                {/* Location Coordinates with Map Search */}
                                 <View className="mb-6">
                                     <Text className="font-onest-medium text-base mb-3">
                                         Location Coordinates (Optional)
@@ -439,6 +462,20 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                     <Text className="text-xs text-gray-500 font-onest mb-2">
                                         For precise location mapping
                                     </Text>
+                                    
+                                    {/* Map Search Button */}
+                                    <TouchableOpacity
+                                        className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex-row items-center justify-center"
+                                        onPress={openMapSearch}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="map" size={20} color="#3B82F6" />
+                                        <Text className="font-onest-medium text-blue-600 ml-2">
+                                            Search on Map
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {/* Manual Input Fields */}
                                     <View className="flex-row gap-3">
                                         <View className="flex-1">
                                             <Text className="text-sm text-gray-600 font-onest mb-2">
@@ -467,6 +504,15 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             />
                                         </View>
                                     </View>
+
+                                    {/* Show coordinates if available */}
+                                    {accommodation.latitude && accommodation.longitude && (
+                                        <View className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                            <Text className="text-sm text-green-700 font-onest">
+                                                📍 Location set: {accommodation.latitude.toFixed(6)}, {accommodation.longitude.toFixed(6)}
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
                                 
                             </View>
@@ -509,6 +555,15 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                             </TouchableOpacity>
                         </View>
                     </View>
+
+                    {/* Map Search Modal */}
+                    <MapSearchComponent
+                        visible={showMapSearch}
+                        onClose={closeMapSearch}
+                        onLocationSelect={handleLocationSelect}
+                        initialLatitude={accommodation.latitude}
+                        initialLongitude={accommodation.longitude}
+                    />
                 </View>
             </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
