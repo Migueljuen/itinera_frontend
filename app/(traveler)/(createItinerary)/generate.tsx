@@ -7,7 +7,7 @@ import StepIndicator from 'react-native-step-indicator';
 import { useAuth } from '@/contexts/AuthContext';
 import Step2Preference from './(generate)/Step2Preference';
 import Step3GeneratedItinerary from './(generate)/Step3GeneratedItinerary';
-import Step1SelectLocation from './(manual)/Step1SelectLocation'; // Reusing from manual
+import Step1SelectLocation from './(manual)/Step1.1Accommodation'; // Reusing from manual
 
 // Component prop interfaces to match your existing components
 interface Step1Props {
