@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AvailabilityCalendar from '../../../components/AvailablityCalendar'; // Import the calendar component
-import API_URL from '../../../constants/api'; // Your API base URL
+import AvailabilityCalendar from '../../../components/AvailablityCalendar';
+import API_URL from '../../../constants/api';
 
-// Update Experience type to match the API data structure
+// Your existing Experience type and imports...
 type Experience = {
     id: number;
     title: string;
@@ -14,23 +14,30 @@ type Experience = {
     unit: string;
     destination_name: string;
     location: string;
-    tags: string[]; // ✅ this must be an array of strings
+    tags: string[];
     images: string[];
+    destination: {
+        destination_id: number;
+        name: string;
+        city: string;
+        longitude: number;
+        latitude: number;
+        description: string;
+    };
 };
 
-// Import the ItineraryItem type from your types file
 import { ItineraryItem } from '../../../types/itineraryTypes';
 
 export default function ExperienceDetail() {
+    // ... all your existing state and useEffect code stays the same ...
     const { id, tripStartDate: paramTripStart, tripEndDate: paramTripEnd } = useLocalSearchParams();
     const experienceId = Number(id);
     const [experience, setExperience] = useState<Experience | null>(null);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState(false);
     const [imageError, setImageError] = useState(false);
-    const [activeTab, setActiveTab] = useState('details'); // 'details' or 'availability'
+    const [activeTab, setActiveTab] = useState('details');
     
-    // Add state for calendar props - get from navigation params or use current date
     const getCurrentDateString = () => new Date().toISOString().split('T')[0];
     const getNextWeekDateString = () => {
         const nextWeek = new Date();
@@ -46,7 +53,7 @@ export default function ExperienceDetail() {
     );
     const [selectedItems, setSelectedItems] = useState<ItineraryItem[]>([]);
 
-    // Fetch experience data
+    // Your existing useEffect
     useEffect(() => {
         const fetchExperience = async () => {
             try {
@@ -54,9 +61,12 @@ export default function ExperienceDetail() {
                 const data = await response.json();
                 setExperience(data);
 
-                // Log image data for debugging
-                if (data && data.images) {
-                    // Debugging code here if needed
+                if (data && data.destination) {
+                    console.log('Destination coordinates:', {
+                        latitude: data.destination.latitude,
+                        longitude: data.destination.longitude,
+                        name: data.destination.name
+                    });
                 }
             } catch (error) {
                 console.error('Error fetching experience data:', error);
@@ -68,12 +78,46 @@ export default function ExperienceDetail() {
         fetchExperience();
     }, [experienceId]);
 
-    // Handle time slot selection
+    // ADD THIS FUNCTION - Handle opening maps
+    const handleOpenMap = async () => {
+        if (!experience?.destination) {
+            Alert.alert('Error', 'Location not available');
+            return;
+        }
+
+        const { latitude, longitude, name } = experience.destination;
+        const label = encodeURIComponent(`${experience.title} - ${name}`);
+        
+        let url = '';
+        
+        if (Platform.OS === 'ios') {
+            // Try Apple Maps first
+            url = `maps:0,0?q=${label}@${latitude},${longitude}`;
+        } else {
+            // Android - use geo URI
+            url = `geo:0,0?q=${latitude},${longitude}(${label})`;
+        }
+
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                // Fallback to Google Maps web version
+                const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`;
+                await Linking.openURL(webUrl);
+            }
+        } catch (error) {
+            console.error('Error opening map:', error);
+            Alert.alert('Error', 'Unable to open map application');
+        }
+    };
+
+    // Your existing handler functions...
     const handleTimeSlotSelect = (item: ItineraryItem) => {
         setSelectedItems(prev => [...prev, item]);
     };
 
-    // Handle time slot deselection
     const handleTimeSlotDeselect = (item: ItineraryItem) => {
         setSelectedItems(prev => prev.filter(selected => 
             !(selected.experience_id === item.experience_id &&
@@ -83,23 +127,16 @@ export default function ExperienceDetail() {
         ));
     };
 
-    // Handle image URL formatting
     const getFormattedImageUrl = (imageUrl: string) => {
         if (!imageUrl) return null;
-
-        // If it already starts with http, use as is
         if (imageUrl.startsWith('http')) {
             return imageUrl;
         }
-
-        // Make sure path starts with '/'
-        const formattedPath = imageUrl.startsWith('/')
-            ? imageUrl
-            : `/${imageUrl}`;
-
+        const formattedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
         return `${API_URL}${formattedPath}`;
     };
 
+    // Your existing loading and error states...
     if (loading) {
         return (
             <SafeAreaView className="flex-1 justify-center items-center">
@@ -118,7 +155,7 @@ export default function ExperienceDetail() {
 
     return (
         <ScrollView className='flex-1'>
-            {/* Display image */}
+            {/* Your existing image section... */}
             <View className="w-full h-80 overflow-hidden bg-gray-200">
                 {experience.images && experience.images.length > 0 && !imageError ? (
                     <Image
@@ -140,27 +177,32 @@ export default function ExperienceDetail() {
                     <Text className="my-4 text-gray-600">{experience.unit}</Text>
                 </View>
 
-                <Text className="text-lg font-bold text-blue-500 my-2">{experience.price ? `$${experience.price}` : 'Price not available'}</Text>
+                <Text className="text-lg font-bold text-blue-500 my-2">
+                    {experience.price ? `$${experience.price}` : 'Price not available'}
+                </Text>
 
-                {/* Tab navigation */}
+                {/* Your existing tab navigation... */}
                 <View className="flex-row border-b border-gray-200 mt-4">
                     <TouchableOpacity
                         className={`px-4 py-2 ${activeTab === 'details' ? 'border-b-2 border-blue-500' : ''}`}
                         onPress={() => setActiveTab('details')}
                     >
-                        <Text className={`${activeTab === 'details' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>Details</Text>
+                        <Text className={`${activeTab === 'details' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>
+                            Details
+                        </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         className={`px-4 py-2 ${activeTab === 'availability' ? 'border-b-2 border-blue-500' : ''}`}
                         onPress={() => setActiveTab('availability')}
                     >
-                        <Text className={`${activeTab === 'availability' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>Availability</Text>
+                        <Text className={`${activeTab === 'availability' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>
+                            Availability
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Content based on active tab */}
                 {activeTab === 'details' ? (
-                    // Details content
                     <View className="py-4">
                         <View className="flex-row flex-wrap">
                             {experience.tags && experience.tags.map((tag) => (
@@ -169,6 +211,7 @@ export default function ExperienceDetail() {
                                 </Text>
                             ))}
                         </View>
+                        
                         <Text className="text-lg font-semibold mt-4 mb-2">Description</Text>
                         <Text className="text-gray-600">
                             {expanded
@@ -181,20 +224,29 @@ export default function ExperienceDetail() {
 
                         {experience.description?.length > 150 && (
                             <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                                <Text className="text-blue-500 mt-2">{expanded ? 'Read Less' : 'Read More'}</Text>
+                                <Text className="text-blue-500 mt-2">
+                                    {expanded ? 'Read Less' : 'Read More'}
+                                </Text>
                             </TouchableOpacity>
                         )}
 
-                        {/* Location Button */}
+                        {/* UPDATED Location Button - Now it works! */}
                         <TouchableOpacity
-                            className="mt-6 bg-blue-500 py-3 rounded-lg items-center"
-                            onPress={() => {/* Open map */ }}
+                            className={`mt-6 py-3 rounded-lg items-center ${
+                                experience.destination ? 'bg-blue-500' : 'bg-gray-400'
+                            }`}
+                            onPress={handleOpenMap}
+                            disabled={!experience.destination}
                         >
-                            <Text className="text-white font-semibold">Open Location on Map</Text>
+                            <Text className="text-white font-semibold">
+                                {experience.destination 
+                                    ? 'Open Location on Map' 
+                                    : 'Location Not Available'
+                                }
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    // Availability calendar
                     <View className="py-4">
                         <AvailabilityCalendar 
                             experienceId={experienceId}
