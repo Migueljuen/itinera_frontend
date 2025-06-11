@@ -140,12 +140,70 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
     };
 
     // Handle map search location selection
-    const handleLocationSelect = (location: { latitude: number; longitude: number }) => {
+    const handleLocationSelect = async (location: any) => {
+        console.log('Location data received:', location);
+        
+        // First set the coordinates
+        const latitude = location.latitude || location.lat;
+        const longitude = location.longitude || location.lng || location.lon;
+        
         setAccommodation(prev => ({
             ...prev,
-            latitude: location.latitude,
-            longitude: location.longitude
+            latitude: latitude,
+            longitude: longitude,
         }));
+
+        // location api
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            console.log('Reverse geocoding data:', data);
+
+            if (data && data.display_name) {
+                const fullAddress = data.display_name;
+                
+                // Extract place name - try different approaches
+                let placeName = '';
+                
+                // Option 1: Use the name field if available
+                if (data.name) {
+                    placeName = data.name;
+                }
+                // Option 2: Try to get business/place name from address components
+                else if (data.address) {
+                    placeName = data.address.tourism || 
+                              data.address.hotel || 
+                              data.address.accommodation ||
+                              data.address.building ||
+                              data.address.house_name ||
+                              data.address.amenity ||
+                              data.address.leisure ||
+                              '';
+                }
+                // Option 3: Extract first part of address if it looks like a place name
+                if (!placeName) {
+                    const addressParts = fullAddress.split(',');
+                    const firstPart = addressParts[0].trim();
+                    // Only use first part as name if it doesn't look like a street number
+                    if (firstPart && !/^\d/.test(firstPart)) {
+                        placeName = firstPart;
+                    }
+                }
+
+             
+
+                setAccommodation(prev => ({
+                    ...prev,
+                    address: fullAddress,
+                    name: placeName || prev.name
+                }));
+            }
+        } catch (error) {
+            console.error('Error reverse geocoding:', error);
+            Alert.alert('Location Error', 'Could not fetch address details for selected location.');
+        }
     };
 
     // Open map search
@@ -328,11 +386,25 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                     </View>
                                 </View>
 
-                                {/* Address */}
+                                {/* Address with Map Search */}
                                 <View className="mb-4">
                                     <Text className="font-onest-medium text-base mb-3">
                                         Address
                                     </Text>
+                                    
+                                    {/* Map Search Button */}
+                                    <TouchableOpacity
+                                        className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex-row items-center justify-center"
+                                        onPress={openMapSearch}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="map" size={20} color="#3B82F6" />
+                                        <Text className="font-onest-medium text-blue-600 ml-2">
+                                            Search Location on Map
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {/* Address Input Field */}
                                     <View className="relative">
                                         <TextInput
                                             className="border border-gray-300 rounded-lg px-4 py-3 text-base bg-white font-onest pr-12"
@@ -351,6 +423,15 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             style={{ position: 'absolute', right: 16, top: 12 }}
                                         />
                                     </View>
+
+                                    {/* Show location confirmation if coordinates are available */}
+                                    {accommodation.latitude && accommodation.longitude && (
+                                        <View className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                            <Text className="text-sm text-green-700 font-onest">
+                                                📍 Location mapped successfully
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
 
                                 {/* Check-in and Check-out Dates with Calendar */}
@@ -452,67 +533,6 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             style={{ position: 'absolute', right: 16, top: 12 }}
                                         />
                                     </View>
-                                </View>
-
-                                {/* Location Coordinates with Map Search */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        Location Coordinates (Optional)
-                                    </Text>
-                                    <Text className="text-xs text-gray-500 font-onest mb-2">
-                                        For precise location mapping
-                                    </Text>
-                                    
-                                    {/* Map Search Button */}
-                                    <TouchableOpacity
-                                        className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex-row items-center justify-center"
-                                        onPress={openMapSearch}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="map" size={20} color="#3B82F6" />
-                                        <Text className="font-onest-medium text-blue-600 ml-2">
-                                            Search on Map
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    {/* Manual Input Fields */}
-                                    <View className="flex-row gap-3">
-                                        <View className="flex-1">
-                                            <Text className="text-sm text-gray-600 font-onest mb-2">
-                                                Latitude
-                                            </Text>
-                                            <TextInput
-                                                className="border border-gray-300 rounded-lg px-4 py-3 text-base bg-white font-onest"
-                                                placeholder="0.000000"
-                                                value={accommodation.latitude?.toString() || ''}
-                                                onChangeText={(text) => handleInputChange('latitude', text ? parseFloat(text) : undefined)}
-                                                keyboardType="numeric"
-                                                placeholderTextColor="#9CA3AF"
-                                            />
-                                        </View>
-                                        <View className="flex-1">
-                                            <Text className="text-sm text-gray-600 font-onest mb-2">
-                                                Longitude
-                                            </Text>
-                                            <TextInput
-                                                className="border border-gray-300 rounded-lg px-4 py-3 text-base bg-white font-onest"
-                                                placeholder="0.000000"
-                                                value={accommodation.longitude?.toString() || ''}
-                                                onChangeText={(text) => handleInputChange('longitude', text ? parseFloat(text) : undefined)}
-                                                keyboardType="numeric"
-                                                placeholderTextColor="#9CA3AF"
-                                            />
-                                        </View>
-                                    </View>
-
-                                    {/* Show coordinates if available */}
-                                    {accommodation.latitude && accommodation.longitude && (
-                                        <View className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                            <Text className="text-sm text-green-700 font-onest">
-                                                📍 Location set: {accommodation.latitude.toFixed(6)}, {accommodation.longitude.toFixed(6)}
-                                            </Text>
-                                        </View>
-                                    )}
                                 </View>
                                 
                             </View>
