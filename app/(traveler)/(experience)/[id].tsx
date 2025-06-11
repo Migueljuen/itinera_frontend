@@ -230,7 +230,7 @@ export default function ExperienceDetail() {
                             </TouchableOpacity>
                         )}
 
-                        {/* UPDATED Location Button - Now it works! */}
+                        {/* UPDATED Location Button  */}
                         <TouchableOpacity
                             className={`mt-6 py-3 rounded-lg items-center ${
                                 experience.destination ? 'bg-blue-500' : 'bg-gray-400'

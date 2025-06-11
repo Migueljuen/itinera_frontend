@@ -4,6 +4,8 @@ export interface ItineraryFormData {
     end_date: string;    // Format: 'YYYY-MM-DD'
     title: string;
     notes?: string;
+      accommodation_id?: number;
+  itinerary_id?: number;
     city: string;
     items: ItineraryItem[];
     exploreTime: string;

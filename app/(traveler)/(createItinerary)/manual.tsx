@@ -30,6 +30,8 @@ interface Accommodation {
     check_in?: string;
     check_out?: string;
     booking_link?: string;
+    check_in_time?: string;
+    check_out_time?: string;
 }
 
 interface ItineraryFormData {
@@ -84,7 +86,7 @@ const ItineraryCreationForm: React.FC = () => {
         traveler_id: 0,
         start_date: '',
         end_date: '',
-        title: 'test itinerary (manual)',
+        title: 'Manually Created Itinerary',
         notes: 'test note',
         city: '',
         items: [] as ItineraryItem[]
