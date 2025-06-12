@@ -1,19 +1,22 @@
-import dayjs from 'dayjs';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import API_URL from '../../../../constants/api';
 
+// Types matching your API response
 interface ItineraryItem {
   item_id: number;
   experience_id: number;
@@ -43,162 +46,550 @@ interface Itinerary {
   items: ItineraryItem[];
 }
 
+interface TimeSlot {
+  slot_id: number;
+  availability_id: number;
+  start_time: string;
+  end_time: string;
+}
+
+interface AvailableTimeSlot extends TimeSlot {
+  is_available: boolean;
+  conflicting_items?: ItineraryItem[];
+}
+
 export default function EditItineraryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-  const [selectedItem, setSelectedItem] = useState<ItineraryItem | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<{ start_time: string; end_time: string }[]>([]);
-  const [slotModalVisible, setSlotModalVisible] = useState(false);
+  const [editedItems, setEditedItems] = useState<ItineraryItem[]>([]);
+  const [deletedItems, setDeletedItems] = useState<number[]>([]);
+
+  // Modal states
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<AvailableTimeSlot[]>([]);
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
 
   useEffect(() => {
-    if (id) fetchItineraryDetails();
+    if (id) {
+      fetchItineraryDetails();
+    }
   }, [id]);
 
   const fetchItineraryDetails = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/itinerary/${id}`);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found");
+        router.back();
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/itinerary/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      setItinerary(data.itinerary || data);
+      const itineraryData = data.itinerary || data;
+      setItinerary(itineraryData);
+      setEditedItems([...itineraryData.items]);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load itinerary details');
+      console.error("Error fetching itinerary details:", error);
+      Alert.alert("Error", "Failed to load itinerary details");
     } finally {
       setLoading(false);
     }
   };
 
-  const openSlotModal = async (item: ItineraryItem) => {
-    const targetDate = dayjs(itinerary!.start_date).add(item.day_number - 1, 'day').format('YYYY-MM-DD');
+  const fetchAvailableTimeSlots = async (experienceId: number, dayNumber: number) => {
+    setLoadingTimeSlots(true);
     try {
-      const res = await fetch(`${API_URL}/experience/${item.experience_id}/available-slots?date=${targetDate}&itinerary_id=${itinerary!.itinerary_id}&item_id=${item.item_id}`);
-      const data = await res.json();
-      setAvailableSlots(data.available_slots);
-      setSelectedItem(item);
-      setSlotModalVisible(true);
-    } catch (err) {
-      Alert.alert('Error', 'Could not load available time slots');
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      // Calculate the actual date for the day number
+      const startDate = new Date(itinerary!.start_date);
+      const targetDate = new Date(startDate);
+      targetDate.setDate(startDate.getDate() + dayNumber - 1);
+      const dayOfWeek = targetDate
+        .toLocaleDateString('en-US', { weekday: 'long' })
+        .toLowerCase();
+
+      const response = await fetch(
+        `${API_URL}/experience/${experienceId}/availability?day=${dayOfWeek}&date=${targetDate.toISOString().split('T')[0]}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Check each time slot for conflicts with existing itinerary items
+      const slotsWithAvailability = (data.availability || []).map((slot: TimeSlot) => {
+
+        const conflictingItems = editedItems.filter(item =>
+          item.day_number === dayNumber &&
+          item.item_id !== editingItem?.item_id && // Exclude the item being edited
+          isTimeOverlapping(slot.start_time, slot.end_time, item.start_time, item.end_time)
+        );
+
+        return {
+          ...slot,
+          is_available: conflictingItems.length === 0,
+          conflicting_items: conflictingItems
+        };
+      });
+
+      setAvailableTimeSlots(slotsWithAvailability);
+    } catch (error) {
+      console.error("Error fetching available time slots:", error);
+      Alert.alert("Error", "Failed to load available time slots");
+      setAvailableTimeSlots([]);
+    } finally {
+      setLoadingTimeSlots(false);
     }
   };
 
-  const updateSlot = (slot: { start_time: string; end_time: string }) => {
-    if (!selectedItem) return;
-    const updatedItems = itinerary!.items.map(i =>
-      i.item_id === selectedItem.item_id
-        ? { ...i, start_time: slot.start_time, end_time: slot.end_time }
-        : i
+  const isTimeOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
+    const s1 = new Date(`2000-01-01T${start1}`);
+    const e1 = new Date(`2000-01-01T${end1}`);
+    const s2 = new Date(`2000-01-01T${start2}`);
+    const e2 = new Date(`2000-01-01T${end2}`);
+
+    return s1 < e2 && s2 < e1;
+  };
+
+  const handleEditTime = async (item: ItineraryItem) => {
+    setEditingItem(item);
+    setShowTimeModal(true);
+    await fetchAvailableTimeSlots(item.experience_id, item.day_number);
+  };
+
+  const handleTimeSlotSelect = (timeSlot: AvailableTimeSlot) => {
+    if (!timeSlot.is_available) {
+      const conflictNames = timeSlot.conflicting_items?.map(item => item.experience_name).join(', ');
+      Alert.alert(
+        "Time Conflict",
+        `This time slot conflicts with: ${conflictNames}`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Select Anyway",
+            onPress: () => confirmTimeSlotSelection(timeSlot)
+          }
+        ]
+      );
+      return;
+    }
+
+    confirmTimeSlotSelection(timeSlot);
+  };
+
+  const confirmTimeSlotSelection = (timeSlot: TimeSlot) => {
+    if (!editingItem) return;
+
+    // Update the item in editedItems
+    setEditedItems(prev => prev.map(item =>
+      item.item_id === editingItem.item_id
+        ? { ...item, start_time: timeSlot.start_time, end_time: timeSlot.end_time }
+        : item
+    ));
+
+    setShowTimeModal(false);
+    setEditingItem(null);
+  };
+
+  const handleRemoveExperience = (itemId: number) => {
+    Alert.alert(
+      "Remove Experience",
+      "Are you sure you want to remove this experience from your itinerary?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            setEditedItems(prev => prev.filter(item => item.item_id !== itemId));
+            setDeletedItems(prev => [...prev, itemId]);
+          }
+        }
+      ]
     );
-    setItinerary({ ...itinerary!, items: updatedItems });
-    setSlotModalVisible(false);
+  };
+
+  const handleSaveChanges = async () => {
+    setSaving(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found");
+        return;
+      }
+
+      // Prepare updates for modified items
+      const updates = editedItems
+        .filter(item => {
+          const original = itinerary?.items.find(orig => orig.item_id === item.item_id);
+          return original && (
+            original.start_time !== item.start_time ||
+            original.end_time !== item.end_time ||
+            original.custom_note !== item.custom_note
+          );
+        })
+        .map(item => ({
+          item_id: item.item_id,
+          start_time: item.start_time,
+          end_time: item.end_time,
+          custom_note: item.custom_note
+        }));
+
+      // Send updates to API
+      const promises = [];
+
+      // Update modified items
+      if (updates.length > 0) {
+        promises.push(
+          fetch(`${API_URL}/itinerary/${id}/items/bulk-update`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ updates })
+          })
+        );
+      }
+
+      // Delete removed items
+      if (deletedItems.length > 0) {
+        promises.push(
+          fetch(`${API_URL}/itinerary/${id}/items/bulk-delete`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ item_ids: deletedItems })
+          })
+        );
+      }
+
+      await Promise.all(promises);
+
+      Alert.alert("Success", "Itinerary updated successfully", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
+
+    } catch (error) {
+      console.error("Error saving changes:", error);
+      Alert.alert("Error", "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
+    const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const formatTimeRange = (start: string, end: string) => `${formatTime(start)} - ${formatTime(end)}`;
-
-  const handleSave = async () => {
-    try {
-      const res = await fetch(`${API_URL}/itinerary/${id}/update-items`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itinerary_id: itinerary!.itinerary_id,
-          items: itinerary!.items.map(i => ({
-            item_id: i.item_id,
-            start_time: i.start_time,
-            end_time: i.end_time,
-            day_number: i.day_number,
-            custom_note: i.custom_note
-          }))
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to save');
-      Alert.alert('Success', 'Itinerary updated');
-      router.back();
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+  const getImageUri = (imagePath: string) => {
+    if (imagePath.startsWith('http')) {
+      return imagePath;
     }
+    return `${API_URL}${imagePath}`;
   };
 
-  if (loading || !itinerary) {
+  const groupItemsByDay = () => {
+    return editedItems.reduce((acc, item) => {
+      if (!acc[item.day_number]) {
+        acc[item.day_number] = [];
+      }
+      acc[item.day_number].push(item);
+      return acc;
+    }, {} as Record<number, ItineraryItem[]>);
+  };
+
+  const getDateForDay = (dayNumber: number) => {
+    if (!itinerary) return '';
+    const startDate = new Date(itinerary.start_date);
+    const targetDate = new Date(startDate);
+    targetDate.setDate(startDate.getDate() + dayNumber - 1);
+    return targetDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const hasChanges = () => {
+    return deletedItems.length > 0 || editedItems.some(item => {
+      const original = itinerary?.items.find(orig => orig.item_id === item.item_id);
+      return original && (
+        original.start_time !== item.start_time ||
+        original.end_time !== item.end_time ||
+        original.custom_note !== item.custom_note
+      );
+    });
+  };
+
+  if (loading) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text className="mt-2 text-gray-600">Loading...</Text>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#4F46E5" />
+          <Text className="mt-4 text-gray-600 font-onest">Loading itinerary...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
+  if (!itinerary) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-center text-gray-500 py-10 font-onest">Itinerary not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const groupedItems = groupItemsByDay();
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-        <Text className="text-xl font-bold mb-4">Edit Itinerary</Text>
-
-        {itinerary.items.map(item => (
-          <View key={item.item_id} className="bg-white p-4 mb-4 rounded-lg shadow-sm">
-            <Text className="font-semibold text-lg mb-1">{item.experience_name}</Text>
-            <Text className="text-sm text-gray-600 mb-2">{formatTimeRange(item.start_time, item.end_time)}</Text>
-            <TextInput
-              placeholder="Custom Note"
-              value={item.custom_note}
-              onChangeText={text => {
-                const updated = itinerary.items.map(i =>
-                  i.item_id === item.item_id ? { ...i, custom_note: text } : i
-                );
-                setItinerary({ ...itinerary, items: updated });
-              }}
-              className="border p-2 rounded mb-2 text-sm"
-            />
-            <TouchableOpacity
-              className="bg-primary px-4 py-2 rounded"
-              onPress={() => openSlotModal(item)}
-            >
-              <Text className="text-white text-sm text-center">Change Time Slot</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        <TouchableOpacity
-          className="mt-6 bg-green-600 py-3 rounded"
-          onPress={handleSave}
-        >
-          <Text className="text-white text-center font-semibold">Save Changes</Text>
+      {/* Header */}
+      <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-200">
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
+        <Text className="text-xl font-onest-semibold text-gray-800">Edit Itinerary</Text>
+        <TouchableOpacity
+          onPress={handleSaveChanges}
+          disabled={!hasChanges() || saving}
+          className={`px-4 py-2 rounded-lg ${hasChanges() && !saving ? 'bg-primary' : 'bg-gray-300'}`}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text className={`font-onest-medium ${hasChanges() ? 'text-white' : 'text-gray-500'}`}>
+              Save
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Trip Header */}
+        <View className="p-4 m-4 bg-white rounded-lg border border-gray-200">
+          <Text className="text-xl font-onest-semibold text-gray-800 mb-2">
+            {itinerary.title}
+          </Text>
+          <Text className="text-sm text-gray-600 font-onest">
+            Tap on time slots to view available times or remove experiences
+          </Text>
+        </View>
+
+        {/* Daily Itinerary */}
+        <View className="px-4">
+          {Object.entries(groupedItems)
+            .sort(([a], [b]) => parseInt(a) - parseInt(b))
+            .map(([day, items]) => (
+              <View key={day} className="mb-6 rounded-lg overflow-hidden border border-gray-200">
+                {/* Day Header */}
+                <View className="bg-white p-4 border-b border-gray-100">
+                  <Text className="text-lg font-onest-semibold text-gray-800">
+                    Day {day}
+                  </Text>
+                  <Text className="text-sm text-gray-500 font-onest">
+                    {getDateForDay(parseInt(day))}
+                  </Text>
+                </View>
+
+                {/* Day Items */}
+                {items
+                  .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                  .map((item, index) => (
+                    <View
+                      key={item.item_id}
+                      className={`bg-white p-4 ${index !== items.length - 1 ? 'border-b border-gray-100' : ''}`}
+                    >
+                      <View className="flex-row">
+                        {/* Time Column */}
+                        <TouchableOpacity
+                          className="w-20 items-center mr-4"
+                          onPress={() => handleEditTime(item)}
+                        >
+                          <View className="bg-indigo-50 rounded-md p-2 items-center">
+                            <Ionicons name="time-outline" size={14} color="#4F46E5" />
+                            <Text className="text-xs font-onest-medium text-primary mt-1">
+                              {formatTime(item.start_time)}
+                            </Text>
+                            <Text className="text-xs text-gray-500 font-onest">
+                              {formatTime(item.end_time)}
+                            </Text>
+                          </View>
+                          <Text className="text-xs text-primary font-onest mt-1">Change time</Text>
+                        </TouchableOpacity>
+
+                        {/* Content Column */}
+                        <View className="flex-1">
+                          {/* Experience Image */}
+                          {item.primary_image ? (
+                            <Image
+                              source={{ uri: getImageUri(item.primary_image) }}
+                              className="w-full h-32 rounded-md mb-3"
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View className="w-full h-32 bg-gray-200 items-center justify-center rounded-md mb-3">
+                              <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+                            </View>
+                          )}
+
+                          {/* Experience Details */}
+                          <View className="flex-row justify-between items-start mb-2">
+                            <View className="flex-1 mr-2">
+                              <Text className="text-lg font-onest-semibold text-gray-800 mb-1">
+                                {item.experience_name}
+                              </Text>
+                              <Text className="text-sm text-gray-600 font-onest mb-2">
+                                {item.experience_description}
+                              </Text>
+                            </View>
+
+                            {/* Remove Button */}
+                            <TouchableOpacity
+                              onPress={() => handleRemoveExperience(item.item_id)}
+                              className="bg-red-50 p-2 rounded-md"
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Location */}
+                          <View className="flex-row items-center mb-2">
+                            <Ionicons name="location-outline" size={16} color="#4F46E5" />
+                            <Text className="text-sm text-gray-600 font-onest ml-1">
+                              {item.destination_name}, {item.destination_city}
+                            </Text>
+                          </View>
+
+                          {/* Custom Note */}
+                          {item.custom_note && (
+                            <View className="bg-indigo-50 rounded-md p-2 mt-2">
+                              <Text className="text-xs font-onest-medium text-primary mb-1">Note</Text>
+                              <Text className="text-xs text-primary font-onest">
+                                {item.custom_note}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+              </View>
+            ))}
+        </View>
       </ScrollView>
 
+      {/* Time Slot Selection Modal */}
       <Modal
-        visible={slotModalVisible}
-        transparent
         animationType="slide"
-        onRequestClose={() => setSlotModalVisible(false)}
+        transparent={true}
+        visible={showTimeModal}
+        onRequestClose={() => setShowTimeModal(false)}
       >
-        <View className="flex-1 justify-end bg-black bg-opacity-30">
-          <View className="bg-white p-4 rounded-t-2xl max-h-[60%]">
-            <Text className="text-lg font-bold mb-4">Select a Time Slot</Text>
-            {availableSlots.length === 0 ? (
-              <Text className="text-gray-500">No available slots</Text>
-            ) : (
-              availableSlots.map((slot, index) => (
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl h-[32rem]">
+            <View className="p-4 border-b border-gray-200">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-lg font-onest-semibold">
+                  Select Time Slot
+                </Text>
                 <TouchableOpacity
-                  key={index}
-                  className="p-3 border rounded mb-2"
-                  onPress={() => updateSlot(slot)}
+                  onPress={() => setShowTimeModal(false)}
+                  className="p-1"
                 >
-                  <Text className="text-sm text-center">
-                    {formatTimeRange(slot.start_time, slot.end_time)}
-                  </Text>
+                  <Ionicons name="close" size={24} color="#374151" />
                 </TouchableOpacity>
-              ))
-            )}
+              </View>
+              {editingItem && (
+                <Text className="text-sm text-gray-600 mt-1 font-onest">
+                  {editingItem.experience_name}
+                </Text>
+              )}
+            </View>
+
+            <ScrollView className="flex-1">
+              {loadingTimeSlots ? (
+                <View className="p-4 items-center">
+                  <ActivityIndicator size="large" color="#4F46E5" />
+                  <Text className="text-gray-500 font-onest text-center mt-2">
+                    Loading available time slots...
+                  </Text>
+                </View>
+              ) : availableTimeSlots.length > 0 ? (
+                availableTimeSlots.map((slot) => (
+                  <TouchableOpacity
+                    key={slot.slot_id}
+                    className={`p-4 border-b border-gray-100 flex-row items-center justify-between ${!slot.is_available ? 'opacity-60 bg-red-50' : ''}`}
+                    onPress={() => handleTimeSlotSelect(slot)}
+                    activeOpacity={0.7}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons
+                        name="time-outline"
+                        size={20}
+                        color={slot.is_available ? "#4F46E5" : "#EF4444"}
+                      />
+                      <View className="ml-3 flex-1">
+                        <Text className="text-base font-onest-medium">
+                          {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                        </Text>
+                        {!slot.is_available && slot.conflicting_items && slot.conflicting_items.length > 0 && (
+                          <Text className="text-xs text-red-500 font-onest mt-1">
+                            Conflicts with: {slot.conflicting_items.map(item => item.experience_name).join(', ')}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <View className="flex-row items-center">
+                      {!slot.is_available && (
+                        <Ionicons name="warning-outline" size={16} color="#EF4444" className="mr-2" />
+                      )}
+                      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View className="p-4 items-center">
+                  <Ionicons name="time-outline" size={24} color="#D1D5DB" />
+                  <Text className="text-gray-500 font-onest text-center mt-2">
+                    No available time slots for this experience on this day
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
