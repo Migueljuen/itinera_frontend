@@ -331,7 +331,8 @@ export default function ItineraryDetailScreen() {
                     className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
                     activeOpacity={0.7}
                     onPress={() => {
-                        router.push(`/(itineraryFlow)/edit/${itinerary.itinerary_id}`);
+                     router.push(`/(traveler)/(itinerary)/edit/${itinerary.itinerary_id}`);
+
                     }}
                 >
                     <View className="flex-row items-center">
