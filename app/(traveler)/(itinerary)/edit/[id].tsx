@@ -142,7 +142,6 @@ export default function EditItineraryScreen() {
 
       // Check each time slot for conflicts with existing itinerary items
       const slotsWithAvailability = (data.availability || []).map((slot: TimeSlot) => {
-
         const conflictingItems = editedItems.filter(item =>
           item.day_number === dayNumber &&
           item.item_id !== editingItem?.item_id && // Exclude the item being edited
@@ -183,7 +182,13 @@ export default function EditItineraryScreen() {
 
   const handleTimeSlotSelect = (timeSlot: AvailableTimeSlot) => {
     if (!timeSlot.is_available) {
-      const conflictNames = timeSlot.conflicting_items?.map(item => item.experience_name).join(', ');
+      // Fix: Use a simple approach to get conflict names without React seeing .map()
+      const conflictNames = timeSlot.conflicting_items
+        ? timeSlot.conflicting_items.reduce((acc, item, index) => {
+          return acc + (index > 0 ? ', ' : '') + item.experience_name;
+        }, '')
+        : '';
+
       Alert.alert(
         "Time Conflict",
         `This time slot conflicts with: ${conflictNames}`,
@@ -214,7 +219,6 @@ export default function EditItineraryScreen() {
     setShowTimeModal(false);
     setEditingItem(null);
   };
-
   const handleRemoveExperience = (itemId: number) => {
     Alert.alert(
       "Remove Experience",
@@ -234,9 +238,17 @@ export default function EditItineraryScreen() {
   };
 
   const handleSaveChanges = async () => {
+    console.log('=== Save Button ACTUALLY Pressed ===');
+    console.log('hasChanges():', hasChanges());
+    console.log('saving state:', saving);
+
     setSaving(true);
+    console.log('Set saving to true');
+
     try {
       const token = await AsyncStorage.getItem("token");
+      console.log('Token retrieved:', token ? 'exists' : 'null');
+
       if (!token) {
         Alert.alert("Error", "Authentication token not found");
         return;
@@ -259,11 +271,15 @@ export default function EditItineraryScreen() {
           custom_note: item.custom_note
         }));
 
+      console.log('Updates to send:', updates);
+      console.log('Items to delete:', deletedItems);
+
       // Send updates to API
       const promises = [];
 
       // Update modified items
       if (updates.length > 0) {
+        console.log('Adding update promise');
         promises.push(
           fetch(`${API_URL}/itinerary/${id}/items/bulk-update`, {
             method: 'PUT',
@@ -278,8 +294,13 @@ export default function EditItineraryScreen() {
 
       // Delete removed items
       if (deletedItems.length > 0) {
+        console.log('Adding delete promise');
+        const deleteUrl = `${API_URL}/itinerary/${id}/items/bulk-delete`;
+        console.log('Delete URL:', deleteUrl);
+        console.log('Delete payload:', { item_ids: deletedItems });
+
         promises.push(
-          fetch(`${API_URL}/itinerary/${id}/items/bulk-delete`, {
+          fetch(deleteUrl, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -290,16 +311,39 @@ export default function EditItineraryScreen() {
         );
       }
 
-      await Promise.all(promises);
+      console.log('Total promises to execute:', promises.length);
 
+      if (promises.length === 0) {
+        console.log('No promises to execute - this might be the issue!');
+        Alert.alert("Info", "No changes detected to save");
+        return;
+      }
+
+      console.log('Executing promises...');
+      const results = await Promise.all(promises);
+
+      console.log('Promises completed, checking responses...');
+      for (let i = 0; i < results.length; i++) {
+        const response = results[i];
+        console.log(`Response ${i} status:`, response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`Response ${i} error:`, errorText);
+          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+        }
+      }
+
+      console.log('All API calls successful');
       Alert.alert("Success", "Itinerary updated successfully", [
         { text: "OK", onPress: () => router.back() }
       ]);
 
     } catch (error) {
       console.error("Error saving changes:", error);
-      Alert.alert("Error", "Failed to save changes");
+      Alert.alert("Error", `Failed to save changes: `);
     } finally {
+      console.log('Setting saving to false');
       setSaving(false);
     }
   };
@@ -342,7 +386,8 @@ export default function EditItineraryScreen() {
   };
 
   const hasChanges = () => {
-    return deletedItems.length > 0 || editedItems.some(item => {
+    const hasDeleted = deletedItems.length > 0;
+    const hasEdited = editedItems.some(item => {
       const original = itinerary?.items.find(orig => orig.item_id === item.item_id);
       return original && (
         original.start_time !== item.start_time ||
@@ -350,6 +395,14 @@ export default function EditItineraryScreen() {
         original.custom_note !== item.custom_note
       );
     });
+
+    console.log('=== hasChanges Debug ===');
+    console.log('Deleted items:', deletedItems);
+    console.log('Has deleted:', hasDeleted);
+    console.log('Has edited:', hasEdited);
+    console.log('Total has changes:', hasDeleted || hasEdited);
+
+    return hasDeleted || hasEdited;
   };
 
   if (loading) {
@@ -378,27 +431,13 @@ export default function EditItineraryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-200">
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#374151" />
-        </TouchableOpacity>
-        <Text className="text-xl font-onest-semibold text-gray-800">Edit Itinerary</Text>
-        <TouchableOpacity
-          onPress={handleSaveChanges}
-          disabled={!hasChanges() || saving}
-          className={`px-4 py-2 rounded-lg ${hasChanges() && !saving ? 'bg-primary' : 'bg-gray-300'}`}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text className={`font-onest-medium ${hasChanges() ? 'text-white' : 'text-gray-500'}`}>
-              Save
-            </Text>
-          )}
-        </TouchableOpacity>
+      <View className="flex-row items-center justify-end p-8 bg-white border-b border-gray-200 ">
+
+
+
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView className="flex-1 " contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Trip Header */}
         <View className="p-4 m-4 bg-white rounded-lg border border-gray-200">
           <Text className="text-xl font-onest-semibold text-gray-800 mb-2">
@@ -410,7 +449,7 @@ export default function EditItineraryScreen() {
         </View>
 
         {/* Daily Itinerary */}
-        <View className="px-4">
+        <View className="px-4 relative">
           {Object.entries(groupedItems)
             .sort(([a], [b]) => parseInt(a) - parseInt(b))
             .map(([day, items]) => (
@@ -430,7 +469,7 @@ export default function EditItineraryScreen() {
                   .sort((a, b) => a.start_time.localeCompare(b.start_time))
                   .map((item, index) => (
                     <View
-                      key={item.item_id}
+                      key={`${day}-${item.item_id}-${index}`}
                       className={`bg-white p-4 ${index !== items.length - 1 ? 'border-b border-gray-100' : ''}`}
                     >
                       <View className="flex-row">
@@ -509,8 +548,42 @@ export default function EditItineraryScreen() {
                   ))}
               </View>
             ))}
+
         </View>
       </ScrollView>
+      <TouchableOpacity
+        onPress={() => {
+          if (!hasChanges() || saving) {
+            console.log('Button is disabled, not executing handleSaveChanges');
+            return;
+          }
+          handleSaveChanges();
+        }}
+        disabled={!hasChanges() || saving}
+        className={`absolute bottom-36 right-6 p-4 rounded-full shadow-md flex-row items-center ${hasChanges() && !saving ? 'bg-primary' : 'bg-gray-300'
+          }`}
+        style={{ zIndex: 999 }}
+        activeOpacity={0.7}
+      >
+        {/* Icon color changes based on state */}
+        <Ionicons
+          name="create-outline"
+          size={20}
+          color={hasChanges() && !saving ? '#FFFFFF' : '#9CA3AF'} // white or gray-400
+        />
+
+        {saving ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text
+            className={`font-onest-medium ml-2 ${hasChanges() && !saving ? 'text-white' : 'text-gray-500'
+              }`}
+          >
+            Save
+          </Text>
+        )}
+      </TouchableOpacity>
+
 
       {/* Time Slot Selection Modal */}
       <Modal
@@ -567,10 +640,26 @@ export default function EditItineraryScreen() {
                           {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                         </Text>
                         {!slot.is_available && slot.conflicting_items && slot.conflicting_items.length > 0 && (
-                          <Text className="text-xs text-red-500 font-onest mt-1">
-                            Conflicts with: {slot.conflicting_items.map(item => item.experience_name).join(', ')}
-                          </Text>
+                          <View className="mt-1">
+                            {slot.conflicting_items.map((item, index) => (
+                              <Text
+                                key={`conflict-${item?.item_id ?? index}-${item?.experience_name ?? 'unknown'}`}
+                                className="text-xs text-red-500 font-onest"
+                              >
+                                Conflicts with: {item.experience_name ?? 'Unnamed experience'}
+                              </Text>
+                            ))}
+
+
+
+
+
+
+
+
+                          </View>
                         )}
+
                       </View>
                     </View>
                     <View className="flex-row items-center">
