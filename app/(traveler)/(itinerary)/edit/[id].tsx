@@ -614,6 +614,7 @@ export default function EditItineraryScreen() {
             </View>
 
             <ScrollView className="flex-1">
+
               {loadingTimeSlots ? (
                 <View className="p-4 items-center">
                   <ActivityIndicator size="large" color="#4F46E5" />
@@ -622,9 +623,9 @@ export default function EditItineraryScreen() {
                   </Text>
                 </View>
               ) : availableTimeSlots.length > 0 ? (
-                availableTimeSlots.map((slot) => (
+                availableTimeSlots.map((slot, slotIndex) => (
                   <TouchableOpacity
-                    key={slot.slot_id}
+                    key={`timeslot-${slot.slot_id}-${slotIndex}`}
                     className={`p-4 border-b border-gray-100 flex-row items-center justify-between ${!slot.is_available ? 'opacity-60 bg-red-50' : ''}`}
                     onPress={() => handleTimeSlotSelect(slot)}
                     activeOpacity={0.7}
@@ -641,25 +642,24 @@ export default function EditItineraryScreen() {
                         </Text>
                         {!slot.is_available && slot.conflicting_items && slot.conflicting_items.length > 0 && (
                           <View className="mt-1">
-                            {slot.conflicting_items.map((item, index) => (
-                              <Text
-                                key={`conflict-${item?.item_id ?? index}-${item?.experience_name ?? 'unknown'}`}
-                                className="text-xs text-red-500 font-onest"
-                              >
-                                Conflicts with: {item.experience_name ?? 'Unnamed experience'}
-                              </Text>
-                            ))}
-
-
-
-
-
-
-
-
+                            {slot.conflicting_items
+                              .filter((item, index, self) =>
+                                // Remove duplicates based on item_id or experience_name
+                                index === self.findIndex(t =>
+                                  (t?.item_id && t.item_id === item?.item_id) ||
+                                  (t?.experience_name === item?.experience_name)
+                                )
+                              )
+                              .map((item, conflictIndex) => (
+                                <Text
+                                  key={`conflict-slot-${slot.slot_id}-item-${conflictIndex}-${item?.item_id || `unnamed-${conflictIndex}`}`}
+                                  className="text-xs text-red-500 font-onest"
+                                >
+                                  Conflicts with: {item?.experience_name || 'Unnamed experience'}
+                                </Text>
+                              ))}
                           </View>
                         )}
-
                       </View>
                     </View>
                     <View className="flex-row items-center">
@@ -678,6 +678,8 @@ export default function EditItineraryScreen() {
                   </Text>
                 </View>
               )}
+
+
             </ScrollView>
           </View>
         </View>

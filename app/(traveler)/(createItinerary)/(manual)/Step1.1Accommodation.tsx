@@ -31,7 +31,7 @@ type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 
 type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
-
+type ActivityIntensity = 'Low' | 'Moderate' | 'High';
 // Itinerary interfaces
 interface ItineraryFormData {
     traveler_id: number;
@@ -42,12 +42,13 @@ interface ItineraryFormData {
     city: string;
     items: ItineraryItem[];
     accommodation?: Accommodation;
-    // Additional fields for preferences
+    // Additional fields for preferences - ADD activityIntensity
     preferences?: {
         experiences: Experience[];
         travelCompanion: TravelCompanion;
         exploreTime: ExploreTime;
         budget: Budget;
+        activityIntensity: ActivityIntensity; // ADD THIS LINE
     };
 }
 
@@ -67,12 +68,12 @@ interface StepProps {
     onSkip?: () => void;
 }
 
-const Step1_1Accommodation: React.FC<StepProps> = ({ 
-    formData, 
-    setFormData, 
-    onNext, 
-    onBack, 
-    onSkip 
+const Step1_1Accommodation: React.FC<StepProps> = ({
+    formData,
+    setFormData,
+    onNext,
+    onBack,
+    onSkip
 }) => {
     const [accommodation, setAccommodation] = useState<Accommodation>(
         formData.accommodation || {
@@ -142,11 +143,11 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
     // Handle map search location selection
     const handleLocationSelect = async (location: any) => {
         console.log('Location data received:', location);
-        
+
         // First set the coordinates
         const latitude = location.latitude || location.lat;
         const longitude = location.longitude || location.lng || location.lon;
-        
+
         setAccommodation(prev => ({
             ...prev,
             latitude: latitude,
@@ -163,24 +164,24 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
 
             if (data && data.display_name) {
                 const fullAddress = data.display_name;
-                
+
                 // Extract place name - try different approaches
                 let placeName = '';
-                
+
                 // Option 1: Use the name field if available
                 if (data.name) {
                     placeName = data.name;
                 }
                 // Option 2: Try to get business/place name from address components
                 else if (data.address) {
-                    placeName = data.address.tourism || 
-                              data.address.hotel || 
-                              data.address.accommodation ||
-                              data.address.building ||
-                              data.address.house_name ||
-                              data.address.amenity ||
-                              data.address.leisure ||
-                              '';
+                    placeName = data.address.tourism ||
+                        data.address.hotel ||
+                        data.address.accommodation ||
+                        data.address.building ||
+                        data.address.house_name ||
+                        data.address.amenity ||
+                        data.address.leisure ||
+                        '';
                 }
                 // Option 3: Extract first part of address if it looks like a place name
                 if (!placeName) {
@@ -192,7 +193,7 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                     }
                 }
 
-             
+
 
                 setAccommodation(prev => ({
                     ...prev,
@@ -377,10 +378,10 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             onChangeText={(text) => handleInputChange('name', text)}
                                             placeholderTextColor="#9CA3AF"
                                         />
-                                        <Ionicons 
-                                            name="business" 
-                                            size={20} 
-                                            color="#9CA3AF" 
+                                        <Ionicons
+                                            name="business"
+                                            size={20}
+                                            color="#9CA3AF"
                                             style={{ position: 'absolute', right: 16, top: 12 }}
                                         />
                                     </View>
@@ -391,7 +392,7 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                     <Text className="font-onest-medium text-base mb-3">
                                         Address
                                     </Text>
-                                    
+
                                     {/* Map Search Button */}
                                     <TouchableOpacity
                                         className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex-row items-center justify-center"
@@ -416,10 +417,10 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             textAlignVertical="top"
                                             placeholderTextColor="#9CA3AF"
                                         />
-                                        <Ionicons 
-                                            name="location" 
-                                            size={20} 
-                                            color="#9CA3AF" 
+                                        <Ionicons
+                                            name="location"
+                                            size={20}
+                                            color="#9CA3AF"
                                             style={{ position: 'absolute', right: 16, top: 12 }}
                                         />
                                     </View>
@@ -526,15 +527,15 @@ const Step1_1Accommodation: React.FC<StepProps> = ({
                                             autoCapitalize="none"
                                             placeholderTextColor="#9CA3AF"
                                         />
-                                        <Ionicons 
-                                            name="link" 
-                                            size={20} 
-                                            color="#9CA3AF" 
+                                        <Ionicons
+                                            name="link"
+                                            size={20}
+                                            color="#9CA3AF"
                                             style={{ position: 'absolute', right: 16, top: 12 }}
                                         />
                                     </View>
                                 </View>
-                                
+
                             </View>
                         </View>
                     </ScrollView>

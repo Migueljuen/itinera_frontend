@@ -5,10 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
+
+
 import Step2Preference from './(generate)/Step2Preference';
 import Step3GeneratedItinerary from './(generate)/Step3GeneratedItinerary';
-import Step1SelectLocation from './(manual)/Step1.1Accommodation'; // Reusing from manual
-
+import Step1_1Accommodation from './(manual)/Step1.1Accommodation';
+import Step1SelectLocation from './(manual)/Step1SelectLocation'; // Reusing from manual
 // Component prop interfaces to match your existing components
 interface Step1Props {
     formData: ItineraryFormData;
@@ -53,7 +55,17 @@ interface ItineraryItem {
     price?: number;
     unit?: string;
 }
-
+interface Accommodation {
+    name: string;
+    address: string;
+    latitude?: number;
+    longitude?: number;
+    check_in?: string;
+    check_out?: string;
+    booking_link?: string;
+    check_in_time?: string;
+    check_out_time?: string;
+}
 interface ItineraryFormData {
     traveler_id: number;
     start_date: string;
@@ -62,6 +74,7 @@ interface ItineraryFormData {
     notes?: string;
     city: string;
     items: ItineraryItem[];
+    accommodation?: Accommodation;
     preferences?: {
         experiences: Experience[];
         travelCompanion: TravelCompanion;
@@ -94,29 +107,29 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 const GenerateItineraryForm: React.FC = () => {
     // Get the logged-in user from AuthContext
     const { user, token, loading: authLoading } = useAuth();
-    
+    const [subStep, setSubStep] = useState<number>(0);
     // Step state management - only 3 steps for generate flow
     const [step, setStep] = useState<number>(1);
     const stepCount = 3;
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form data state with default values
-const [formData, setFormData] = useState<ItineraryFormData>({
-    traveler_id: 0,
-    start_date: '',
-    end_date: '',
-    title: 'Generated Itinerary',
-    notes: 'Auto-generated based on preferences',
-    city: '',
-    items: [] as ItineraryItem[],
-    preferences: {
-        experiences: [],
-        travelCompanion: '' as TravelCompanion, // or use a default like 'Any' if needed
-        exploreTime: '' as ExploreTime,
-        budget: '' as Budget,
-        activityIntensity: '' as ActivityIntensity
-    }
-});
+    const [formData, setFormData] = useState<ItineraryFormData>({
+        traveler_id: 0,
+        start_date: '',
+        end_date: '',
+        title: 'Generated Itinerary',
+        notes: 'Auto-generated based on preferences',
+        city: '',
+        items: [] as ItineraryItem[],
+        preferences: {
+            experiences: [],
+            travelCompanion: '' as TravelCompanion, // or use a default like 'Any' if needed
+            exploreTime: '' as ExploreTime,
+            budget: '' as Budget,
+            activityIntensity: '' as ActivityIntensity
+        }
+    });
 
     // Debug logging
     useEffect(() => {
@@ -145,6 +158,13 @@ const [formData, setFormData] = useState<ItineraryFormData>({
     // Step navigation handlers
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
+
+
+    // Skip accommodation step
+    const handleSkipAccommodation = () => {
+        setStep(2);
+        setSubStep(0);
+    };
 
     // Validate form data for generate flow
     const validateFormData = () => {
@@ -201,19 +221,19 @@ const [formData, setFormData] = useState<ItineraryFormData>({
     };
 
     const handleFinalStep = () => {
-    // Since Step3GeneratedItinerary handles its own saving,
-    // we just need to handle what happens after the itinerary is saved
-    console.log('Itinerary process completed');
-    
-    Alert.alert('Success', 'Your generated itinerary has been saved successfully!', [
-        {
-            text: 'OK',
-            onPress: () => {
-               router.replace("/"); 
+        // Since Step3GeneratedItinerary handles its own saving,
+        // we just need to handle what happens after the itinerary is saved
+        console.log('Itinerary process completed');
+
+        Alert.alert('Success', 'Your generated itinerary has been saved successfully!', [
+            {
+                text: 'OK',
+                onPress: () => {
+                    router.replace("/");
+                }
             }
-        }
-    ]);
-};
+        ]);
+    };
     // Show loading spinner while auth is loading
     if (authLoading) {
         return (
@@ -240,32 +260,36 @@ const [formData, setFormData] = useState<ItineraryFormData>({
 
     // Render current step component
     const renderStep = () => {
+        if (step === 1 && subStep === 0) {
+            return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
+        } else if (step === 1 && subStep === 1) {
+            return <Step1_1Accommodation
+                formData={formData}
+                setFormData={setFormData}
+                onNext={handleNext}
+                onBack={handleBack}
+                onSkip={handleSkipAccommodation}
+            />;
+        }
+
         switch (step) {
-            case 1:
-                return (
-                    <Step1SelectLocation 
-                        formData={formData} 
-                        setFormData={setFormData} 
-                        onNext={handleNext}
-                    />
-                );
             case 2:
                 return (
-                    <Step2Preference 
-                        formData={formData} 
-                        setFormData={setFormData} 
-                        onNext={handleNext} 
+                    <Step2Preference
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
                         onBack={handleBack}
                     />
                 );
             case 3:
                 return (
-                  <Step3GeneratedItinerary 
-            formData={formData} 
-            setFormData={setFormData} 
-            onNext={handleFinalStep}  
-            onBack={handleBack}
-        />
+                    <Step3GeneratedItinerary
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleFinalStep}
+                        onBack={handleBack}
+                    />
                 );
             default:
                 return null;
