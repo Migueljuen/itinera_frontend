@@ -180,7 +180,7 @@ const App = () => {
           </View>
 
           <View className="px-6 py-8">
-            <Text className="text-normal text-xl font-onest-medium">Featured Experiences</Text>
+            <Text className="text-normal text-xl font-onest-medium">Featured Activities</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {categories.map((category, index) => {
                 const isSelected = selectedCategory === category;

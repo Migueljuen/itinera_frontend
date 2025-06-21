@@ -457,7 +457,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                                     <View className="flex-row justify-between items-center">
                                                         <Text className="text-base font-onest">{city.label}</Text>
                                                         <Text className="text-xs text-gray-500 font-onest">
-                                                            {city.experienceCount} experience{city.experienceCount !== 1 ? 's' : ''}
+                                                            {city.experienceCount} {city.experienceCount === 1 ? 'Activity' : 'Activities'}
                                                         </Text>
                                                     </View>
                                                 </TouchableOpacity>

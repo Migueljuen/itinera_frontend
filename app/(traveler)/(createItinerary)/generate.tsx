@@ -134,23 +134,11 @@ const GenerateItineraryForm: React.FC = () => {
         }
     });
 
-    // Debug logging
-    useEffect(() => {
-        console.log('=== GenerateItineraryForm Debug ===');
-        console.log('Auth loading:', authLoading);
-        console.log('Current user object:', user);
-        console.log('User ID:', user?.user_id);
-        console.log('Token exists:', !!token);
-        console.log('Form traveler_id:', formData.traveler_id);
-        console.log('Current step:', step);
-        console.log('Form preferences:', formData.preferences);
-        console.log('====================================');
-    }, [user, token, authLoading, formData.traveler_id, step, formData.preferences]);
 
     // Update traveler_id when user is available
     useEffect(() => {
         if (user?.user_id && formData.traveler_id !== user.user_id) {
-            console.log('Setting traveler_id to:', user.user_id);
+            // console.log('Setting traveler_id to:', user.user_id);
             setFormData(prev => ({
                 ...prev,
                 traveler_id: user.user_id

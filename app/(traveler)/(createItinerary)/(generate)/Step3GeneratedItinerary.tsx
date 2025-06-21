@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     ScrollView,
     Text,
@@ -99,7 +100,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
             // Prepare the request payload based on your backend expectations
             const requestBody = {
                 traveler_id: formData.traveler_id,
-                city: formData.city, // ✅ Add missing city field
+                city: formData.city,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 experience_types: formData.preferences?.experiences || [],
@@ -107,20 +108,18 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                 explore_time: formData.preferences?.exploreTime || '',
                 budget: formData.preferences?.budget || '',
                 activity_intensity: formData.preferences?.activityIntensity || '',
-                travel_distance: formData.preferences?.travelDistance || '', // ✅ Add missing travel_distance field
+                travel_distance: formData.preferences?.travelDistance || '',
                 title: formData.title,
                 notes: formData.notes || 'Auto-generated itinerary'
             };
 
             console.log('Generating itinerary with data:', requestBody);
-            console.log('Travel distance preference:', formData.preferences?.travelDistance); // ✅ Add debug log
+            console.log('Travel distance preference:', formData.preferences?.travelDistance);
 
-            // Replace with your actual API endpoint
             const response = await fetch(`${API_URL}/itinerary/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add any authentication headers if needed
                 },
                 body: JSON.stringify(requestBody)
             });
@@ -134,7 +133,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
 
             if (data.itineraries && data.itineraries.length > 0) {
                 setGeneratedItinerary(data.itineraries[0]);
-                // Update formData with the generated itinerary
                 setFormData({
                     ...formData,
                     items: data.itineraries[0].items
@@ -151,8 +149,53 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         }
     };
 
+    // NEW: Remove item functionality
+    const removeItem = (itemToRemove: ItineraryItem) => {
+        Alert.alert(
+            'Remove Experience',
+            `Are you sure you want to remove "${itemToRemove.experience_name}" from your itinerary?`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: () => {
+                        if (generatedItinerary) {
+                            // Filter out the item to remove
+                            const updatedItems = generatedItinerary.items.filter(
+                                item => !(
+                                    item.experience_id === itemToRemove.experience_id &&
+                                    item.day_number === itemToRemove.day_number &&
+                                    item.start_time === itemToRemove.start_time
+                                )
+                            );
+
+                            // Update the generated itinerary
+                            const updatedItinerary = {
+                                ...generatedItinerary,
+                                items: updatedItems
+                            };
+
+                            setGeneratedItinerary(updatedItinerary);
+
+                            // Update formData as well
+                            setFormData({
+                                ...formData,
+                                items: updatedItems
+                            });
+
+                            console.log(`✅ Removed: ${itemToRemove.experience_name} from Day ${itemToRemove.day_number}`);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const saveItinerary = async () => {
-        // Add debugging logs
         console.log('saveItinerary called');
         console.log('Current state - saving:', saving, 'generatedItinerary:', !!generatedItinerary);
 
@@ -192,7 +235,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                 throw new Error(data.message || 'Failed to save itinerary');
             }
 
-            // Update the generated itinerary with the real ID
             setGeneratedItinerary({
                 ...generatedItinerary,
                 itinerary_id: data.itinerary_id,
@@ -202,7 +244,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
             setIsPreview(false);
             console.log('Save completed successfully');
 
-            // Proceed to next step
             setTimeout(() => {
                 console.log('Calling onNext()');
                 onNext();
@@ -317,7 +358,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                     <View className="flex-row items-center justify-center">
                         <Ionicons name="eye-outline" size={16} color="#3B82F6" />
                         <Text className="ml-2 text-sm text-blue-700 font-onest-medium">
-                            Preview Mode
+                            Preview Mode - You can remove activities you don't want
                         </Text>
                     </View>
                 </View>
@@ -325,10 +366,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
             <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
                 {/* Header */}
                 <View className="mb-6">
-                    {/* <Text className="text-center text-gray-600 font-onest mb-4">
-                            {generatedItinerary.title}
-                        </Text> */}
-
                     {/* Stats */}
                     <View className="bg-gray-50 rounded-xl p-4 mb-4">
                         <View className="flex-row justify-between items-center">
@@ -345,7 +382,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                     {generatedItinerary.items.length}
                                 </Text>
                                 <Text className="text-xs text-gray-600 font-onest">
-                                    Experiences
+                                    Activities
                                 </Text>
                             </View>
                             <View className="items-center">
@@ -375,7 +412,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                         {dayNumber}
                                     </Text>
                                 </View>
-                                <View>
+                                <View className="flex-1">
                                     <Text className="font-onest-semibold text-lg">
                                         Day {dayNumber}
                                     </Text>
@@ -383,6 +420,9 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                         {formatDate(dayDate.toISOString())}
                                     </Text>
                                 </View>
+                                <Text className="text-gray-500 font-onest text-xs">
+                                    {dayItems.length} {dayItems.length !== 1 ? 'activities' : 'activity'}
+                                </Text>
                             </View>
 
                             {/* Day Items */}
@@ -434,10 +474,36 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                                     </Text>
                                                 </View>
                                             )}
+
+                                            {/* NEW: Remove button - only show in preview mode */}
+                                            {isPreview && (
+                                                <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
+                                                    <TouchableOpacity
+                                                        onPress={() => removeItem(item)}
+                                                        className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                                                        <Text className="ml-2 text-red-600 font-onest text-sm">
+                                                            Remove
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                     </View>
                                 </View>
                             ))}
+
+                            {/* Show message if day has no experiences */}
+                            {dayItems.length === 0 && (
+                                <View className="bg-gray-50 rounded-xl p-6 items-center">
+                                    <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
+                                    <Text className="text-gray-500 font-onest text-sm mt-2">
+                                        No experiences scheduled for this day
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     );
                 })}

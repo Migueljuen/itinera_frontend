@@ -37,7 +37,7 @@ export default function ExperienceDetail() {
     const [expanded, setExpanded] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [activeTab, setActiveTab] = useState('details');
-    
+
     const getCurrentDateString = () => new Date().toISOString().split('T')[0];
     const getNextWeekDateString = () => {
         const nextWeek = new Date();
@@ -87,9 +87,9 @@ export default function ExperienceDetail() {
 
         const { latitude, longitude, name } = experience.destination;
         const label = encodeURIComponent(`${experience.title} - ${name}`);
-        
+
         let url = '';
-        
+
         if (Platform.OS === 'ios') {
             // Try Apple Maps first
             url = `maps:0,0?q=${label}@${latitude},${longitude}`;
@@ -119,11 +119,11 @@ export default function ExperienceDetail() {
     };
 
     const handleTimeSlotDeselect = (item: ItineraryItem) => {
-        setSelectedItems(prev => prev.filter(selected => 
+        setSelectedItems(prev => prev.filter(selected =>
             !(selected.experience_id === item.experience_id &&
-              selected.day_number === item.day_number &&
-              selected.start_time === item.start_time &&
-              selected.end_time === item.end_time)
+                selected.day_number === item.day_number &&
+                selected.start_time === item.start_time &&
+                selected.end_time === item.end_time)
         ));
     };
 
@@ -178,7 +178,7 @@ export default function ExperienceDetail() {
                 </View>
 
                 <Text className="text-lg font-bold text-blue-500 my-2">
-                    {experience.price ? `$${experience.price}` : 'Price not available'}
+                    {experience.price ? `₱${experience.price}` : 'Price not available'}
                 </Text>
 
                 {/* Your existing tab navigation... */}
@@ -211,7 +211,7 @@ export default function ExperienceDetail() {
                                 </Text>
                             ))}
                         </View>
-                        
+
                         <Text className="text-lg font-semibold mt-4 mb-2">Description</Text>
                         <Text className="text-gray-600">
                             {expanded
@@ -232,15 +232,14 @@ export default function ExperienceDetail() {
 
                         {/* UPDATED Location Button  */}
                         <TouchableOpacity
-                            className={`mt-6 py-3 rounded-lg items-center ${
-                                experience.destination ? 'bg-blue-500' : 'bg-gray-400'
-                            }`}
+                            className={`mt-6 py-3 rounded-lg items-center ${experience.destination ? 'bg-blue-500' : 'bg-gray-400'
+                                }`}
                             onPress={handleOpenMap}
                             disabled={!experience.destination}
                         >
                             <Text className="text-white font-semibold">
-                                {experience.destination 
-                                    ? 'Open Location on Map' 
+                                {experience.destination
+                                    ? 'Open Location on Map'
                                     : 'Location Not Available'
                                 }
                             </Text>
@@ -248,7 +247,7 @@ export default function ExperienceDetail() {
                     </View>
                 ) : (
                     <View className="py-4">
-                        <AvailabilityCalendar 
+                        <AvailabilityCalendar
                             experienceId={experienceId}
                             tripStartDate={tripStartDate}
                             tripEndDate={tripEndDate}
