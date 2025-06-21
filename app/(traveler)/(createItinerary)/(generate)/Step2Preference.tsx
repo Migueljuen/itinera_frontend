@@ -17,6 +17,7 @@ type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
 type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
 
 // Itinerary interfaces
 export interface ItineraryFormData {
@@ -34,6 +35,7 @@ export interface ItineraryFormData {
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity: ActivityIntensity;
+        travelDistance: TravelDistance;
     };
 }
 
@@ -53,7 +55,7 @@ interface StepProps {
 }
 
 const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
-   
+
     const [selectedExperiences, setSelectedExperiences] = useState<Experience[]>(
         formData.preferences?.experiences || []
     );
@@ -69,15 +71,18 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
     const [selectedActivityIntensity, setSelectedActivityIntensity] = useState<ActivityIntensity | null>(
         formData.preferences?.activityIntensity || null
     );
+    const [selectedTravelDistance, setSelectedTravelDistance] = useState<TravelDistance | null>(
+        formData.preferences?.travelDistance || null
+    );
 
     // check user input in console
     useEffect(() => {
-           console.log('=== User selections from STEP 1 ===');
+        console.log('=== User selections from STEP 1 ===');
         console.log('Selected city:', formData.city);
         console.log('Start date:', formData.start_date);
         console.log('End date:', formData.end_date);
 
-          console.log('==========================================');
+        console.log('==========================================');
     }, []);
 
     // Available options
@@ -86,6 +91,11 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
     const exploreTimeOptions: ExploreTime[] = ['Daytime', 'Nighttime', 'Both'];
     const budgetOptions: Budget[] = ['Free', 'Budget-friendly', 'Mid-range', 'Premium'];
     const activityIntensityOptions: ActivityIntensity[] = ['Low', 'Moderate', 'High'];
+    const travelDistanceOptions: { value: TravelDistance; label: string; description: string }[] = [
+        { value: 'Nearby', label: 'Nearby only', description: 'Within 10 km' },
+        { value: 'Moderate', label: 'A moderate distance is fine', description: 'Within 20 km' },
+        { value: 'Far', label: 'Willing to travel far', description: '20 km or more' }
+    ];
 
     // Toggle experience selection (multiple selection)
     const toggleExperience = (experience: Experience) => {
@@ -103,7 +113,8 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
             selectedCompanion !== null &&
             selectedExploreTime !== null &&
             selectedBudget !== null &&
-            selectedActivityIntensity !== null
+            selectedActivityIntensity !== null &&
+            selectedTravelDistance !== null
         );
     };
 
@@ -118,7 +129,8 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                     travelCompanion: selectedCompanion!,
                     exploreTime: selectedExploreTime!,
                     budget: selectedBudget!,
-                    activityIntensity: selectedActivityIntensity!
+                    activityIntensity: selectedActivityIntensity!,
+                    travelDistance: selectedTravelDistance!
                 }
             });
             onNext();
@@ -155,6 +167,47 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                     >
                         {option}
                     </Text>
+                </View>
+                {isSelected && (
+                    <Ionicons name="checkmark-circle" size={20} color="#4F46E5" />
+                )}
+            </TouchableOpacity>
+        );
+    };
+
+    // Render travel distance option with description
+    const renderTravelDistanceOption = (
+        option: { value: TravelDistance; label: string; description: string },
+        isSelected: boolean,
+        onPress: () => void
+    ) => {
+        return (
+            <TouchableOpacity
+                key={option.value}
+                className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? 'border-primary bg-indigo-50' : 'border-gray-300'
+                    }`}
+                onPress={onPress}
+                activeOpacity={0.7}
+            >
+                <View className="flex-row items-center flex-1">
+                    <Ionicons
+                        name={option.value === 'Nearby' ? 'location' :
+                            option.value === 'Moderate' ? 'car' : 'airplane'}
+                        size={20}
+                        color={isSelected ? "#4F46E5" : "#6B7280"}
+                        className="mr-3"
+                    />
+                    <View className="flex-1">
+                        <Text
+                            className={`text-base ${isSelected ? 'font-onest-medium text-primary' : 'font-onest text-gray-700'
+                                }`}
+                        >
+                            {option.label}
+                        </Text>
+                        <Text className="text-xs text-gray-500 font-onest mt-1">
+                            {option.description}
+                        </Text>
+                    </View>
                 </View>
                 {isSelected && (
                     <Ionicons name="checkmark-circle" size={20} color="#4F46E5" />
@@ -293,6 +346,20 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                                                 {selectedActivityIntensity === 'High' && '6-8 experiences per day - Action-packed adventure!'}
                                             </Text>
                                         </View>
+                                    )}
+                                </View>
+
+                                {/* Travel Distance */}
+                                <View className="mb-6">
+                                    <Text className="font-onest-medium text-base mb-3">
+                                        How far are you willing to travel outside your selected city?
+                                    </Text>
+                                    {travelDistanceOptions.map((option) =>
+                                        renderTravelDistanceOption(
+                                            option,
+                                            selectedTravelDistance === option.value,
+                                            () => setSelectedTravelDistance(option.value)
+                                        )
                                     )}
                                 </View>
                             </View>

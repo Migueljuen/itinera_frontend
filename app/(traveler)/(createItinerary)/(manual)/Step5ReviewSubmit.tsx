@@ -41,7 +41,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
     // Debug log to check scheduled experiences
     useEffect(() => {
         console.log('=== Scheduled Experiences ===');
-        
+
         // Log all scheduled items
         if (formData.items && formData.items.length > 0) {
             formData.items.forEach((item, index) => {
@@ -53,18 +53,18 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                 console.log(`  - Custom Note: ${item.custom_note || 'None'}`);
                 console.log('---');
             });
-            
+
             // Summary
             const scheduledItems = formData.items.filter(item => item.day_number > 0 && item.start_time && item.end_time);
             const unscheduledItems = formData.items.filter(item => item.day_number === 0 || !item.start_time || !item.end_time);
-            
+
             console.log(`Total experiences: ${formData.items.length}`);
             console.log(`Scheduled: ${scheduledItems.length}`);
             console.log(`Unscheduled: ${unscheduledItems.length}`);
         } else {
             console.log('No experiences found in formData.items');
         }
-        
+
         console.log('=========================');
         console.log('Complete form data:', formData);
     }, [formData.items]);
@@ -102,7 +102,7 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
     // Group experiences by day number
     const getItemsByDay = () => {
         const itemsByDay: { [key: number]: ItineraryItem[] } = {};
-        
+
         formData.items.forEach(item => {
             if (!itemsByDay[item.day_number]) {
                 itemsByDay[item.day_number] = [];
@@ -192,17 +192,17 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                                                     Day {dayNumber} - {dayName}
                                                 </Text>
                                                 <Text className="text-sm text-gray-600 font-onest">
-                                                    {dayDate.toLocaleDateString('en-US', { 
-                                                        month: 'short', 
+                                                    {dayDate.toLocaleDateString('en-US', {
+                                                        month: 'short',
                                                         day: 'numeric',
-                                                        year: 'numeric' 
+                                                        year: 'numeric'
                                                     })}
                                                 </Text>
                                             </View>
 
                                             {/* Render experiences for this day */}
                                             {items.map((item, index) => (
-                                                <View 
+                                                <View
                                                     key={`${item.experience_id}-${index}`}
                                                     className="flex-row items-center p-3 border-l-4 border-primary bg-blue-50 rounded-r-lg mb-2 last:mb-0"
                                                 >
@@ -210,8 +210,8 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
                                                         <Ionicons name="location" size={20} color="#4F46E5" />
                                                     </View>
                                                     <View className="flex-1">
-                                                        <Text className="font-onest-semibold text-gray-800">
-                                                            Experience {item.experience_id}
+                                                        <Text className="font-onest-semibold text-gray-800 ">
+                                                            Experience  {item.experience_id}
                                                         </Text>
                                                         <View className="flex-row items-center mt-1">
                                                             <Ionicons name="time-outline" size={16} color="#6B7280" />
@@ -290,8 +290,8 @@ const Step5ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSu
 
                     {/* Submit button with loading state */}
                     <Pressable
-                        onPress={() => { 
-                            onSubmit(); 
+                        onPress={() => {
+                            onSubmit();
                             router.replace("/"); // Navigate to home after submit
                         }}
                         disabled={isSubmitting}

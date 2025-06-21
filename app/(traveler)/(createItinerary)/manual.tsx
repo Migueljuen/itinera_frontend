@@ -74,7 +74,7 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 const ItineraryCreationForm: React.FC = () => {
     // Get the logged-in user from AuthContext
     const { user, token, loading: authLoading } = useAuth();
-    
+
     // Step state management - updated to handle step 1.1
     const [step, setStep] = useState<number>(1);
     const [subStep, setSubStep] = useState<number>(0); // 0 for main step, 1 for sub-step
@@ -290,10 +290,10 @@ const ItineraryCreationForm: React.FC = () => {
         if (step === 1 && subStep === 0) {
             return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
         } else if (step === 1 && subStep === 1) {
-            return <Step1_1Accommodation 
-                formData={formData} 
-                setFormData={setFormData} 
-                onNext={handleNext} 
+            return <Step1_1Accommodation
+                formData={formData}
+                setFormData={setFormData}
+                onNext={handleNext}
                 onBack={handleBack}
                 onSkip={handleSkipAccommodation}
             />;

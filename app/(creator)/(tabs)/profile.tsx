@@ -1,333 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator
-} from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-
+import React, { useEffect, useState } from 'react';
+import {
+  Image,
+  SafeAreaView,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from 'react-native';
+import Logout from '../../../assets/icons/logout.svg';
+import Pencil from '../../../assets/icons/pencil.svg';
+import Plus from '../../../assets/icons/plus.svg';
 import API_URL from '../../../constants/api';
-interface Experience {
-  id: string;
-  title: string;
-  location: string;
-  price: number;
-  unit: string;
-  status: 'Active' | 'Draft' | 'Inactive';
-  bookings: number;
-  rating: number;
-  images: string[];
-}
-
-interface Stats {
-  totalBookings: number;
-  avgRating: number;
-  activeExperiences: number;
-}
-
-const CreatorDashboard: React.FC = () => {
+import { useAuth } from '../../../contexts/AuthContext';
+import SafeViewAndroid from '../../globalStyle';
+const ProfileScreen = () => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [firstName, setFirstName] = useState<string>('Sarah');
-  const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState<string>('');
-  const [selectedTab, setSelectedTab] = useState<string>('Active');
-  const [myExperiences, setMyExperiences] = useState<Experience[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalBookings: 85,
-    avgRating: 4.8,
-    activeExperiences: 12
-  });
+  const { height } = useWindowDimensions();
+  const bottom = useBottomTabBarHeight();
+  const { user, logout } = useAuth();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [profilePic, setProfilePic] = useState("");
 
-  // Dummy data for demonstration
-  const dummyExperiences: Experience[] = [
-    {
-      id: '1',
-      title: 'Sunrise Hike & Breakfast',
-      location: 'Mount Rainier, WA',
-      price: 79,
-      unit: 'per person',
-      status: 'Active',
-      bookings: 34,
-      rating: 4.9,
-      images: ['experiences/hike1.jpg']
-    },
-    {
-      id: '2',
-      title: 'Wine Tasting Tour',
-      location: 'Napa Valley, CA',
-      price: 149,
-      unit: 'per person',
-      status: 'Active',
-      bookings: 28,
-      rating: 4.7,
-      images: ['experiences/wine.jpg']
-    },
-    {
-      id: '3',
-      title: 'City Architecture Walk',
-      location: 'Chicago, IL',
-      price: 65,
-      unit: 'per person',
-      status: 'Draft',
-      bookings: 0,
-      rating: 0,
-      images: ['experiences/arch.jpg']
-    },
-    {
-      id: '4',
-      title: 'Kayaking Adventure',
-      location: 'Seattle, WA',
-      price: 95,
-      unit: 'per person',
-      status: 'Inactive',
-      bookings: 23,
-      rating: 4.6,
-      images: ['experiences/kayak.jpg']
+  const navigation = useNavigation<any>();
+
+  const handleLogout = async () => {
+    const result = await logout();
+    if (result.success) {
+      router.replace("/(shared)/login");
+
     }
-  ];
+  };
+  const fetchUserData = async () => {
+    try {
+      const user = await AsyncStorage.getItem('user');
+
+
+      if (user) {
+        const parsedUser = JSON.parse(user);
+
+        setFirstName(parsedUser.first_name);
+        setLastName(parsedUser.last_name);
+        setProfilePic(parsedUser.profile_pic);
+      } else {
+        console.log('No user found in AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   useEffect(() => {
-    // Simulating API fetch
-    setLoading(true);
-    setTimeout(() => {
-      setMyExperiences(dummyExperiences);
-      setLoading(false);
-    }, 800);
+    fetchUserData();
   }, []);
+  // Static user data
+  const userData = {
+    location: "Banago, USA",
+    metrics: {
+      tripsCompleted: 8,
+      itinerariesCreated: 12,
+      savedExperiences: 24
+    },
+    interests: ["Hiking", "Beaches", "Food Tours", "Museums", "Photography"]
+  };
 
-  const filteredExperiences: Experience[] = myExperiences.filter(exp => {
-    // Filter by search text
-    const matchesSearch = exp.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      exp.location.toLowerCase().includes(searchText.toLowerCase());
-
-    // Filter by selected tab (status)
-    const matchesTab = selectedTab === 'All' || exp.status === selectedTab;
-
-    return matchesSearch && matchesTab;
+  // Notification settings with toggle state
+  const [notificationSettings, setNotificationSettings] = useState({
+    tripReminders: true,
+    specialOffers: false,
+    nearbyExperiences: true
   });
 
-  const tabs: string[] = ['All', 'Active', 'Draft', 'Inactive'];
+  const toggleSwitch = (setting: keyof typeof notificationSettings) => {
+    setNotificationSettings(prevState => ({
+      ...prevState,
+      [setting]: !prevState[setting]
+    }));
+  };
 
   return (
-    <SafeAreaView className='bg-gray-50'>
-      <View className='w-full h-screen'>
-        <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
-          <View className='flex items-center justify-between flex-row p-6'>
-            <View className="">
-              <Text className="text-normal text-3xl font-onest-semibold">Creator Dashboard</Text>
-              <Text className="text-gray-400 font-onest">Manage your experiences</Text>
-            </View>
-            {profilePic ? (
+    <SafeAreaView className="flex-1 bg-gray-50" style={SafeViewAndroid.AndroidSafeArea}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        {/* Header */}
+        <View className="flex-row  justify-between p-6">
+          <View >
+            <Text className="text-3xl font-onest-semibold text-gray-800">My Profile</Text>
+            <Text className="text-gray-400 font-onest">Manage your travel preferences</Text>
+          </View>
+
+          <View>
+            <TouchableOpacity onPress={handleLogout}>
+              <Logout></Logout>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+
+        {/* Profile Summary */}
+        <View className="bg-white mx-4 rounded-xl p-5 shadow-sm">
+          <View className="items-center mb-4">
+            {/* Avatar with edit button overlay */}
+            <View className="relative">
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
-                style={{ width: 50, height: 50, borderRadius: 25 }}
-
+                className="w-24 h-24 rounded-full"
               />
-            ) : (
-              <Image
-                source={require('../../../assets/images/person.png')}
-                style={{ width: 50, height: 50, borderRadius: 25 }}
+              <TouchableOpacity
+                className="absolute bottom-0 right-0 bg-gray-100 rounded-full p-2"
+                onPress={() => console.log('Edit avatar')}
+              >
+                <Pencil
+
+
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Name and Location */}
+            <Text className="text-xl font-onest-semibold mt-3">{firstName} {lastName}</Text>
+            <View className="flex-row items-center mt-1">
+
+              <Text className="text-sm text-gray-600 font-onest">{userData.location}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Activity Metrics */}
+        <View className="mt-6">
+          <Text className="px-6 text-lg font-onest-semibold text-gray-800 mb-3">Activity Metrics</Text>
+          <View className="flex-row justify-between mx-4">
+            {/* Trips Completed */}
+            <View className="bg-white rounded-xl p-4 flex-1 mx-1">
+              <Text className="text-2xl font-onest-semibold text-center text-primary">{userData.metrics.tripsCompleted}</Text>
+              <Text className="text-xs text-gray-500 font-onest text-center mt-1">User ratings</Text>
+            </View>
+
+            {/* Itineraries Created */}
+            <View className="bg-white rounded-xl p-4  flex-1 mx-1">
+              <Text className="text-2xl font-onest-semibold text-center text-primary">{userData.metrics.itinerariesCreated}</Text>
+              <Text className="text-xs text-gray-500 font-onest text-center mt-1">Experiences Created</Text>
+            </View>
+
+            {/* Saved Experiences */}
+            <View className="bg-white rounded-xl p-4  flex-1 mx-1">
+              <Text className="text-2xl font-onest-semibold text-center text-primary">{userData.metrics.savedExperiences}</Text>
+              <Text className="text-xs text-gray-500 font-onest text-center mt-1">Experiences booked</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Travel Interests */}
+        <View className="mt-6 hidden">
+          <Text className="px-6 text-lg font-onest-semibold text-gray-800 mb-3">Travel Interests</Text>
+          <View className="bg-white mx-4 rounded-xl p-5 ">
+            <View className="flex-row flex-wrap">
+              {userData.interests.map((interest, index) => (
+                <View
+                  key={index}
+                  className="bg-gray-100 rounded-full px-3 py-1 m-1"
+                >
+                  <Text className="text-sm text-gray-700 font-onest-medium">{interest}</Text>
+                </View>
+              ))}
+              <TouchableOpacity
+                className="bg-gray-200 rounded-full px-3 py-1 m-1 flex-row items-center"
+                onPress={() => console.log('Add interest')}
+              >
+
+                <Plus />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Notification Settings */}
+        <View className="mt-6">
+          <Text className="px-6 text-lg font-onest-semibold text-gray-800 mb-3">Notification Settings</Text>
+          <View className="bg-white mx-4 rounded-xl shadow-sm">
+            {/* Trip Reminders Toggle */}
+            <View className="p-4 flex-row justify-between items-center border-b border-gray-100">
+              <View>
+                <Text className="font-onest-medium">Booking Reminders</Text>
+                <Text className="text-xs text-gray-500 font-onest mt-1">Get notified about booked experiences</Text>
+              </View>
+              <Switch
+                trackColor={{ false: "#e5e7eb", true: "#1f2937" }}
+                thumbColor={"#ffffff"}
+                ios_backgroundColor="#e5e7eb"
+                onValueChange={() => toggleSwitch('tripReminders')}
+                value={notificationSettings.tripReminders}
               />
-            )}
-          </View>
+            </View>
 
-          {/* Stats Overview */}
-          <View className="flex-row justify-between px-6 mb-6">
-            <View className="bg-white p-4 rounded-xl w-1/3 mr-2 shadow-sm border border-gray-100">
-              <View className="bg-blue-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/images/logo1.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
+
+
+            {/* Nearby Experiences Toggle */}
+            <View className="p-4 flex-row justify-between items-center">
+              <View>
+                <Text className="font-onest-medium">Rating notification </Text>
+                <Text className="text-xs text-gray-500 font-onest mt-1">Get alerts about user ratings</Text>
               </View>
-              <Text className="text-2xl font-onest-semibold">{stats.totalBookings}</Text>
-              <Text className="text-xs text-gray-500">Total Bookings</Text>
-            </View>
-            <View className="bg-white p-4 rounded-xl w-1/3 mx-1 shadow-sm border border-gray-100">
-              <View className="bg-amber-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/icons/heart.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-              </View>
-              <Text className="text-2xl font-onest-semibold">{stats.avgRating}</Text>
-              <Text className="text-xs text-gray-500">Avg. Rating</Text>
-            </View>
-            <View className="bg-white p-4 rounded-xl w-1/3 ml-2 shadow-sm border border-gray-100">
-              <View className="bg-green-50 w-10 h-10 rounded-full items-center justify-center mb-2">
-                <Image
-                  source={require('../../../assets/icons/heart.svg')}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-              </View>
-              <Text className="text-2xl font-onest-semibold">{stats.activeExperiences}</Text>
-              <Text className="text-xs text-gray-500">Active Experiences</Text>
+              <Switch
+                trackColor={{ false: "#e5e7eb", true: "#1f2937" }}
+                thumbColor={"#ffffff"}
+                ios_backgroundColor="#e5e7eb"
+                onValueChange={() => toggleSwitch('nearbyExperiences')}
+                value={notificationSettings.nearbyExperiences}
+              />
             </View>
           </View>
+        </View>
 
-          <View className='flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4'>
-            <Image
-              source={require('../../../assets/images/search.png')}
-              className='w-5 h-5 mr-3 opacity-60'
-              resizeMode='contain'
-            />
-            <TextInput
-              className='flex-1 text-base text-gray-800'
-              placeholder="Search your experiences"
-              placeholderTextColor="#9CA3AF"
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-            <Image
-              source={require('../../../assets/icons/heart.svg')}
-              className='w-5 h-5 mr-3 opacity-60'
-              resizeMode='contain'
-            />
-          </View>
-
-          <View className="px-6 py-8">
-            <Text className="text-normal text-xl font-onest-medium">My Experiences</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {tabs.map((tab, index) => {
-                const isSelected = selectedTab === tab;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setSelectedTab(tab)}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
-                  >
-                    <Text className={`text-base font-onest-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                      {tab}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View className="mt-8 min-h-fit">
-              {loading ? (
-                <ActivityIndicator size="large" color="#0000ff" />
-              ) : filteredExperiences.length === 0 ? (
-                <Text className="text-center text-gray-500 py-10">No experiences found</Text>
-              ) : (
-                filteredExperiences.map((item) => (
-                  <View
-                    key={item.id}
-                    className="w-full bg-white rounded-xl overflow-hidden mb-6 border border-gray-200"
-                  >
-                    <View className="relative">
-                      {item.images && item.images.length > 0 ? (
-                        <Image
-                          source={{ uri: `${API_URL}/${item.images[0]}` }}
-                          style={{ width: '100%', height: 160 }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={{ width: '100%', height: 160, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
-                          <Text>No Image</Text>
-                        </View>
-                      )}
-                      <View className={`absolute top-3 right-3 px-3 py-1 rounded-full ${item.status === 'Active' ? 'bg-green-100' :
-                        item.status === 'Draft' ? 'bg-amber-100' : 'bg-gray-100'
-                        }`}>
-                        <Text className={`text-xs font-medium ${item.status === 'Active' ? 'text-green-800' :
-                          item.status === 'Draft' ? 'text-amber-800' : 'text-gray-800'
-                          }`}>
-                          {item.status}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="p-3">
-                      <Text className="text-base font-semibold">{item.title}</Text>
-                      <View className="flex-row items-center justify-between mt-1">
-                        <Text className="text-sm text-gray-600">{item.location}</Text>
-                      </View>
-                      <View className="flex-row justify-between mt-2">
-                        <Text className="text-base font-bold text-blue-500">
-                          ${item.price}
-                        </Text>
-                        <Text className="text-xs text-gray-500">{item.unit}</Text>
-                      </View>
-
-                      {/* Stats and actions */}
-                      <View className="flex-row items-center mt-3 pt-3 border-t border-gray-100 justify-between">
-                        <View className="flex-row">
-                          <View className="flex-row items-center mr-4">
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-3.5 h-3.5"
-                              resizeMode="contain"
-                            />
-                            <Text className="text-xs text-gray-500 ml-1">{item.bookings} bookings</Text>
-                          </View>
-                          {item.rating > 0 && (
-                            <View className="flex-row items-center">
-                              <Image
-                                source={require('../../../assets/icons/heart.svg')}
-                                className="w-3.5 h-3.5"
-                                resizeMode="contain"
-                              />
-                              <Text className="text-xs text-gray-500 ml-1">{item.rating}</Text>
-                            </View>
-                          )}
-                        </View>
-
-                        <View className="flex-row">
-                          <TouchableOpacity
-                            className="p-2 mr-2"
-                            onPress={() => router.push(`/(creator)/edit/${item.id}`)}
-                          >
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-4.5 h-4.5"
-                              resizeMode="contain"
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            className="p-2"
-                            onPress={() => console.log('Delete experience')}
-                          >
-                            <Image
-                              source={require('../../../assets/icons/heart.svg')}
-                              className="w-4.5 h-4.5"
-                              resizeMode="contain"
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          </View>
-        </ScrollView>
-
+        {/* Account Settings Button */}
         <TouchableOpacity
-          className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
-          onPress={() => router.push('/(creator)/new')}
+          className="bg-primary mx-4 rounded-xl p-4 mt-6 shadow-sm"
+          onPress={() => console.log('Navigate to account settings')}
         >
-          <View className="flex-row items-center">
-            <Image
-              source={require('../../../assets/icons/heart.svg')}
-              className="w-5 h-5"
-              resizeMode="contain"
-            />
-            <Text className="text-gray-300 font-onest ml-2">Create Experience</Text>
-          </View>
+          <Text className="text-center text-white font-onest-medium">Account Settings</Text>
         </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </SafeAreaView >
   );
 };
 
-export default CreatorDashboard;
+export default ProfileScreen;

@@ -198,66 +198,66 @@ const App = () => {
               })}
             </ScrollView>
 
-         <View className="mt-8 min-h-fit">
-  {loading ? (
-    <ActivityIndicator size="large" color="#0000ff" />
-  ) : filteredExperiences.length === 0 ? (
-    <Text className="text-center text-gray-500 py-10">No experiences found</Text>
-  ) : (
-    filteredExperiences.map((item) => (
-      <TouchableOpacity
-        key={item.id}
-        onPress={() => router.push(`/(experience)/${item.id}`)}
-        className="mb-4 rounded-lg overflow-hidden border border-gray-200"
-        activeOpacity={0.7}
-      >
-        <View className="relative">
-          {/* Image */}
-          {item.images && item.images.length > 0 ? (
-            <Image
-              source={{ uri: `${API_URL}/${item.images[0]}` }}
-              className="w-full h-40"
-              resizeMode="cover"
-            />
-          ) : (
-            <View className="w-full h-40 bg-gray-200 items-center justify-center">
-              <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+            <View className="mt-8 min-h-fit">
+              {loading ? (
+                <ActivityIndicator size="large" color="#0000ff" />
+              ) : filteredExperiences.length === 0 ? (
+                <Text className="text-center text-gray-500 py-10">No experiences found</Text>
+              ) : (
+                filteredExperiences.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => router.push(`/(experience)/${item.id}`)}
+                    className="mb-4 rounded-lg overflow-hidden border border-gray-200"
+                    activeOpacity={0.7}
+                  >
+                    <View className="relative">
+                      {/* Image */}
+                      {item.images && item.images.length > 0 ? (
+                        <Image
+                          source={{ uri: `${API_URL}/${item.images[0]}` }}
+                          className="w-full h-40"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-full h-40 bg-gray-200 items-center justify-center">
+                          <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+                        </View>
+                      )}
+
+                      {/* Price Badge */}
+                      <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
+                        <Text className="font-onest-medium">
+                          {item.price === '0' || !item.price ? 'Free' : `${item.price} ${item.unit || 'per person'}`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="p-3">
+                      {/* Title */}
+                      <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
+
+                      {/* Location */}
+                      <View className="flex-row items-center mb-2">
+                        <Ionicons name="location-outline" size={16} color="#4F46E5" />
+                        <Text className="text-sm text-gray-600 ml-1">{item.location || item.destination_name}</Text>
+                      </View>
+
+                      {/* Tags */}
+                      {item.tags && item.tags.length > 0 && (
+                        <View className="flex-row flex-wrap">
+                          {item.tags.slice(0, 3).map((tag, index) => (
+                            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
+                              <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
-          )}
-
-          {/* Price Badge */}
-          <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
-            <Text className="font-onest-medium">
-              {item.price === '0' || !item.price ? 'Free' : `${item.price} ${item.unit || 'per person'}`}
-            </Text>
-          </View>
-        </View>
-
-        <View className="p-3">
-          {/* Title */}
-          <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
-
-          {/* Location */}
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="location-outline" size={16} color="#4F46E5" />
-            <Text className="text-sm text-gray-600 ml-1">{item.location || item.destination_name}</Text>
-          </View>
-
-          {/* Tags */}
-          {item.tags && item.tags.length > 0 && (
-            <View className="flex-row flex-wrap">
-              {item.tags.slice(0, 3).map((tag, index) => (
-                <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
-                  <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    ))
-  )}
-</View>
           </View>
         </ScrollView>
 

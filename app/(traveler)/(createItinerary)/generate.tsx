@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 import Step2Preference from './(generate)/Step2Preference';
 import Step3GeneratedItinerary from './(generate)/Step3GeneratedItinerary';
-import Step1_1Accommodation from './(manual)/Step1.1Accommodation';
 import Step1SelectLocation from './(manual)/Step1SelectLocation'; // Reusing from manual
 // Component prop interfaces to match your existing components
 interface Step1Props {
@@ -38,6 +37,8 @@ type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
 type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+
 const router = useRouter();
 
 interface ItineraryItem {
@@ -81,6 +82,7 @@ interface ItineraryFormData {
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity: ActivityIntensity;
+        travelDistance: TravelDistance;
     };
 }
 
@@ -127,7 +129,8 @@ const GenerateItineraryForm: React.FC = () => {
             travelCompanion: '' as TravelCompanion, // or use a default like 'Any' if needed
             exploreTime: '' as ExploreTime,
             budget: '' as Budget,
-            activityIntensity: '' as ActivityIntensity
+            activityIntensity: '' as ActivityIntensity,
+            travelDistance: '' as TravelDistance
         }
     });
 
@@ -260,19 +263,28 @@ const GenerateItineraryForm: React.FC = () => {
 
     // Render current step component
     const renderStep = () => {
-        if (step === 1 && subStep === 0) {
-            return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
-        } else if (step === 1 && subStep === 1) {
-            return <Step1_1Accommodation
-                formData={formData}
-                setFormData={setFormData}
-                onNext={handleNext}
-                onBack={handleBack}
-                onSkip={handleSkipAccommodation}
-            />;
-        }
+        // if (step === 1 && subStep === 0) {
+        //     return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
+        // } else if (step === 1 && subStep === 1) {
+        //     return <Step1_1Accommodation
+        //         formData={formData}
+        //         setFormData={setFormData}
+        //         onNext={handleNext}
+        //         onBack={handleBack}
+        //         onSkip={handleSkipAccommodation}
+        //     />;
+        // }
 
         switch (step) {
+            case 1:
+                return (
+                    <Step1SelectLocation
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+
+                    />
+                );
             case 2:
                 return (
                     <Step2Preference

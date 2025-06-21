@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, differenceInDays, format } from 'date-fns';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
     Dimensions,
     Keyboard,
@@ -14,7 +15,7 @@ import {
     View
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-
+import API_URL from '../../../../constants/api';
 
 // step prop
 interface StepProps {
@@ -37,20 +38,101 @@ export interface ItineraryFormData {
 // itinerary type
 export interface ItineraryItem {
     experience_id: number;
-    day_number: number;         // Must be between 1 and total number of days in the itinerary
-    start_time: string;         // Format: 'HH:mm'
-    end_time: string;           // Format: 'HH:mm'
+    day_number: number;
+    start_time: string;
+    end_time: string;
     custom_note?: string;
 }
 
-// city type
+// Updated city type to match experience API
 interface City {
-    label: string;
-    value: string;
+    location: string;          // Original location from API
+    normalizedCity: string;    // Normalized city name
+    label: string;            // Display name
+    value: string;            // Value for form
+    experienceCount: number;   // Number of experiences in this city
 }
 
+// Helper function to normalize city names
+const normalizeCityName = (location: string): string => {
+    if (!location) return '';
+
+    // Convert to lowercase for comparison
+    const lower = location.toLowerCase().trim();
+
+    // Handle specific cases - merge similar city names
+    const cityMappings: Record<string, string> = {
+        'bacolod city': 'Bacolod',
+        'bacolod': 'Bacolod',
+        'silay city': 'Silay',
+        'silay': 'Silay',
+        'manila city': 'Manila',
+        'manila': 'Manila',
+        'cebu city': 'Cebu',
+        'cebu': 'Cebu',
+        // Add more mappings as needed
+    };
+
+    // Return mapped city or capitalize the original
+    return cityMappings[lower] || location.charAt(0).toUpperCase() + location.slice(1);
+};
+
+// Updated API service function to fetch destinations from experiences
+const fetchDestinations = async (): Promise<City[]> => {
+    try {
+        const response = await fetch(`${API_URL}/experience`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch experiences');
+        }
+
+        const experiences = await response.json();
+
+        // Extract unique locations and normalize them
+        const locationMap = new Map<string, { city: City; count: number }>();
+
+        experiences.forEach((experience: any) => {
+            if (experience.location) {
+                const normalizedCity = normalizeCityName(experience.location);
+
+                // Use normalized city as the key to prevent duplicates
+                if (locationMap.has(normalizedCity)) {
+                    // Increment count if city already exists
+                    const existing = locationMap.get(normalizedCity)!;
+                    existing.count += 1;
+                } else {
+                    // Add new city
+                    locationMap.set(normalizedCity, {
+                        city: {
+                            location: experience.location, // Keep original
+                            normalizedCity: normalizedCity,
+                            label: normalizedCity, // Use normalized name for display
+                            value: normalizedCity.toLowerCase().replace(/\s+/g, '_'), // Create slug
+                            experienceCount: 1
+                        },
+                        count: 1
+                    });
+                }
+            }
+        });
+
+        // Convert map to array, set experience counts, and sort alphabetically
+        const uniqueCities = Array.from(locationMap.values())
+            .map(item => ({
+                ...item.city,
+                experienceCount: item.count
+            }))
+            .sort((a, b) => a.normalizedCity.localeCompare(b.normalizedCity));
+
+        return uniqueCities;
+    } catch (error) {
+        console.error('Error fetching destinations:', error);
+        return [];
+    }
+};
+
 const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNext }) => {
-   
+
     const [localCity, setLocalCity] = useState<string | null>(formData.city || null);
     const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
     const [selectedLabel, setSelectedLabel] = useState<string>('Select a city...');
@@ -67,43 +149,31 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
 
     // Screen dimensions for dropdown max height
     const { height: screenHeight } = Dimensions.get('window');
-    const maxDropdownHeight = screenHeight * 0.4; // 40% of screen height
+    const maxDropdownHeight = screenHeight * 0.4;
 
-    // All cities and municipalities in Negros Occidental 
-    const cities = useMemo(() => [
-        { label: 'Bacolod City', value: 'bacolod' },
-        { label: 'Bago City', value: 'bago' },
-        { label: 'Binalbagan', value: 'binalbagan' },
-        { label: 'Cadiz City', value: 'cadiz' },
-        { label: 'Calatrava', value: 'calatrava' },
-        { label: 'Candoni', value: 'candoni' },
-        { label: 'Cauayan', value: 'cauayan' },
-        { label: 'Enrique B. Magalona', value: 'eb_magalona' },
-        { label: 'Escalante City', value: 'escalante' },
-        { label: 'Himamaylan City', value: 'himamaylan' },
-        { label: 'Hinigaran', value: 'hinigaran' },
-        { label: 'Hinoba-an', value: 'hinoba_an' },
-        { label: 'Ilog', value: 'ilog' },
-        { label: 'Isabela', value: 'isabela' },
-        { label: 'Kabankalan City', value: 'kabankalan' },
-        { label: 'La Carlota City', value: 'la_carlota' },
-        { label: 'La Castellana', value: 'la_castellana' },
-        { label: 'Manapla', value: 'manapla' },
-        { label: 'Moises Padilla', value: 'moises_padilla' },
-        { label: 'Murcia', value: 'murcia' },
-        { label: 'Pontevedra', value: 'pontevedra' },
-        { label: 'Pulupandan', value: 'pulupandan' },
-        { label: 'Sagay City', value: 'sagay' },
-        { label: 'Salvador Benedicto', value: 'salvador_benedicto' },
-        { label: 'San Carlos City', value: 'san_carlos' },
-        { label: 'San Enrique', value: 'san_enrique' },
-        { label: 'Silay City', value: 'silay' },
-        { label: 'Sipalay City', value: 'sipalay' },
-        { label: 'Talisay City', value: 'talisay' },
-        { label: 'Toboso', value: 'toboso' },
-        { label: 'Valladolid', value: 'valladolid' },
-        { label: 'Victorias City', value: 'victorias' }
-    ], []);
+    // Dynamic cities state
+    const [cities, setCities] = useState<City[]>([]);
+    const [loadingCities, setLoadingCities] = useState<boolean>(true);
+    const [cityError, setCityError] = useState<string | null>(null);
+
+    // Fetch cities from experiences on component mount
+    useEffect(() => {
+        const loadCities = async () => {
+            try {
+                setLoadingCities(true);
+                setCityError(null);
+                const fetchedCities = await fetchDestinations();
+                setCities(fetchedCities);
+            } catch (error) {
+                setCityError('Failed to load cities. Please try again.');
+                console.error('Error loading cities:', error);
+            } finally {
+                setLoadingCities(false);
+            }
+        };
+
+        loadCities();
+    }, []);
 
     // Update parent formData when localCity changes
     useEffect(() => {
@@ -137,7 +207,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
 
     // Update selected label when component mounts or city changes
     useEffect(() => {
-        if (localCity) {
+        if (localCity && cities.length > 0) {
             const selectedCity = cities.find(city => city.value === localCity);
             if (selectedCity) {
                 setSelectedLabel(selectedCity.label);
@@ -159,17 +229,14 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         if (showCalendar) {
             setShowCalendar(false);
         }
-        // Close keyboard if open
         Keyboard.dismiss();
     };
 
-    // Toggle calendar visibility
     const toggleCalendar = () => {
         setShowCalendar(!showCalendar);
         if (dropdownOpen) {
             setDropdownOpen(false);
         }
-        // Close keyboard if open
         Keyboard.dismiss();
     };
 
@@ -189,6 +256,23 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         setDropdownOpen(false);
     };
 
+    // Retry loading cities
+    const retryLoadCities = async () => {
+        const loadCities = async () => {
+            try {
+                setLoadingCities(true);
+                setCityError(null);
+                const fetchedCities = await fetchDestinations();
+                setCities(fetchedCities);
+            } catch (error) {
+                setCityError('Failed to load cities. Please try again.');
+            } finally {
+                setLoadingCities(false);
+            }
+        };
+        await loadCities();
+    };
+
     // Format date for display
     const formatDisplayDate = (dateString: string) => {
         if (!dateString) return '';
@@ -201,13 +285,10 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         const selectedDate = day.dateString;
 
         if (!startDate || selectingEndDate) {
-            // If no start date is selected or we're selecting end date
             if (!startDate) {
-                // Set start date
                 setStartDate(selectedDate);
                 setSelectingEndDate(true);
 
-                // Mark this date
                 setMarkedDates({
                     [selectedDate]: {
                         selected: true,
@@ -216,10 +297,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                     }
                 });
             } else {
-                // Selecting end date
-                // Ensure end date is after start date
                 if (selectedDate < startDate) {
-                    // If selected date is before start date, swap them
                     setEndDate(startDate);
                     setStartDate(selectedDate);
                 } else {
@@ -229,7 +307,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                 setSelectingEndDate(false);
                 setShowCalendar(false);
 
-                // Create date range markers
                 const markedDateRange = getDateRange(
                     startDate,
                     selectedDate < startDate ? startDate : selectedDate
@@ -237,7 +314,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                 setMarkedDates(markedDateRange);
             }
         } else {
-            // Starting a new selection
             setStartDate(selectedDate);
             setEndDate('');
             setSelectingEndDate(true);
@@ -258,17 +334,14 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
         const end = new Date(endDateStr);
         const range: Record<string, any> = {};
 
-        // Calculate the difference in days
         const dayCount = differenceInDays(end, start);
 
-        // Mark start date
         range[startDateStr] = {
             selected: true,
             startingDay: true,
             color: '#4F46E5'
         };
 
-        // Mark dates in between
         for (let i = 1; i < dayCount; i++) {
             const date = format(addDays(start, i), 'yyyy-MM-dd');
             range[date] = {
@@ -277,7 +350,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
             };
         }
 
-        // Mark end date
         range[endDateStr] = {
             selected: true,
             endingDay: true,
@@ -313,17 +385,25 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                         <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
                             {/* Custom Dropdown for City Selection */}
                             <View className="bg-white pb-4 z-10">
-                                <Text className="font-onest-medium py-2">Select City in Negros Occidental</Text>
+                                <Text className="font-onest-medium py-2">Select Available Destination</Text>
 
                                 {/* Dropdown Button */}
                                 <TouchableOpacity
                                     className={`flex-row items-center justify-between px-3 py-3 border ${dropdownOpen ? 'border-primary' : 'border-gray-300'} rounded-md bg-white`}
                                     onPress={toggleDropdown}
                                     activeOpacity={0.7}
+                                    disabled={loadingCities}
                                 >
-                                    <Text className={`text-base ${localCity ? 'text-black font-onest' : 'text-gray-500'}`}>
-                                        {selectedLabel}
-                                    </Text>
+                                    {loadingCities ? (
+                                        <View className="flex-row items-center">
+                                            <ActivityIndicator size="small" color="#4F46E5" />
+                                            <Text className="text-gray-500 ml-2">Loading destinations...</Text>
+                                        </View>
+                                    ) : (
+                                        <Text className={`text-base ${localCity ? 'text-black font-onest' : 'text-gray-500'}`}>
+                                            {selectedLabel}
+                                        </Text>
+                                    )}
                                     <Ionicons
                                         name={dropdownOpen ? "chevron-up" : "chevron-down"}
                                         size={20}
@@ -331,11 +411,23 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                     />
                                 </TouchableOpacity>
 
+                                {/* Error Message */}
+                                {cityError && (
+                                    <View className="mt-2 p-2 bg-red-50 rounded-md">
+                                        <Text className="text-red-600 text-sm font-onest">{cityError}</Text>
+                                        <TouchableOpacity onPress={retryLoadCities} className="mt-1">
+                                            <Text className="text-red-600 text-sm font-onest-medium underline">
+                                                Retry
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+
                                 {/* Dropdown List */}
                                 <Animated.View
                                     style={{
                                         position: 'absolute',
-                                        top: 100, // adjust this to be right below the dropdown button
+                                        top: 100,
                                         left: 0,
                                         right: 0,
                                         height: dropdownHeight,
@@ -349,15 +441,28 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                     }}
                                 >
                                     <ScrollView>
-                                        {cities.map((city, index) => (
-                                            <TouchableOpacity
-                                                key={city.value}
-                                                className={`px-4 py-3 ${index < cities.length - 1 ? 'border-b border-gray-200' : ''}`}
-                                                onPress={() => selectCity(city)}
-                                            >
-                                                <Text className="text-base font-onest">{city.label}</Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                        {cities.length === 0 && !loadingCities ? (
+                                            <View className="px-4 py-8 text-center">
+                                                <Text className="text-gray-500 text-base font-onest">
+                                                    No destinations available
+                                                </Text>
+                                            </View>
+                                        ) : (
+                                            cities.map((city, index) => (
+                                                <TouchableOpacity
+                                                    key={`${city.value}-${index}`}
+                                                    className={`px-4 py-3 ${index < cities.length - 1 ? 'border-b border-gray-200' : ''}`}
+                                                    onPress={() => selectCity(city)}
+                                                >
+                                                    <View className="flex-row justify-between items-center">
+                                                        <Text className="text-base font-onest">{city.label}</Text>
+                                                        <Text className="text-xs text-gray-500 font-onest">
+                                                            {city.experienceCount} experience{city.experienceCount !== 1 ? 's' : ''}
+                                                        </Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            ))
+                                        )}
                                     </ScrollView>
                                 </Animated.View>
                             </View>
@@ -400,7 +505,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                                                 textSectionTitleColor: '#6B7280',
                                                 arrowColor: '#4F46E5',
                                             }}
-                                            
                                             style={{
                                                 height: 350
                                             }}
