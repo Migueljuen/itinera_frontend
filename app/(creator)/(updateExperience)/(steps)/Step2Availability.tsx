@@ -1,28 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, FlatList, Platform, ScrollView } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
-import { ExperienceFormData, AvailabilityDay, TimeSlot } from '../../../../types/types';
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { AvailabilityDay, ExperienceFormData, TimeSlot } from '../../../../types/types';
 
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 interface StepProps {
     formData: ExperienceFormData;
     setFormData: React.Dispatch<React.SetStateAction<ExperienceFormData>>;
     onNext: () => void;
     onBack: () => void;
+    experienceId: number;
 }
 
-const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
+const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack, experienceId }) => {
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
     const [start, setStart] = useState('');
     const [end, setEnd] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [originalAvailability, setOriginalAvailability] = useState<AvailabilityDay[]>([]);
 
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date());
 
     const [showStartPicker, setShowStartPicker] = useState(false);
     const [showEndPicker, setShowEndPicker] = useState(false);
+
+    // Load existing availability data
+    useEffect(() => {
+        // Use data from parent instead of loading independently
+        if (formData.availability && formData.availability.length > 0) {
+            setOriginalAvailability([...formData.availability]);
+        }
+        setLoading(false); // Always set loading to false since parent handles data loading
+    }, [formData.availability]);
+
+    // Add this after the useEffect
+    console.log('Step2 - formData.availability:', formData.availability);
+    console.log('Step2 - originalAvailability:', originalAvailability);
 
     const onChangeStartTime = (event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowStartPicker(Platform.OS === 'ios');
@@ -44,10 +60,8 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
 
     const toggleDaySelection = (d: string) => {
         if (selectedDays.includes(d)) {
-            // If day is already selected, remove it
             setSelectedDays(selectedDays.filter(day => day !== d));
         } else {
-            // If day is not selected, add it
             setSelectedDays([...selectedDays, d]);
         }
     };
@@ -65,7 +79,7 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
         const endTimeDate = new Date(`2000-01-01T${end}`);
 
         if (endTimeDate <= startTimeDate) {
-            alert('End time must be after start time');
+            Alert.alert('Invalid Time', 'End time must be after start time');
             return;
         }
 
@@ -120,15 +134,71 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
         return time.length === 8 ? time.substring(0, 5) : time;
     };
 
+    // Check if there are changes from original
+    const hasChanges = () => {
+        if (formData.availability.length !== originalAvailability.length) return true;
+
+        // Deep comparison of availability
+        return JSON.stringify(formData.availability) !== JSON.stringify(originalAvailability);
+    };
+
+    // Reset to original availability
+    const resetToOriginal = () => {
+        Alert.alert(
+            'Reset Availability',
+            'Are you sure you want to reset all availability changes?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: () => {
+                        setFormData(prev => ({
+                            ...prev,
+                            availability: [...originalAvailability]
+                        }));
+                    }
+                }
+            ]
+        );
+    };
+
+    if (loading) {
+        return (
+            <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#376a63" />
+                <Text className="mt-4 text-gray-600">Loading availability data...</Text>
+            </View>
+        );
+    }
+
     return (
-        <View>
+        <ScrollView>
             <View className='text-center py-2'>
-                <Text className="text-center text-xl font-onest-semibold mb-2">Set Availability</Text>
-                <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">Choose the dates and times when this experience will be available to others.</Text>
+                <Text className="text-center text-xl font-onest-semibold mb-2">Edit Availability</Text>
+                <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">
+                    Modify when this experience will be available. You can add new time slots or remove existing ones.
+                </Text>
 
                 <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200">
 
+                    {/* Current Availability Overview */}
+                    {formData.availability.length > 0 && (
+                        <View className="bg-blue-50 p-4 rounded-xl mb-4">
+                            <Text className="font-onest-semibold text-blue-800 mb-2">Current Availability</Text>
+                            <Text className="text-blue-600 text-sm">
+                                {formData.availability.length} day(s) with {formData.availability.reduce((total, day) => total + day.time_slots.length, 0)} time slot(s)
+                            </Text>
+                            {hasChanges() && (
+                                <Text className="text-blue-600 text-sm mt-1">
+                                    ✓ Changes detected
+                                </Text>
+                            )}
+                        </View>
+                    )}
+
                     <View className="bg-white pb-4">
+                        <Text className='font-onest-medium py-2'>Add new availability</Text>
                         <Text className='font-onest-medium py-2'>Day of week</Text>
                         <View className="flex-row flex-wrap gap-2">
                             {daysOfWeek.map((d) => (
@@ -147,10 +217,11 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
 
                     <View className="pb-4">
                         <Text className="font-onest-medium py-2 text-gray-800">Start time</Text>
-                        {/* Start time picker */}
                         <View className='flex flex-row justify-between items-center'>
                             <Pressable onPress={() => setShowStartPicker(true)}>
-                                <Text>{start || 'Select Start Time'}</Text>
+                                <Text className="p-3 border border-gray-200 rounded-lg min-w-[120px] text-center">
+                                    {start || 'Select Start Time'}
+                                </Text>
                             </Pressable>
 
                             {(showStartPicker || Platform.OS === 'ios') && (
@@ -167,10 +238,11 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
 
                     <View className="bg-white pb-4">
                         <Text className="font-onest-medium py-2 text-gray-800">End time</Text>
-                        {/* End time picker */}
                         <View className='flex flex-row justify-between items-center'>
                             <Pressable onPress={() => setShowEndPicker(true)}>
-                                <Text>{end || 'Select End Time'}</Text>
+                                <Text className="p-3 border border-gray-200 rounded-lg min-w-[120px] text-center">
+                                    {end || 'Select End Time'}
+                                </Text>
                             </Pressable>
 
                             {(showEndPicker || Platform.OS === 'ios') && (
@@ -187,55 +259,82 @@ const Step2Availability: React.FC<StepProps> = ({ formData, setFormData, onNext,
 
                     <Pressable
                         onPress={addAvailability}
-                        className={`p-3 rounded-xl ${start && end ? 'bg-green-600' : 'bg-gray-300'}`}
-                        disabled={!start || !end}
+                        className={`p-3 rounded-xl ${start && end && selectedDays.length > 0 ? 'bg-green-600' : 'bg-gray-300'}`}
+                        disabled={!start || !end || selectedDays.length === 0}
                     >
-                        <Text className="text-white text-center">Add Slot</Text>
+                        <Text className="text-white text-center font-onest-medium">Add Time Slot</Text>
                     </Pressable>
 
-                    <View className="h-40">
-                        <FlatList
-                            data={formData.availability}
-                            keyExtractor={(item, index) => `${item.day_of_week}-${index}`}
-                            renderItem={({ item, index }) => (
-                                <View className="mb-4">
-                                    <Text className="font-bold text-lg mb-2">{item.day_of_week}</Text>
-                                    {item.time_slots.map((slot, i) => (
-                                        <View
-                                            key={`${item.day_of_week}-${i}`}
-                                            className="flex-row justify-between items-center px-2 py-1 border-b border-gray-200"
-                                        >
-                                            <Text>
-                                                {formatTimeForDisplay(slot.start_time)} - {formatTimeForDisplay(slot.end_time)}
-                                            </Text>
-                                            <Text
-                                                onPress={() => removeSlot(index, i)}
-                                                className="text-red-400"
+                    {/* Existing Availability List */}
+                    <View className="mt-6">
+                        <Text className="font-onest-semibold text-lg mb-4">Current Time Slots</Text>
+
+                        {formData.availability.length === 0 ? (
+                            <View className="bg-gray-50 p-6 rounded-xl">
+                                <Text className="text-gray-500 text-center">
+                                    No availability set. Add time slots above.
+                                </Text>
+                            </View>
+                        ) : (
+                            <View>
+                                {formData.availability.map((item, index) => (
+                                    <View key={`${item.day_of_week}-${index}`} className="mb-4 bg-white p-4 rounded-xl border border-gray-200">
+                                        <Text className="font-onest-semibold text-lg mb-2 text-gray-800">{item.day_of_week}</Text>
+                                        {item.time_slots.map((slot, i) => (
+                                            <View
+                                                key={`${item.day_of_week}-${i}`}
+                                                className="flex-row justify-between items-center px-2 py-2 border-b border-gray-100"
                                             >
-                                                Remove
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-                        />
+                                                <Text className="font-onest text-gray-700">
+                                                    {formatTimeForDisplay(slot.start_time)} - {formatTimeForDisplay(slot.end_time)}
+                                                </Text>
+                                                <Pressable
+                                                    onPress={() => removeSlot(index, i)}
+                                                    className="bg-red-100 px-3 py-1 rounded-full"
+                                                >
+                                                    <Text className="text-red-600 text-sm font-onest-medium">
+                                                        Remove
+                                                    </Text>
+                                                </Pressable>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ))}
+                            </View>
+                        )}
                     </View>
 
-                    <View className="flex-row justify-between mt-4">
+                    {/* Reset button */}
+                    {hasChanges() && (
+                        <Pressable
+                            onPress={resetToOriginal}
+                            className="mt-2 p-3 rounded-xl border border-red-200 bg-red-50"
+                        >
+                            <Text className="text-center font-onest-medium text-sm text-red-600">
+                                Reset to Original Availability
+                            </Text>
+                        </Pressable>
+                    )}
+
+                    {/* Navigation buttons */}
+                    <View className="flex-row justify-between mt-6">
                         <Pressable onPress={onBack} className="border border-primary p-4 rounded-xl">
-                            <Text className="text-gray-800">Previous step</Text>
+                            <Text className="text-gray-800 font-onest-medium">Previous step</Text>
                         </Pressable>
                         <Pressable
                             onPress={formData.availability.length > 0 ? onNext : undefined}
                             className={`p-4 px-6 rounded-xl ${formData.availability.length > 0 ? 'bg-primary' : 'bg-gray-200'}`}
+                            disabled={formData.availability.length === 0}
                         >
-                            <Text className="text-center font-onest-medium text-base text-gray-300">Next step</Text>
+                            <Text className="text-center font-onest-medium text-base text-gray-300">
+                                {hasChanges() ? 'Continue with changes' : 'Next step'}
+                            </Text>
                         </Pressable>
                     </View>
                 </View>
             </View>
-        </View>
+        </ScrollView>
     );
 };
 
-export default Step2Availability;
+export default Step2EditAvailability;

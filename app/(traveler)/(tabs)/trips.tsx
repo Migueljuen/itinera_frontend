@@ -83,7 +83,7 @@ export default function TripScreen() {
             const parsedUser = JSON.parse(user);
             const travelerId = parsedUser.user_id;
 
-            // Fetch user's itineraries
+            // Fetch user's itineraries (now with enhanced activity-based status updates!)
             const response = await fetch(`${API_URL}/itinerary/traveler/${travelerId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -101,8 +101,6 @@ export default function TripScreen() {
         } catch (error) {
             console.error("Error fetching itineraries:", error);
             setLoading(false);
-
-            // You can remove this fallback mock data once your API is working
             setItineraries([]);
         }
     };
@@ -126,6 +124,140 @@ export default function TripScreen() {
         } else {
             return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}, ${start.getFullYear()}`;
         }
+    };
+
+    // 🆕 Enhanced status display with emojis and better descriptions
+    const getStatusDisplay = (status: 'upcoming' | 'ongoing' | 'completed') => {
+        const statusConfig = {
+            upcoming: {
+                emoji: '📅',
+                text: 'Upcoming',
+                bgColor: 'bg-blue-50',
+                textColor: 'text-blue-600'
+            },
+            ongoing: {
+                emoji: '✈️',
+                text: 'Ongoing',
+                bgColor: 'bg-green-50',
+                textColor: 'text-green-600'
+            },
+            completed: {
+                emoji: '✅',
+                text: 'Completed',
+                bgColor: 'bg-gray-50',
+                textColor: 'text-gray-600'
+            }
+        };
+
+        const config = statusConfig[status];
+
+        return (
+            <View className={`px-3 py-1.5 rounded-full ml-3 ${config.bgColor}`}>
+                <View className="flex-row items-center">
+
+                    <Text className={`text-xs font-onest-medium ${config.textColor}`}>
+                        {config.text}
+                    </Text>
+                </View>
+            </View>
+        );
+    };
+
+    // 🆕 Smart preview text based on status and current time
+    const getSmartPreviewText = (itinerary: Itinerary) => {
+        if (!itinerary.items || itinerary.items.length === 0) {
+            return { title: 'No activities planned', subtitle: '' };
+        }
+
+        const now = new Date();
+        const sortedItems = [...itinerary.items].sort((a, b) => {
+            if (a.day_number !== b.day_number) {
+                return a.day_number - b.day_number;
+            }
+            return a.start_time.localeCompare(b.start_time);
+        });
+
+        switch (itinerary.status) {
+            case 'upcoming':
+                const firstActivity = sortedItems[0];
+                return {
+                    title: `Starts with: ${firstActivity.experience_name}`,
+                    subtitle: `Day ${firstActivity.day_number} • ${formatTimeRange(firstActivity.start_time, firstActivity.end_time)}`
+                };
+
+            case 'ongoing':
+                // Find current or next activity based on current time
+                const startDate = new Date(itinerary.start_date);
+                const currentDay = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+                // Try to find current activity
+                const currentActivity = sortedItems.find(item => {
+                    if (item.day_number !== currentDay) return false;
+
+                    const itemStartTime = new Date();
+                    const [startHours, startMinutes] = item.start_time.split(':');
+                    itemStartTime.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0);
+
+                    const itemEndTime = new Date();
+                    const [endHours, endMinutes] = item.end_time.split(':');
+                    itemEndTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
+
+                    return now >= itemStartTime && now <= itemEndTime;
+                });
+
+                if (currentActivity) {
+                    return {
+                        title: `Currently: ${currentActivity.experience_name}`,
+                        subtitle: `Day ${currentActivity.day_number} • Ends at ${formatTime(currentActivity.end_time)}`
+                    };
+                }
+
+                // Find next activity
+                const nextActivity = sortedItems.find(item => {
+                    if (item.day_number < currentDay) return false;
+                    if (item.day_number > currentDay) return true;
+
+                    const itemStartTime = new Date();
+                    const [startHours, startMinutes] = item.start_time.split(':');
+                    itemStartTime.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0);
+
+                    return now < itemStartTime;
+                });
+
+                if (nextActivity) {
+                    return {
+                        title: `Next: ${nextActivity.experience_name}`,
+                        subtitle: `Day ${nextActivity.day_number} • ${formatTimeRange(nextActivity.start_time, nextActivity.end_time)}`
+                    };
+                }
+
+                return {
+                    title: 'Trip in progress',
+                    subtitle: 'All activities completed'
+                };
+
+            case 'completed':
+                const lastActivity = sortedItems[sortedItems.length - 1];
+                return {
+                    title: `Ended with: ${lastActivity.experience_name}`,
+                    subtitle: `Day ${lastActivity.day_number} • ${formatTimeRange(lastActivity.start_time, lastActivity.end_time)}`
+                };
+
+            default:
+                return {
+                    title: `Next: ${sortedItems[0].experience_name}`,
+                    subtitle: `Day ${sortedItems[0].day_number} • ${formatTimeRange(sortedItems[0].start_time, sortedItems[0].end_time)}`
+                };
+        }
+    };
+
+    // 🆕 Enhanced time formatting function
+    const formatTime = (time: string) => {
+        const [hours, minutes] = time.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
     };
 
     // Updated to work with items and use actual API images
@@ -178,14 +310,6 @@ export default function TripScreen() {
 
     // Helper function to format time display
     const formatTimeRange = (startTime: string, endTime: string) => {
-        const formatTime = (time: string) => {
-            const [hours, minutes] = time.split(':');
-            const hour = parseInt(hours);
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            const displayHour = hour % 12 || 12;
-            return `${displayHour}:${minutes} ${ampm}`;
-        };
-
         return `${formatTime(startTime)} - ${formatTime(endTime)}`;
     };
 
@@ -291,82 +415,73 @@ export default function TripScreen() {
                                 )}
                             </View>
                         ) : (
-                            filteredItineraries.map((itinerary, index) => (
-                                <TouchableOpacity
-                                    key={itinerary.itinerary_id}
-                                    onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
-                                    className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
-                                    style={{
-                                        shadowColor: '#000',
-                                        shadowOffset: { width: 0, height: 4 },
-                                        shadowOpacity: 0.08,
-                                        shadowRadius: 12,
-                                        elevation: 4,
-                                    }}
-                                >
-                                    <Image
-                                        source={getItineraryImage(itinerary)}
-                                        className="w-full h-44"
-                                        resizeMode="cover"
-                                    />
-                                    <View className="p-5">
-                                        <Text className="text-lg font-onest-semibold text-gray-800 mb-2">
-                                            {itinerary.title}
-                                        </Text>
-
-                                        <View className="flex-row items-center mb-4">
-                                            <Globe />
-                                            <Text className="text-sm text-gray-600 font-onest ml-2">
-                                                {getItineraryDestination(itinerary)}
+                            filteredItineraries.map((itinerary, index) => {
+                                const previewInfo = getSmartPreviewText(itinerary);
+                                return (
+                                    <TouchableOpacity
+                                        key={itinerary.itinerary_id}
+                                        onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
+                                        className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
+                                        style={{
+                                            shadowColor: '#000',
+                                            shadowOffset: { width: 0, height: 4 },
+                                            shadowOpacity: 0.08,
+                                            shadowRadius: 12,
+                                            elevation: 4,
+                                        }}
+                                    >
+                                        <Image
+                                            source={getItineraryImage(itinerary)}
+                                            className="w-full h-44"
+                                            resizeMode="cover"
+                                        />
+                                        <View className="p-5">
+                                            <Text className="text-lg font-onest-semibold text-gray-800 mb-2">
+                                                {itinerary.title}
                                             </Text>
-                                        </View>
 
-                                        <View className="flex-row justify-between items-center mb-4">
-                                            <View className="flex-row items-center flex-1">
-                                                <Calendar />
-                                                <Text className="text-sm text-gray-500 font-onest ml-2 flex-1">
-                                                    {formatDateRange(itinerary.start_date, itinerary.end_date)}
+                                            <View className="flex-row items-center mb-4">
+                                                <Globe />
+                                                <Text className="text-sm text-gray-600 font-onest ml-2">
+                                                    {getItineraryDestination(itinerary)}
                                                 </Text>
                                             </View>
-                                            <View
-                                                className={`px-3 py-1.5 rounded-full ml-3 ${itinerary.status === 'upcoming' ? 'bg-blue-50' :
-                                                    itinerary.status === 'ongoing' ? 'bg-green-50' : 'bg-gray-50'
-                                                    }`}
-                                            >
-                                                <Text
-                                                    className={`text-xs font-onest-medium capitalize ${itinerary.status === 'upcoming' ? 'text-blue-600' :
-                                                        itinerary.status === 'ongoing' ? 'text-green-600' : 'text-gray-600'
-                                                        }`}
-                                                >
-                                                    {itinerary.status}
+
+                                            <View className="flex-row justify-between items-center mb-4">
+                                                <View className="flex-row items-center flex-1">
+                                                    <Calendar />
+                                                    <Text className="text-sm text-gray-500 font-onest ml-2 flex-1">
+                                                        {formatDateRange(itinerary.start_date, itinerary.end_date)}
+                                                    </Text>
+                                                </View>
+                                                {getStatusDisplay(itinerary.status)}
+                                            </View>
+
+                                            {/* 🆕 Enhanced smart preview section */}
+                                            {itinerary.items && itinerary.items.length > 0 && (
+                                                <View className="pt-4 border-t border-gray-100">
+                                                    <Text className="text-sm text-gray-700 font-onest-medium mb-1">
+                                                        {previewInfo.title}
+                                                    </Text>
+                                                    <Text className="text-xs text-gray-500 font-onest">
+                                                        {previewInfo.subtitle}
+                                                    </Text>
+                                                </View>
+                                            )}
+
+                                            {/* Show number of experiences */}
+                                            <View className="pt-4 border-t border-gray-100 flex-row justify-between items-center">
+                                                <Text className="text-sm text-gray-500 font-onest">
+                                                    {getExperiencesCount(itinerary)} {getExperiencesCount(itinerary) !== 1 ? 'activities' : 'activity'}
+                                                </Text>
+                                                <Text className="text-sm text-primary font-onest-medium">
+                                                    View details →
                                                 </Text>
                                             </View>
                                         </View>
-
-                                        {/* Show itinerary items preview */}
-                                        {itinerary.items && itinerary.items.length > 0 && (
-                                            <View className="pt-4 border-t border-gray-100">
-                                                <Text className="text-sm text-gray-700 font-onest-medium mb-1">
-                                                    Next: {itinerary.items[0].experience_name}
-                                                </Text>
-                                                <Text className="text-xs text-gray-500 font-onest">
-                                                    Day {itinerary.items[0].day_number} • {formatTimeRange(itinerary.items[0].start_time, itinerary.items[0].end_time)}
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        {/* Show number of experiences */}
-                                        <View className="pt-4 border-t border-gray-100 flex-row justify-between items-center">
-                                            <Text className="text-sm text-gray-500 font-onest">
-                                                {getExperiencesCount(itinerary)} {getExperiencesCount(itinerary) !== 1 ? 'activities' : 'activity'}
-                                            </Text>
-                                            <Text className="text-sm text-primary font-onest-medium">
-                                                View details →
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))
+                                    </TouchableOpacity>
+                                );
+                            })
                         )}
                     </View>
                 </ScrollView>
