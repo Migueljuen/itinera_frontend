@@ -95,13 +95,13 @@ export default function TripScreen() {
             }
 
             const data: ApiResponse = await response.json();
-       
+
             setItineraries(data.itineraries || []);
             setLoading(false);
         } catch (error) {
             console.error("Error fetching itineraries:", error);
             setLoading(false);
-            
+
             // You can remove this fallback mock data once your API is working
             setItineraries([]);
         }
@@ -142,7 +142,7 @@ export default function TripScreen() {
                 return { uri: `${API_URL}${firstItem.images[0]}` };
             }
         }
-        
+
         // Fallback to default image
         return require('../../../assets/images/balay.jpg');
     };
@@ -163,14 +163,14 @@ export default function TripScreen() {
                 return Array.from(cities).slice(0, 2).join(' & ') + (cities.size > 2 ? ' +' : '');
             }
         }
-        
+
         return 'Philippines'; // Default fallback
     };
 
     // Helper function to get unique experiences count
     const getExperiencesCount = (itinerary: Itinerary) => {
         if (!itinerary.items) return 0;
-        
+
         // Count unique experiences
         const uniqueExperiences = new Set(itinerary.items.map(item => item.experience_id));
         return uniqueExperiences.size;
@@ -185,7 +185,7 @@ export default function TripScreen() {
             const displayHour = hour % 12 || 12;
             return `${displayHour}:${minutes} ${ampm}`;
         };
-        
+
         return `${formatTime(startTime)} - ${formatTime(endTime)}`;
     };
 
@@ -222,7 +222,7 @@ export default function TripScreen() {
 
                     {/* Tab Navigation with improved shadow */}
                     <View className="mx-6 mb-6">
-                        <View 
+                        <View
                             className="flex-row bg-white rounded-2xl p-1"
                             style={{
                                 shadowColor: '#000',
@@ -246,9 +246,8 @@ export default function TripScreen() {
                                     } : {}}
                                 >
                                     <Text
-                                        className={`text-center font-onest-medium capitalize text-sm ${
-                                            activeTab === tab ? 'text-white' : 'text-gray-500'
-                                        }`}
+                                        className={`text-center font-onest-medium capitalize text-sm ${activeTab === tab ? 'text-white' : 'text-gray-500'
+                                            }`}
                                     >
                                         {tab}
                                     </Text>
@@ -314,14 +313,14 @@ export default function TripScreen() {
                                         <Text className="text-lg font-onest-semibold text-gray-800 mb-2">
                                             {itinerary.title}
                                         </Text>
-                                        
+
                                         <View className="flex-row items-center mb-4">
                                             <Globe />
                                             <Text className="text-sm text-gray-600 font-onest ml-2">
                                                 {getItineraryDestination(itinerary)}
                                             </Text>
                                         </View>
-                                        
+
                                         <View className="flex-row justify-between items-center mb-4">
                                             <View className="flex-row items-center flex-1">
                                                 <Calendar />
@@ -329,17 +328,15 @@ export default function TripScreen() {
                                                     {formatDateRange(itinerary.start_date, itinerary.end_date)}
                                                 </Text>
                                             </View>
-                                            <View 
-                                                className={`px-3 py-1.5 rounded-full ml-3 ${
-                                                    itinerary.status === 'upcoming' ? 'bg-blue-50' :
+                                            <View
+                                                className={`px-3 py-1.5 rounded-full ml-3 ${itinerary.status === 'upcoming' ? 'bg-blue-50' :
                                                     itinerary.status === 'ongoing' ? 'bg-green-50' : 'bg-gray-50'
-                                                }`}
-                                            >
-                                                <Text 
-                                                    className={`text-xs font-onest-medium capitalize ${
-                                                        itinerary.status === 'upcoming' ? 'text-blue-600' :
-                                                        itinerary.status === 'ongoing' ? 'text-green-600' : 'text-gray-600'
                                                     }`}
+                                            >
+                                                <Text
+                                                    className={`text-xs font-onest-medium capitalize ${itinerary.status === 'upcoming' ? 'text-blue-600' :
+                                                        itinerary.status === 'ongoing' ? 'text-green-600' : 'text-gray-600'
+                                                        }`}
                                                 >
                                                     {itinerary.status}
                                                 </Text>
@@ -361,7 +358,7 @@ export default function TripScreen() {
                                         {/* Show number of experiences */}
                                         <View className="pt-4 border-t border-gray-100 flex-row justify-between items-center">
                                             <Text className="text-sm text-gray-500 font-onest">
-                                                {getExperiencesCount(itinerary)} experience{getExperiencesCount(itinerary) !== 1 ? 's' : ''}
+                                                {getExperiencesCount(itinerary)} {getExperiencesCount(itinerary) !== 1 ? 'activities' : 'activity'}
                                             </Text>
                                             <Text className="text-sm text-primary font-onest-medium">
                                                 View details →
@@ -376,18 +373,18 @@ export default function TripScreen() {
 
                 {/* Floating Action Button with improved shadow */}
                 <TouchableOpacity
-          className="absolute bottom-[90px] right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
-          onPress={() => router.push('/(createItinerary)/selectionScreen')}
-        >
-          <View className="flex-row items-center">
-            <Image
-              source={require('../../../assets/icons/plus.png')}
-              className="w-5 h-5 mr-2 opacity-80"
-              resizeMode="contain"
-            />
-            <Text className="text-gray-300 font-onest">Build My Trip</Text>
-          </View>
-        </TouchableOpacity>
+                    className="absolute bottom-[90px] right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
+                    onPress={() => router.push('/(createItinerary)/selectionScreen')}
+                >
+                    <View className="flex-row items-center">
+                        <Image
+                            source={require('../../../assets/icons/plus.png')}
+                            className="w-5 h-5 mr-2 opacity-80"
+                            resizeMode="contain"
+                        />
+                        <Text className="text-gray-300 font-onest">Build My Trip</Text>
+                    </View>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
