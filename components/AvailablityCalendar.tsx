@@ -102,6 +102,19 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         return `${hours}:${minutes}`;
     };
 
+    // Convert time string to minutes for sorting
+    const timeToMinutes = (timeString: string) => {
+        const [hours, minutes] = timeString.split(':').map(num => parseInt(num, 10));
+        return hours * 60 + minutes;
+    };
+
+    // Sort time slots by start time
+    const sortTimeSlots = (slots: TimeSlot[]) => {
+        return [...slots].sort((a, b) => {
+            return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
+        });
+    };
+
     // Get dates within the trip period
     const getTripDates = () => {
         const dates = [];
@@ -195,7 +208,9 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     if (!availabilityData || !availabilityData.availability || availabilityData.availability.length === 0) {
         return (
             <View className="py-16 bg-white rounded-2xl mx-4 items-center justify-center">
-                <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
+                <Ionicons name="calendar-outline" size={48
+
+                } color="#9CA3AF" />
                 <Text className="text-gray-600 font-onest-medium text-center mt-4">No availability found</Text>
                 <Text className="text-gray-400 font-onest text-center mt-2 px-8">This experience has no available time slots for your trip dates.</Text>
             </View>
@@ -225,7 +240,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                 <View className="bg-primary py-5 px-6">
                     <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center">
-                            <Ionicons name="calendar" size={24} color="#E5E7EB" />
+                            <Ionicons name="calendar" size={18} color="#E5E7EB" />
 
                         </View>
                         <View className="bg-white/20 px-3 py-1.5 rounded-full">
@@ -249,6 +264,9 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                         const daySelectedCount = selectedItems.filter(item =>
                             item.experience_id === experienceId && item.day_number === dayNumber
                         ).length;
+
+                        // Sort the time slots for this day
+                        const sortedTimeSlots = dayAvailability ? sortTimeSlots(dayAvailability.time_slots) : [];
 
                         return (
                             <View key={index}>
@@ -285,7 +303,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
                                                     <View className="bg-green-100 px-3 py-1.5 rounded-full mr-3">
                                                         <Text className="text-green-700 text-xs font-onest-medium">
-                                                            {dayAvailability?.time_slots.length || 0} slots
+                                                            {sortedTimeSlots.length || 0} slots
                                                         </Text>
                                                     </View>
                                                     <Ionicons
@@ -310,7 +328,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                                     Available Time Slots
                                                 </Text>
                                                 <View className="space-y-2">
-                                                    {dayAvailability.time_slots.map((slot, idx) => {
+                                                    {sortedTimeSlots.map((slot, idx) => {
                                                         return (
                                                             <TouchableOpacity
                                                                 key={idx}

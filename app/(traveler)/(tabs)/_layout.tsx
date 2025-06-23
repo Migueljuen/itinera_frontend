@@ -1,15 +1,12 @@
-import { View, Text, ImageBackground, Image } from 'react-native'
-import React from 'react'
-import { Tabs } from 'expo-router'
-import { images } from '@/constants/images'
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { ImageBackground, Text, View } from 'react-native';
 // import { icons } from '@/constants/icons'
 import { useFonts } from 'expo-font';
-import HomeIcon from '../../../assets/icons/home.svg'
-import Trip from '../../../assets/icons/calendar1.svg'
-import Adjustment from '../../../assets/icons/adjustment.svg'
-import Saved from '../../../assets/icons/heart.svg'
-import Profile from '../../../assets/icons/user.svg'
-import Search from '../../../assets/icons/search.svg'
+import Trip from '../../../assets/icons/calendar1.svg';
+import Saved from '../../../assets/icons/heart.svg';
+import HomeIcon from '../../../assets/icons/home.svg';
+import Profile from '../../../assets/icons/user.svg';
 
 
 

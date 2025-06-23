@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import API_URL from '../../../../constants/api';
 import { ExperienceFormData } from '../../../../types/types';
 
@@ -47,13 +48,26 @@ interface ImageInfo {
     isOriginal?: boolean; // Track if this is an existing image
 }
 
+// Union type for images in formData
+type ImageItem = string | ImageInfo;
+
 const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack, experience }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [originalImages, setOriginalImages] = useState<string[]>([]);
+    const [imagesToDelete, setImagesToDelete] = useState<string[]>([]); // Track URLs of images to delete
 
     // Store original images on mount
     useEffect(() => {
         setOriginalImages([...experience.images]);
+
+        // Initialize formData images if not already done
+        if (!formData.images || formData.images.length === 0) {
+            // Keep original images as strings (they're already URLs)
+            setFormData({
+                ...formData,
+                images: [...experience.images]
+            });
+        }
     }, [experience.images]);
 
     const getFormattedImageUrl = (imageUrl: string) => {
@@ -121,18 +135,24 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
 
         // Check if it's an original image
         const isOriginalImage = typeof imageToRemove === 'string' ||
-            (typeof imageToRemove === 'object' && imageToRemove && 'isOriginal' in imageToRemove && imageToRemove.isOriginal);
+            (typeof imageToRemove === 'object' && imageToRemove !== null && (imageToRemove as ImageInfo).isOriginal === true);
 
         if (isOriginalImage) {
             Alert.alert(
                 'Remove Original Image',
-                'This is an existing image from your experience. Are you sure you want to remove it?',
+                'This is an existing image from your experience. Are you sure you want to remove it? This action cannot be undone after saving.',
                 [
                     { text: 'Cancel', style: 'cancel' },
                     {
                         text: 'Remove',
                         style: 'destructive',
                         onPress: () => {
+                            // If it's an original image (string URL), add to deletion list
+                            if (typeof imageToRemove === 'string') {
+                                setImagesToDelete([...imagesToDelete, imageToRemove]);
+                            }
+
+                            // Remove from current images
                             setFormData({
                                 ...formData,
                                 images: (formData.images || []).filter((img) =>
@@ -158,10 +178,26 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
     const hasChanges = () => {
         if (!formData.images) return originalImages.length > 0;
 
+        // Check if any images are marked for deletion
+        if (imagesToDelete.length > 0) {
+            return true;
+        }
+
         // Get current image URIs (handling both string and object formats)
         const currentImageUris = formData.images.map(img =>
             typeof img === 'string' ? img : img.uri
         );
+
+        // Check for new images
+        const hasNewImages = formData.images.some(img => {
+            if (typeof img === 'object' && img !== null) {
+                const imageInfo = img as ImageInfo;
+                return !imageInfo.isOriginal;
+            }
+            return false;
+        });
+
+        if (hasNewImages) return true;
 
         // Simple check: different lengths or different images
         if (currentImageUris.length !== originalImages.length) return true;
@@ -178,13 +214,17 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
     const resetToOriginal = () => {
         Alert.alert(
             'Reset Images',
-            'Are you sure you want to reset to the original images? All new additions will be removed.',
+            'Are you sure you want to reset to the original images? All new additions and removals will be undone.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Reset',
                     style: 'destructive',
                     onPress: () => {
+                        // Clear the images to delete list
+                        setImagesToDelete([]);
+
+                        // Reset formData to original images
                         setFormData({
                             ...formData,
                             images: [...originalImages]
@@ -197,7 +237,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
 
     // Count original vs new images
     const getImageCounts = () => {
-        if (!formData.images) return { original: 0, new: 0, total: 0 };
+        if (!formData.images) return { original: 0, new: 0, total: 0, deleted: 0 };
 
         let originalCount = 0;
         let newCount = 0;
@@ -206,17 +246,23 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
             if (typeof img === 'string') {
                 // String images are original
                 originalCount++;
-            } else if (img && 'isOriginal' in img && img.isOriginal) {
-                originalCount++;
-            } else {
-                newCount++;
+            } else if (img !== null && typeof img === 'object') {
+                const imageInfo = img as ImageInfo;
+                if (imageInfo.isOriginal) {
+                    originalCount++;
+                } else {
+                    newCount++;
+                }
             }
         });
+
+        const deletedCount = imagesToDelete.length;
 
         return {
             original: originalCount,
             new: newCount,
-            total: formData.images.length
+            total: formData.images.length,
+            deleted: deletedCount
         };
     };
 
@@ -238,6 +284,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                         </Text>
                         <Text className="text-blue-500 text-xs text-center mt-1">
                             {imageCounts.original} original • {imageCounts.new} new • {imageCounts.total} total
+                            {imageCounts.deleted > 0 && ` • ${imageCounts.deleted} to delete`}
                         </Text>
                     </View>
                 )}
@@ -246,12 +293,13 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                     <Text className="font-onest-medium py-2">Current Images ({imageCounts.total})</Text>
 
                     <View className="min-h-[120px]">
-                        <ScrollView horizontal className="flex-row gap-2">
+                        <ScrollView horizontal className="flex-row gap-2" showsHorizontalScrollIndicator={false}>
                             {(formData.images || []).length > 0 ? (
                                 (formData.images || []).map((img, index) => {
                                     const uri = typeof img === 'string' ? img : img.uri;
                                     const displayUri = typeof img === 'string' ? getFormattedImageUrl(img) : uri;
-                                    const isOriginal = typeof img === 'string' || (typeof img === 'object' && img && 'isOriginal' in img && img.isOriginal);
+                                    const isOriginal = typeof img === 'string' ||
+                                        (typeof img === 'object' && img !== null && (img as ImageInfo).isOriginal === true);
 
                                     return (
                                         <View key={index} className="relative mr-3">
@@ -264,13 +312,20 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                                                 </Text>
                                             </View>
 
-                                            {/* Remove button */}
-                                            <Pressable
+                                            {/* Improved Remove button */}
+                                            <TouchableOpacity
                                                 onPress={() => removeImage(uri)}
-                                                className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
+                                                className="absolute -top-2 -right-2 bg-red-500 w-7 h-7 rounded-full items-center justify-center"
+                                                style={{
+                                                    shadowColor: '#000',
+                                                    shadowOffset: { width: 0, height: 2 },
+                                                    shadowOpacity: 0.25,
+                                                    shadowRadius: 3.84,
+                                                    elevation: 5,
+                                                }}
                                             >
-                                                <Text className="text-white text-xs">×</Text>
-                                            </Pressable>
+                                                <Ionicons name="close" size={18} color="white" />
+                                            </TouchableOpacity>
                                         </View>
                                     );
                                 })
@@ -290,6 +345,9 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                         Current: {imageCounts.total}
                         {imageCounts.new > 0 && (
                             <> • New: {imageCounts.new}</>
+                        )}
+                        {imageCounts.deleted > 0 && (
+                            <Text className="text-red-500"> • To delete: {imageCounts.deleted}</Text>
                         )}
                     </Text>
                 </View>
@@ -341,9 +399,9 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                                 + {imageCounts.new} new image{imageCounts.new > 1 ? 's' : ''} added
                             </Text>
                         )}
-                        {originalImages.length - imageCounts.original > 0 && (
+                        {imageCounts.deleted > 0 && (
                             <Text className="text-sm text-red-600">
-                                - {originalImages.length - imageCounts.original} original image{originalImages.length - imageCounts.original > 1 ? 's' : ''} removed
+                                - {imageCounts.deleted} original image{imageCounts.deleted > 1 ? 's' : ''} marked for deletion
                             </Text>
                         )}
                     </View>
