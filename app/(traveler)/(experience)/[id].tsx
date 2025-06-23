@@ -1,11 +1,12 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AvailabilityCalendar from '../../../components/AvailablityCalendar';
 import API_URL from '../../../constants/api';
+import { ItineraryItem } from '../../../types/itineraryTypes';
 
-// Your existing Experience type and imports...
 type Experience = {
     id: number;
     title: string;
@@ -26,17 +27,71 @@ type Experience = {
     };
 };
 
-import { ItineraryItem } from '../../../types/itineraryTypes';
+type Review = {
+    id: number;
+    userName: string;
+    userAvatar?: string;
+    rating: number;
+    comment: string;
+    date: string;
+    helpful: number;
+};
 
 export default function ExperienceDetail() {
-    // ... all your existing state and useEffect code stays the same ...
+    const router = useRouter();
     const { id, tripStartDate: paramTripStart, tripEndDate: paramTripEnd } = useLocalSearchParams();
     const experienceId = Number(id);
+
     const [experience, setExperience] = useState<Experience | null>(null);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [activeTab, setActiveTab] = useState('details');
+    const [showAllReviews, setShowAllReviews] = useState(false);
+
+    // Dummy reviews data
+    const dummyReviews: Review[] = [
+        {
+            id: 1,
+            userName: "Maria Santos",
+            rating: 5,
+            comment: "Amazing experience! The guide was very knowledgeable and friendly. The views were breathtaking and worth every peso. Highly recommend this to anyone visiting the area!",
+            date: "2025-06-15",
+            helpful: 12
+        },
+        {
+            id: 2,
+            userName: "John Chen",
+            rating: 4,
+            comment: "Great tour overall. The location is beautiful and the activities were fun. Only minor issue was the timing - we felt a bit rushed at some spots. Still, would definitely recommend!",
+            date: "2025-06-10",
+            helpful: 8
+        },
+        {
+            id: 3,
+            userName: "Ana Reyes",
+            rating: 5,
+            comment: "Perfect day out! Everything was well organized from start to finish. The local insights shared by our guide made the experience even more special. Don't forget to bring your camera!",
+            date: "2025-06-05",
+            helpful: 15
+        },
+        {
+            id: 4,
+            userName: "Robert Garcia",
+            rating: 3,
+            comment: "The experience itself was good but felt overpriced for what was offered. The location is nice but can get very crowded. Better to go early in the morning if possible.",
+            date: "2025-05-28",
+            helpful: 5
+        },
+        {
+            id: 5,
+            userName: "Lisa Fernandez",
+            rating: 5,
+            comment: "Absolutely loved it! This was the highlight of our trip. The staff went above and beyond to make sure everyone had a great time. Worth every penny!",
+            date: "2025-05-20",
+            helpful: 20
+        }
+    ];
 
     const getCurrentDateString = () => new Date().toISOString().split('T')[0];
     const getNextWeekDateString = () => {
@@ -53,7 +108,6 @@ export default function ExperienceDetail() {
     );
     const [selectedItems, setSelectedItems] = useState<ItineraryItem[]>([]);
 
-    // Your existing useEffect
     useEffect(() => {
         const fetchExperience = async () => {
             try {
@@ -62,11 +116,11 @@ export default function ExperienceDetail() {
                 setExperience(data);
 
                 if (data && data.destination) {
-                    console.log('Destination coordinates:', {
-                        latitude: data.destination.latitude,
-                        longitude: data.destination.longitude,
-                        name: data.destination.name
-                    });
+                    // console.log('Destination coordinates:', {
+                    //     latitude: data.destination.latitude,
+                    //     longitude: data.destination.longitude,
+                    //     name: data.destination.name
+                    // });
                 }
             } catch (error) {
                 console.error('Error fetching experience data:', error);
@@ -78,7 +132,6 @@ export default function ExperienceDetail() {
         fetchExperience();
     }, [experienceId]);
 
-    // ADD THIS FUNCTION - Handle opening maps
     const handleOpenMap = async () => {
         if (!experience?.destination) {
             Alert.alert('Error', 'Location not available');
@@ -91,10 +144,8 @@ export default function ExperienceDetail() {
         let url = '';
 
         if (Platform.OS === 'ios') {
-            // Try Apple Maps first
             url = `maps:0,0?q=${label}@${latitude},${longitude}`;
         } else {
-            // Android - use geo URI
             url = `geo:0,0?q=${latitude},${longitude}(${label})`;
         }
 
@@ -103,7 +154,6 @@ export default function ExperienceDetail() {
             if (supported) {
                 await Linking.openURL(url);
             } else {
-                // Fallback to Google Maps web version
                 const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`;
                 await Linking.openURL(webUrl);
             }
@@ -113,7 +163,6 @@ export default function ExperienceDetail() {
         }
     };
 
-    // Your existing handler functions...
     const handleTimeSlotSelect = (item: ItineraryItem) => {
         setSelectedItems(prev => [...prev, item]);
     };
@@ -136,128 +185,300 @@ export default function ExperienceDetail() {
         return `${API_URL}${formattedPath}`;
     };
 
-    // Your existing loading and error states...
+    const renderStars = (rating: number) => {
+        return (
+            <View className="flex-row">
+                {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                        key={star}
+                        name={star <= rating ? "star" : "star-outline"}
+                        size={16}
+                        color={star <= rating ? "#FDB022" : "#D1D5DB"}
+                    />
+                ))}
+            </View>
+        );
+    };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - date.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+        if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+        return `${Math.floor(diffDays / 365)} years ago`;
+    };
+
+    const averageRating = dummyReviews.reduce((acc, review) => acc + review.rating, 0) / dummyReviews.length;
+
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#0000ff" />
+            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
+                <ActivityIndicator size="large" color="#1f2937" />
+                <Text className="mt-4 text-gray-600 font-onest">Loading experience...</Text>
             </SafeAreaView>
         );
     }
 
     if (!experience) {
         return (
-            <SafeAreaView className="flex-1 justify-center items-center">
-                <Text>Experience not found.</Text>
+            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
+                <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+                <Text className="text-red-500 font-onest-medium text-lg mt-4">Experience not found</Text>
+                <Text className="text-gray-400 font-onest text-center mt-2 px-8">
+                    The experience you're looking for doesn't exist or has been removed.
+                </Text>
+                <TouchableOpacity
+                    className="mt-6 bg-primary rounded-full px-8 py-3"
+                    onPress={() => router.back()}
+                >
+                    <Text className="text-white font-onest-medium">Go Back</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
     return (
-        <ScrollView className='flex-1'>
-            {/* Your existing image section... */}
-            <View className="w-full h-80 overflow-hidden bg-gray-200">
-                {experience.images && experience.images.length > 0 && !imageError ? (
-                    <Image
-                        source={{ uri: getFormattedImageUrl(experience.images[0])! }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                        onError={() => setImageError(true)}
-                    />
-                ) : (
-                    <View className="w-full h-full justify-center items-center">
-                        <Text>{imageError ? 'Failed to load image' : 'No image available'}</Text>
-                    </View>
-                )}
-            </View>
-
-            <View className='px-6 pt-2 -mt-5 rounded-3xl bg-white'>
-                <View className='flex-row justify-between'>
-                    <Text className="text-2xl font-semibold mt-4 w-9/12">{experience.title}</Text>
-                    <Text className="my-4 text-gray-600">{experience.unit}</Text>
-                </View>
-
-                <Text className="text-lg font-bold text-blue-500 my-2">
-                    {experience.price ? `₱${experience.price}` : 'Price not available'}
-                </Text>
-
-                {/* Your existing tab navigation... */}
-                <View className="flex-row border-b border-gray-200 mt-4">
-                    <TouchableOpacity
-                        className={`px-4 py-2 ${activeTab === 'details' ? 'border-b-2 border-blue-500' : ''}`}
-                        onPress={() => setActiveTab('details')}
-                    >
-                        <Text className={`${activeTab === 'details' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>
-                            Details
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        className={`px-4 py-2 ${activeTab === 'availability' ? 'border-b-2 border-blue-500' : ''}`}
-                        onPress={() => setActiveTab('availability')}
-                    >
-                        <Text className={`${activeTab === 'availability' ? 'text-blue-500 font-medium' : 'text-gray-600'}`}>
-                            Availability
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Content based on active tab */}
-                {activeTab === 'details' ? (
-                    <View className="py-4">
-                        <View className="flex-row flex-wrap">
-                            {experience.tags && experience.tags.map((tag) => (
-                                <Text key={tag} className="bg-blue-100 text-blue-600 text-xs rounded-full px-3 py-1 mr-2 mb-2">
-                                    {tag}
+        <View className="flex-1 bg-gray-50">
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                {/* Header Image with Back Button */}
+                <View className="relative">
+                    <View className="w-full h-80 overflow-hidden bg-gray-200">
+                        {experience.images && experience.images.length > 0 && !imageError ? (
+                            <Image
+                                source={{ uri: getFormattedImageUrl(experience.images[0])! }}
+                                className="w-full h-full"
+                                resizeMode="cover"
+                                onError={() => setImageError(true)}
+                            />
+                        ) : (
+                            <View className="w-full h-full justify-center items-center bg-gray-100">
+                                <Ionicons name="image-outline" size={64} color="#9CA3AF" />
+                                <Text className="text-gray-500 font-onest mt-2">
+                                    {imageError ? 'Failed to load image' : 'No image available'}
                                 </Text>
-                            ))}
+                            </View>
+                        )}
+                    </View>
+
+                </View>
+
+                {/* Content Card */}
+                <View className='px-6 pt-2 -mt-5 rounded-3xl bg-white'>
+                    {/* Title and Location */}
+                    <View className="mb-4">
+                        <View className='flex-row justify-between'>
+                            <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-gray-800">
+                                {experience.title}
+                            </Text>
+                            <Text className="my-4 text-gray-600 font-onest">{experience.unit}</Text>
                         </View>
 
-                        <Text className="text-lg font-semibold mt-4 mb-2">Description</Text>
-                        <Text className="text-gray-600">
-                            {expanded
-                                ? experience.description
-                                : (experience.description?.length > 150
-                                    ? `${experience.description.substring(0, 150)}...`
-                                    : experience.description)
-                            }
+                        <Text className="text-lg font-onest-bold text-primary my-2">
+                            {experience.price ? `₱${experience.price}` : 'Price not available'}
                         </Text>
+                    </View>
 
-                        {experience.description?.length > 150 && (
-                            <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                                <Text className="text-blue-500 mt-2">
-                                    {expanded ? 'Read Less' : 'Read More'}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* UPDATED Location Button  */}
+                    {/* Tab Navigation */}
+                    <View className="flex-row border-b border-gray-200 mt-4">
                         <TouchableOpacity
-                            className={`mt-6 py-3 rounded-lg items-center ${experience.destination ? 'bg-blue-500' : 'bg-gray-400'
-                                }`}
-                            onPress={handleOpenMap}
-                            disabled={!experience.destination}
+                            className={`px-4 py-2 ${activeTab === 'details' ? 'border-b-2 border-primary' : ''}`}
+                            onPress={() => setActiveTab('details')}
                         >
-                            <Text className="text-white font-semibold">
-                                {experience.destination
-                                    ? 'Open Location on Map'
-                                    : 'Location Not Available'
-                                }
+                            <Text className={`font-onest-medium ${activeTab === 'details' ? 'text-primary' : 'text-gray-600'}`}>
+                                Details
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            className={`px-4 py-2 ${activeTab === 'availability' ? 'border-b-2 border-primary' : ''}`}
+                            onPress={() => setActiveTab('availability')}
+                        >
+                            <Text className={`font-onest-medium ${activeTab === 'availability' ? 'text-primary' : 'text-gray-600'}`}>
+                                Availability
                             </Text>
                         </TouchableOpacity>
                     </View>
-                ) : (
-                    <View className="py-4">
-                        <AvailabilityCalendar
-                            experienceId={experienceId}
-                            tripStartDate={tripStartDate}
-                            tripEndDate={tripEndDate}
-                            selectedItems={selectedItems}
-                            onTimeSlotSelect={handleTimeSlotSelect}
-                            onTimeSlotDeselect={handleTimeSlotDeselect}
-                        />
-                    </View>
-                )}
-            </View>
-        </ScrollView>
+
+                    {/* Content based on active tab */}
+                    {activeTab === 'details' ? (
+                        <View className="py-4">
+                            {/* Tags */}
+                            {experience.tags && experience.tags.length > 0 && (
+                                <View className="flex-row flex-wrap mb-4">
+                                    {experience.tags.map((tag) => (
+                                        <View key={tag} className="bg-indigo-50 px-3 py-1 rounded-full mr-2 mb-2">
+                                            <Text className="text-primary text-xs font-onest-medium">{tag}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* Description */}
+                            <Text className="text-lg font-onest-semibold mt-4 mb-2 text-gray-800">Description</Text>
+                            <Text className="text-gray-600 font-onest">
+                                {expanded
+                                    ? experience.description
+                                    : (experience.description?.length > 150
+                                        ? `${experience.description.substring(0, 150)}...`
+                                        : experience.description)
+                                }
+                            </Text>
+
+                            {experience.description?.length > 150 && (
+                                <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+                                    <Text className="text-primary mt-2 font-onest-medium">
+                                        {expanded ? 'Read Less' : 'Read More'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Location Information */}
+                            {experience.destination && (
+                                <View className="mt-6">
+                                    <Text className="text-lg font-onest-semibold mb-2 text-gray-800">Location</Text>
+                                    <View className="bg-gray-50 rounded-xl p-4 " >
+                                        <View className="flex-row items-start mb-3">
+                                            <Ionicons name="location" size={20} color="#4F46E5" />
+                                            <View className="ml-3 flex-1">
+                                                <Text className="font-onest-semibold text-gray-800 mb-1">
+                                                    {experience.destination.name}
+                                                </Text>
+                                                <Text className="text-gray-600 font-onest">
+                                                    {experience.destination.city}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        {experience.destination.description && experience.destination.description !== experience.destination.name && (
+                                            <View className="flex-row items-start ">
+                                                <Ionicons name="compass" size={20} color="#9CA3AF" />
+                                                <Text className="ml-3 text-gray-600 font-onest flex-1">
+                                                    {experience.destination.description}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Reviews Section */}
+                            <View className="mt-6">
+                                <View className="flex-row items-center justify-between mb-4">
+                                    <Text className="text-lg font-onest-semibold text-gray-800">Reviews</Text>
+                                    <View className="flex-row items-center">
+                                        {renderStars(Math.round(averageRating))}
+                                        <Text className="ml-2 text-gray-600 font-onest-medium">
+                                            {averageRating.toFixed(1)} ({dummyReviews.length})
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Review Cards */}
+                                {dummyReviews.slice(0, showAllReviews ? dummyReviews.length : 2).map((review) => (
+                                    <View key={review.id} className="bg-gray-50 rounded-xl p-4 mb-3">
+                                        <View className="flex-row items-start justify-between mb-2">
+                                            <View className="flex-1">
+                                                <View className="flex-row items-center mb-1">
+                                                    <View className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-3">
+                                                        <Text className="text-white font-onest-semibold text-lg">
+                                                            {review.userName.charAt(0)}
+                                                        </Text>
+                                                    </View>
+                                                    <View>
+                                                        <Text className="font-onest-semibold text-gray-800">
+                                                            {review.userName}
+                                                        </Text>
+                                                        <View className="flex-row items-center">
+                                                            {renderStars(review.rating)}
+                                                            <Text className="ml-2 text-gray-500 text-xs font-onest">
+                                                                {formatDate(review.date)}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        </View>
+
+                                        <Text className="text-gray-600 font-onest mt-2">
+                                            {review.comment}
+                                        </Text>
+
+                                        <TouchableOpacity className="flex-row items-center mt-3">
+                                            <Ionicons name="thumbs-up-outline" size={16} color="#6B7280" />
+                                            <Text className="ml-1 text-gray-500 text-sm font-onest">
+                                                {review.helpful} found this helpful
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+
+                                {/* View All Reviews Button */}
+                                {dummyReviews.length > 2 && (
+                                    <TouchableOpacity
+                                        className="mt-4 py-3 border border-gray-300 rounded-xl items-center flex-row justify-center"
+                                        onPress={() => setShowAllReviews(!showAllReviews)}
+                                    >
+                                        <Text className="text-gray-700 font-onest-medium">
+                                            {showAllReviews ? 'Show Less Reviews' : `View All ${dummyReviews.length} Reviews`}
+                                        </Text>
+                                        <Ionicons
+                                            name={showAllReviews ? "chevron-up" : "chevron-down"}
+                                            size={20}
+                                            color="#374151"
+                                            style={{ marginLeft: 8 }}
+                                        />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {/* Location Button */}
+                            <TouchableOpacity
+                                className={`mt-6 py-4 rounded-2xl items-center flex-row justify-center ${experience.destination ? 'bg-primary' : 'bg-gray-400'
+                                    }`}
+                                onPress={handleOpenMap}
+                                disabled={!experience.destination}
+                                style={experience.destination ? {
+                                    shadowColor: '#4F46E5',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 8,
+                                    elevation: 6,
+                                } : {}}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons
+                                    name="map-outline"
+                                    size={20}
+                                    color={experience.destination ? "#E5E7EB" : "#9CA3AF"}
+                                />
+                                <Text className={`font-onest-semibold ml-3 ${experience.destination ? 'text-gray-200' : 'text-gray-500'
+                                    }`}>
+                                    {experience.destination
+                                        ? 'Open Location on Map'
+                                        : 'Location Not Available'
+                                    }
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View className="py-4">
+                            <AvailabilityCalendar
+                                experienceId={experienceId}
+                                tripStartDate={tripStartDate}
+                                tripEndDate={tripEndDate}
+                                selectedItems={selectedItems}
+                                onTimeSlotSelect={handleTimeSlotSelect}
+                                onTimeSlotDeselect={handleTimeSlotDeselect}
+                            />
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        </View>
     );
 }

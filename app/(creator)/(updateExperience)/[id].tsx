@@ -64,14 +64,14 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, total
 const ExperienceEditForm: React.FC = () => {
     const router = useRouter();
     const { id } = useLocalSearchParams();
-    // const experienceId = id ? String(id).replace('updateExperience', '') : '';
+    const experienceId = id ? String(id).replace('updateExperience', '') : '';
 
     // Debug the route params
     console.log('RAW id param:', id);
     console.log('Type of id:', typeof id);
     console.log('Array.isArray(id):', Array.isArray(id));
 
-    const experienceId = '1';
+    // const experienceId = '1';
     console.log('Processed experienceId:', experienceId);
 
     const [step, setStep] = useState<number>(1);

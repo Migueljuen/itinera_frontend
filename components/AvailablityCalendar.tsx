@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import API_URL from '../constants/api'; // Your API base URL
@@ -5,19 +6,18 @@ import { ItineraryItem } from '../types/itineraryTypes'; // Import your types
 
 // Type definitions
 type TimeSlot = {
-  slot_id?: number;
-  availability_id?: number;
-  start_time: string;
-  end_time: string;
+    slot_id?: number;
+    availability_id?: number;
+    start_time: string;
+    end_time: string;
 };
 
 type AvailabilityDay = {
-  availability_id?: number;
-  experience_id?: number;
-  day_of_week: string;
-  time_slots: TimeSlot[];
+    availability_id?: number;
+    experience_id?: number;
+    day_of_week: string;
+    time_slots: TimeSlot[];
 };
-
 
 type AvailabilityData = {
     availability: AvailabilityDay[];
@@ -40,9 +40,9 @@ interface AvailabilityCalendarProps {
     onTimeSlotDeselect: (item: ItineraryItem) => void;
 }
 
-const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({ 
-    experienceId, 
-    tripStartDate, 
+const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
+    experienceId,
+    tripStartDate,
     tripEndDate,
     selectedItems,
     onTimeSlotSelect,
@@ -54,6 +54,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         tripEndDate,
         selectedItemsCount: selectedItems?.length
     });
+
     // State for availability data
     const [availabilityData, setAvailabilityData] = useState<AvailabilityData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -105,12 +106,12 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     const getTripDates = () => {
         const dates = [];
         const currentDate = new Date(tripStart);
-        
+
         while (currentDate <= tripEnd) {
             dates.push(new Date(currentDate));
             currentDate.setDate(currentDate.getDate() + 1);
         }
-        
+
         return dates;
     };
 
@@ -140,8 +141,8 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         const dayNumber = getDayNumber(date);
         const formattedStartTime = convertToFormTimeFormat(startTime);
         const formattedEndTime = convertToFormTimeFormat(endTime);
-        
-        return selectedItems.some(item => 
+
+        return selectedItems.some(item =>
             item.experience_id === experienceId &&
             item.day_number === dayNumber &&
             item.start_time === formattedStartTime &&
@@ -154,7 +155,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         const dayNumber = getDayNumber(date);
         const formattedStartTime = convertToFormTimeFormat(startTime);
         const formattedEndTime = convertToFormTimeFormat(endTime);
-        
+
         const newItem: ItineraryItem = {
             experience_id: experienceId,
             day_number: dayNumber,
@@ -173,17 +174,19 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
     if (loading) {
         return (
-            <View className="py-8 items-center justify-center">
-                <ActivityIndicator size="large" color="#0000ff" />
-                <Text className="mt-2 text-gray-600">Loading availability...</Text>
+            <View className="py-16 items-center justify-center">
+                <ActivityIndicator size="large" color="#1f2937" />
+                <Text className="mt-4 text-gray-600 font-onest">Loading availability...</Text>
             </View>
         );
     }
 
     if (error) {
         return (
-            <View className="py-8 items-center justify-center">
-                <Text className="text-red-500">{error}</Text>
+            <View className="py-16 items-center justify-center bg-white rounded-2xl mx-4">
+                <Ionicons name="warning-outline" size={48} color="#EF4444" />
+                <Text className="text-red-500 font-onest-medium text-center mt-4 px-8">{error}</Text>
+                <Text className="text-gray-400 font-onest text-center mt-2">Please try again later</Text>
             </View>
         );
     }
@@ -191,8 +194,10 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     // If no availability data or empty array
     if (!availabilityData || !availabilityData.availability || availabilityData.availability.length === 0) {
         return (
-            <View className="py-8 bg-gray-50 rounded-lg items-center justify-center">
-                <Text className="text-gray-600">No availability information found for this experience.</Text>
+            <View className="py-16 bg-white rounded-2xl mx-4 items-center justify-center">
+                <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
+                <Text className="text-gray-600 font-onest-medium text-center mt-4">No availability found</Text>
+                <Text className="text-gray-400 font-onest text-center mt-2 px-8">This experience has no available time slots for your trip dates.</Text>
             </View>
         );
     }
@@ -202,99 +207,140 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         (a, b) => daysOrder.indexOf(a.day_of_week) - daysOrder.indexOf(b.day_of_week)
     );
 
+    // Count total selected slots for this experience
+    const selectedSlotsCount = selectedItems.filter(item => item.experience_id === experienceId).length;
+
     return (
-        <View className="mb-6">
-            <View className="bg-blue-600 py-4 px-4 rounded-t-xl">
-                <View className="flex-row items-center justify-between">
-                    <Text className="text-white text-xl font-semibold">Availability</Text>
-                    <Text className="text-blue-100">
-                        {tripStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </Text>
+        <View className=" mb-6">
+            {/* Header */}
+            <View className="bg-white  rounded-2xl border border-gray-200 overflow-hidden"
+                style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 12,
+                    elevation: 4,
+                }}
+            >
+                <View className="bg-primary py-5 px-6">
+                    <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center">
+                            <Ionicons name="calendar" size={24} color="#E5E7EB" />
+
+                        </View>
+                        <View className="bg-white/20 px-3 py-1.5 rounded-full">
+                            <Text className="text-white font-onest-medium text-sm">
+                                {tripStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                            </Text>
+                        </View>
+                    </View>
+
+
                 </View>
-            </View>
 
-            {/* Calendar Trip Dates View */}
-            <View className="bg-white rounded-b-xl shadow-md overflow-hidden">
-                {tripDates.map((date, index) => {
-                    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-                    const dayAvailability = sortedAvailability.find(item => item.day_of_week === dayName);
-                    const hasAvailability = !!dayAvailability;
-                    const isExpanded = expandedDay === dayName;
-                    const dayNumber = getDayNumber(date);
+                {/* Calendar Trip Dates View */}
+                <View className="bg-white">
+                    {tripDates.map((date, index) => {
+                        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                        const dayAvailability = sortedAvailability.find(item => item.day_of_week === dayName);
+                        const hasAvailability = !!dayAvailability;
+                        const isExpanded = expandedDay === dayName;
+                        const dayNumber = getDayNumber(date);
+                        const daySelectedCount = selectedItems.filter(item =>
+                            item.experience_id === experienceId && item.day_number === dayNumber
+                        ).length;
 
-                    return (
-                        <TouchableOpacity
-                            key={index}
-                            onPress={() => hasAvailability && toggleDayExpansion(dayName)}
-                            activeOpacity={hasAvailability ? 0.7 : 1}
-                            className={`border-b border-gray-100 ${hasAvailability ? 'bg-white' : 'bg-gray-50'}`}
-                        >
-                            <View className="flex-row items-center justify-between p-4">
-                                <View className="flex-row items-center">
-                                    <View className={`w-10 h-10 rounded-full ${hasAvailability ? 'bg-blue-100' : 'bg-gray-200'} items-center justify-center mr-3`}>
-                                        <Text className={`font-bold ${hasAvailability ? 'text-blue-800' : 'text-gray-500'}`}>
-                                            {date.getDate()}
-                                        </Text>
-                                    </View>
-                                    <View>
-                                        <Text className={`font-medium ${hasAvailability ? 'text-gray-800' : 'text-gray-400'}`}>
-                                            {dayName}
-                                        </Text>
-                                        <Text className={`text-xs ${hasAvailability ? 'text-gray-600' : 'text-gray-400'}`}>
-                                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {hasAvailability && (
-                                    <View className="flex-row items-center">
-                                        <View className="bg-green-100 px-3 py-1 rounded-full mr-2">
-                                            <Text className="text-green-800 text-xs font-medium">Available</Text>
-                                        </View>
-                                        <Text className="text-gray-400 text-xs">
-                                            {isExpanded ? '▼' : '▶'}
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Expanded view with all time slots */}
-                            {hasAvailability && isExpanded && (
-                                <View className="p-4 space-y-2">
-                                    {dayAvailability.time_slots.map((slot, idx) => {
-                                        const isSelected = isTimeSlotSelected(date, slot.start_time, slot.end_time);
-                                        
-                                        return (
-                                            <TouchableOpacity
-                                                key={idx}
-                                                onPress={() => handleTimeSlotPress(date, slot.start_time, slot.end_time)}
-                                                className={`rounded-lg p-3 mb-1 border ${
-                                                    isSelected 
-                                                        ? 'bg-blue-100 border-blue-500' 
-                                                        : 'bg-blue-50 border-gray-100'
-                                                }`}
-                                                activeOpacity={0.7}
-                                            >
-                                                <View className="flex-row items-center justify-between">
-                                                    <Text className={`font-medium ${
-                                                        isSelected ? 'text-blue-800' : 'text-gray-800'
+                        return (
+                            <View key={index}>
+                                <TouchableOpacity
+                                    onPress={() => hasAvailability && toggleDayExpansion(dayName)}
+                                    activeOpacity={hasAvailability ? 0.7 : 1}
+                                    className={`${index !== tripDates.length - 1 ? 'border-b border-gray-100' : ''} ${hasAvailability ? 'bg-white' : 'bg-gray-50'
+                                        }`}
+                                >
+                                    <View className="flex-row items-center justify-between px-6 py-4">
+                                        <View className="flex-row items-center flex-1">
+                                            <View className={`w-12 h-12 rounded-2xl ${hasAvailability ? 'bg-indigo-50' : 'bg-gray-100'
+                                                } items-center justify-center mr-4`}>
+                                                <Text className={`font-onest-semibold text-lg ${hasAvailability ? 'text-primary' : 'text-gray-400'
                                                     }`}>
-                                                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                                                    </Text>
-                                                    {isSelected && (
-                                                        <View className="bg-blue-500 w-6 h-6 rounded-full items-center justify-center">
-                                                            <Text className="text-white text-xs font-bold">✓</Text>
-                                                        </View>
-                                                    )}
+                                                    {date.getDate()}
+                                                </Text>
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className={`font-onest-medium text-base ${hasAvailability ? 'text-gray-800' : 'text-gray-400'
+                                                    }`}>
+                                                    {dayName}
+                                                </Text>
+                                                <Text className={`text-sm font-onest ${hasAvailability ? 'text-gray-500' : 'text-gray-400'
+                                                    }`}>
+                                                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • Day {dayNumber}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        <View className="flex-row items-center">
+                                            {hasAvailability ? (
+                                                <>
+
+                                                    <View className="bg-green-100 px-3 py-1.5 rounded-full mr-3">
+                                                        <Text className="text-green-700 text-xs font-onest-medium">
+                                                            {dayAvailability?.time_slots.length || 0} slots
+                                                        </Text>
+                                                    </View>
+                                                    <Ionicons
+                                                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                                                        size={20}
+                                                        color="#6B7280"
+                                                    />
+                                                </>
+                                            ) : (
+                                                <View className="bg-gray-100 px-3 py-1.5 rounded-full">
+                                                    <Text className="text-gray-500 text-xs font-onest-medium">Unavailable</Text>
                                                 </View>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    {/* Expanded view with all time slots */}
+                                    {hasAvailability && isExpanded && (
+                                        <View className="px-6 pb-6 pt-2">
+                                            <View className=" rounded-xl p-4">
+                                                <Text className="text-gray-700 font-onest-medium mb-3">
+                                                    Available Time Slots
+                                                </Text>
+                                                <View className="space-y-2">
+                                                    {dayAvailability.time_slots.map((slot, idx) => {
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={idx}
+                                                                onPress={() => handleTimeSlotPress(date, slot.start_time, slot.end_time)}
+                                                                className="rounded-xl p-4 mb-2 bg-green-50 "
+                                                                activeOpacity={0.7}
+                                                            >
+                                                                <View className="flex-row items-center">
+                                                                    <Ionicons
+                                                                        name="time-outline"
+                                                                        size={18}
+                                                                        color="#16A34A"
+                                                                    />
+                                                                    <Text className="font-onest-medium text-base ml-2 text-green-800">
+                                                                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                                                    </Text>
+                                                                </View>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            </View>
+                                        </View>
+                                    )}
+
+                                </TouchableOpacity>
+                            </View>
+                        );
+                    })}
+                </View>
             </View>
         </View>
     );
