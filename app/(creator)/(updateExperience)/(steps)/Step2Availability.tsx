@@ -40,20 +40,34 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
     }, [formData.availability]);
 
     const onChangeStartTime = (event: DateTimePickerEvent, selectedDate?: Date) => {
+        const currentDate = selectedDate || startTime;
         setShowStartPicker(Platform.OS === 'ios');
-        if (selectedDate) {
+
+        if (event.type === 'set' && selectedDate) {
             setStartTime(selectedDate);
             const formatted = dayjs(selectedDate).format('HH:mm');
             setStart(formatted);
         }
+
+        // Close picker on Android after selection
+        if (Platform.OS === 'android') {
+            setShowStartPicker(false);
+        }
     };
 
     const onChangeEndTime = (event: DateTimePickerEvent, selectedDate?: Date) => {
+        const currentDate = selectedDate || endTime;
         setShowEndPicker(Platform.OS === 'ios');
-        if (selectedDate) {
+
+        if (event.type === 'set' && selectedDate) {
             setEndTime(selectedDate);
             const formatted = dayjs(selectedDate).format('HH:mm');
             setEnd(formatted);
+        }
+
+        // Close picker on Android after selection
+        if (Platform.OS === 'android') {
+            setShowEndPicker(false);
         }
     };
 
@@ -250,7 +264,10 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
                                 <View className="flex-1">
                                     <Text className="font-onest-medium mb-2 text-sm">Start Time</Text>
                                     <Pressable
-                                        onPress={() => setShowStartPicker(true)}
+                                        onPress={() => {
+                                            setShowEndPicker(false); // Close end picker if open
+                                            setShowStartPicker(true);
+                                        }}
                                         className="bg-white border border-gray-300 rounded-lg p-3"
                                     >
                                         <Text className="text-center font-onest">
@@ -261,7 +278,10 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
                                 <View className="flex-1">
                                     <Text className="font-onest-medium mb-2 text-sm">End Time</Text>
                                     <Pressable
-                                        onPress={() => setShowEndPicker(true)}
+                                        onPress={() => {
+                                            setShowStartPicker(false); // Close start picker if open
+                                            setShowEndPicker(true);
+                                        }}
                                         className="bg-white border border-gray-300 rounded-lg p-3"
                                     >
                                         <Text className="text-center font-onest">
@@ -285,24 +305,20 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
                                 </Text>
                             </Pressable>
 
-                            {/* Time Pickers */}
-                            {showStartPicker && Platform.OS !== 'ios' && (
-                                <DateTimePicker
-                                    value={startTime}
-                                    mode="time"
-                                    is24Hour={false}
-                                    display="default"
-                                    onChange={onChangeStartTime}
-                                />
-                            )}
-                            {showEndPicker && Platform.OS !== 'ios' && (
-                                <DateTimePicker
-                                    value={endTime}
-                                    mode="time"
-                                    is24Hour={false}
-                                    display="default"
-                                    onChange={onChangeEndTime}
-                                />
+                            {/* Time Pickers - Only show one at a time */}
+                            {(showStartPicker || showEndPicker) && (
+                                <View className={Platform.OS === 'ios' ? 'bg-white rounded-lg mt-2' : ''}>
+                                    <DateTimePicker
+                                        value={showStartPicker ? startTime : endTime}
+                                        mode="time"
+                                        is24Hour={false}
+                                        display={Platform.OS === 'ios' ? "spinner" : "default"}
+                                        onChange={showStartPicker ? onChangeStartTime : onChangeEndTime}
+                                        textColor="#000000"
+                                        style={Platform.OS === 'ios' ? { height: 150 } : {}}
+                                        themeVariant="light"
+                                    />
+                                </View>
                             )}
                         </View>
                     )}
@@ -333,12 +349,12 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
                                             {/* Day Header */}
                                             <View className="flex-row justify-between items-center p-4">
                                                 <View className="flex-row items-center flex-1">
-                                                    <View className="bg-primary/10 p-2 rounded-lg mr-3">
+                                                    <View className="bg-primary/10 p-2 rounded-lg mr-3 w-16 items-center">
                                                         <Text className="text-primary font-onest-semibold">
                                                             {item.day_of_week.substring(0, 3).toUpperCase()}
                                                         </Text>
                                                     </View>
-                                                    <View>
+                                                    <View className="flex-1">
                                                         <Text className="font-onest-semibold text-gray-800">
                                                             {item.day_of_week}
                                                         </Text>

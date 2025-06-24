@@ -25,6 +25,7 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [originalTags, setOriginalTags] = useState<number[]>([]);
     const [originalTravelCompanion, setOriginalTravelCompanion] = useState<ExperienceFormData['travel_companion']>('');
     const [showAllSelected, setShowAllSelected] = useState(false);
+    const [showAllAvailable, setShowAllAvailable] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     const screenWidth = Dimensions.get('window').width;
@@ -142,8 +143,8 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                                     key={option}
                                     onPress={() => setCompanion(option)}
                                     className={`px-4 py-2 rounded-full border ${formData.travel_companion === option
-                                            ? 'bg-primary border-primary'
-                                            : 'bg-white border-gray-300'
+                                        ? 'bg-primary border-primary'
+                                        : 'bg-white border-gray-300'
                                         }`}
                                 >
                                     <Text className={`font-onest-medium ${formData.travel_companion === option ? 'text-white' : 'text-gray-700'
@@ -184,19 +185,24 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         <View className="bg-gray-50 p-3 rounded-xl">
                             <View className="flex-row flex-wrap gap-2">
                                 {displayedSelectedTags.map((tag) => (
-                                    <View key={tag.tag_id} className="flex-row items-center bg-primary px-3 py-1.5 rounded-full">
-                                        <Text className="text-white text-sm font-onest">{tag.name}</Text>
+                                    <Pressable
+                                        key={tag.tag_id}
+                                        onPress={() => toggleTag(tag.tag_id)}
+                                        className="flex-row items-center bg-primary px-4 py-2 rounded-full border border-primary"
+                                    >
+                                        <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 4 }} />
+                                        <Text className="text-white font-onest">{tag.name}</Text>
                                         <Pressable
                                             onPress={() => toggleTag(tag.tag_id)}
                                             className="ml-2"
                                         >
                                             <Ionicons name="close-circle" size={16} color="white" />
                                         </Pressable>
-                                    </View>
+                                    </Pressable>
                                 ))}
                                 {!showAllSelected && selectedTags.length > 6 && (
-                                    <View className="bg-gray-300 px-3 py-1.5 rounded-full">
-                                        <Text className="text-gray-700 text-sm font-onest">
+                                    <View className="bg-gray-300 px-4 py-2 rounded-full border border-gray-300">
+                                        <Text className="text-gray-700 font-onest">
                                             +{selectedTags.length - 6} more
                                         </Text>
                                     </View>
@@ -206,9 +212,18 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     )}
                 </View>
 
-                {/* Tag Categories (Alternative Layout) */}
+                {/* All Available Tags */}
                 <View className="mb-6">
-                    <Text className="font-onest-medium text-base mb-3">All Available Tags</Text>
+                    <View className="flex-row items-center justify-between mb-3">
+                        <Text className="font-onest-medium text-base">All Available Tags</Text>
+                        {!searchQuery && filteredTags.length > 12 && (
+                            <Pressable onPress={() => setShowAllAvailable(!showAllAvailable)}>
+                                <Text className="text-primary font-onest-medium text-sm">
+                                    {showAllAvailable ? 'Show Less' : `Show All (${filteredTags.length})`}
+                                </Text>
+                            </Pressable>
+                        )}
+                    </View>
 
                     {/* Search Bar */}
                     <View className="mb-3">
@@ -232,30 +247,39 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     {loading ? (
                         <ActivityIndicator size="large" color="#0000ff" />
                     ) : (
-                        <View className="flex-row flex-wrap gap-2">
-                            {filteredTags.map((tag) => {
-                                const isSelected = formData.tags.includes(tag.tag_id);
-                                return (
-                                    <Pressable
-                                        key={tag.tag_id}
-                                        onPress={() => toggleTag(tag.tag_id)}
-                                        className={`px-4 py-2 rounded-full border ${isSelected
+                        <View>
+                            <View className="flex-row flex-wrap gap-2">
+                                {(searchQuery || showAllAvailable ? filteredTags : filteredTags.slice(0, 12)).map((tag) => {
+                                    const isSelected = formData.tags.includes(tag.tag_id);
+                                    return (
+                                        <Pressable
+                                            key={tag.tag_id}
+                                            onPress={() => toggleTag(tag.tag_id)}
+                                            className={`px-4 py-2 rounded-full border ${isSelected
                                                 ? 'bg-primary border-primary'
                                                 : 'bg-white border-gray-300'
-                                            }`}
-                                    >
-                                        <View className="flex-row items-center">
-                                            {isSelected && (
-                                                <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 4 }} />
-                                            )}
-                                            <Text className={`font-onest ${isSelected ? 'text-white' : 'text-gray-700'
-                                                }`}>
-                                                {tag.name}
-                                            </Text>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
+                                                }`}
+                                        >
+                                            <View className="flex-row items-center">
+                                                {isSelected && (
+                                                    <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 4 }} />
+                                                )}
+                                                <Text className={`font-onest ${isSelected ? 'text-white' : 'text-gray-700'
+                                                    }`}>
+                                                    {tag.name}
+                                                </Text>
+                                            </View>
+                                        </Pressable>
+                                    );
+                                })}
+                                {!searchQuery && !showAllAvailable && filteredTags.length > 12 && (
+                                    <View className="bg-gray-300 px-4 py-2 rounded-full border border-gray-300">
+                                        <Text className="text-gray-700 font-onest">
+                                            +{filteredTags.length - 12} more
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
                     )}
 
@@ -301,14 +325,14 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     <Pressable
                         onPress={formData.tags.length > 0 && formData.travel_companion ? onNext : undefined}
                         className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && formData.travel_companion
-                                ? 'bg-primary'
-                                : 'bg-gray-200'
+                            ? 'bg-primary'
+                            : 'bg-gray-200'
                             }`}
                         disabled={!(formData.tags.length > 0 && formData.travel_companion)}
                     >
                         <Text className={`text-center font-onest-medium text-base ${formData.tags.length > 0 && formData.travel_companion
-                                ? 'text-white'
-                                : 'text-gray-400'
+                            ? 'text-white'
+                            : 'text-gray-400'
                             }`}>
                             {hasChanges() ? 'Continue with changes' : 'Next step'}
                         </Text>

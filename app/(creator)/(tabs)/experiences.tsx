@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   Text,
@@ -14,30 +15,32 @@ import {
   View
 } from 'react-native';
 import API_URL from '../../../constants/api';
+import { useRefresh } from '../../../contexts/RefreshContext';
 import SafeViewAndroid from '../../globalStyle';
 
 // Updated interface to match your API response
 interface Experience {
-  experience_id: number; // Changed from 'id' to 'experience_id'
-  creator_id: number; // Added this field
+  experience_id: number;
+  creator_id: number;
   title: string;
-  description: string; // Added this field
-  location?: string; // Made optional since it's not in API response
+  description: string;
+  location?: string;
   price: string;
   unit: string;
   destination_name: string;
-  destination_id: number; // Added this field
-  status: 'active' | 'draft' | 'inactive'; // Updated to match API (lowercase)
-  travel_companion: string; // Added this field
-  bookings?: number; // Made optional since it's not in API response
-  rating?: number; // Made optional since it's not in API response
+  destination_id: number;
+  status: 'active' | 'draft' | 'inactive';
+  travel_companion: string;
+  bookings?: number;
+  rating?: number;
   images: string[];
   tags: string[];
-  created_at: string; // Added this field
+  created_at: string;
 }
 
 const CreatorDashboard: React.FC = () => {
   const router = useRouter();
+  const { isRefreshing, refreshData, profileUpdated } = useRefresh();
   const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
   const [userID, setUserID] = useState<string | null>(null);
@@ -65,7 +68,7 @@ const CreatorDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchUserData();
-  }, []);
+  }, [profileUpdated]);
 
   // Function to fetch experiences
   const fetchExperiences = async () => {
@@ -75,6 +78,7 @@ const CreatorDashboard: React.FC = () => {
       setMyExperiences(response.data);
     } catch (error) {
       console.error('Error fetching experiences:', error);
+      setMyExperiences([]);
     } finally {
       setLoading(false);
     }
@@ -86,6 +90,15 @@ const CreatorDashboard: React.FC = () => {
       fetchExperiences();
     }
   }, [userID]);
+
+  // Handle refresh - using the same pattern as your trip screen
+  const handleRefresh = async () => {
+    await refreshData();
+    await fetchUserData();
+    if (userID) {
+      await fetchExperiences();
+    }
+  };
 
   const filteredExperiences: Experience[] = myExperiences.filter(exp => {
     // Filter by search text - use destination_name since location might not exist
@@ -101,10 +114,31 @@ const CreatorDashboard: React.FC = () => {
 
   const tabs: string[] = ['All', 'Active', 'Draft', 'Inactive'];
 
+  if (loading && myExperiences.length === 0) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gray-50">
+        <ActivityIndicator size="large" color="#1f2937" />
+        <Text className="mt-4 text-gray-600 font-onest">Loading your experiences...</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView className='bg-gray-50' style={SafeViewAndroid.AndroidSafeArea}>
       <View className='w-full h-screen'>
-        <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
+        <ScrollView
+          className='flex-1'
+          contentContainerStyle={{ paddingBottom: 142 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#1f2937']}
+              tintColor={'#1f2937'}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
           <View className='flex items-center justify-between flex-row p-6'>
             <View className="">
               <Text className="text-normal text-3xl font-onest-semibold">Your Experiences</Text>
@@ -114,6 +148,7 @@ const CreatorDashboard: React.FC = () => {
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
+                defaultSource={require('../../../assets/images/person.png')}
               />
             ) : (
               <Image
@@ -123,7 +158,15 @@ const CreatorDashboard: React.FC = () => {
             )}
           </View>
 
-          <View className='flex flex-row items-center justify-between p-4 bg-[#fff] rounded-xl mx-4'>
+          <View className='flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4'
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
             <Image
               source={require('../../../assets/images/search.png')}
               className='w-5 h-5 mr-3 opacity-60'
@@ -144,7 +187,7 @@ const CreatorDashboard: React.FC = () => {
           </View>
 
           <View className="px-6 py-8">
-            <Text className="text-normal text-xl font-onest-medium">My Experiences</Text>
+            <Text className="text-normal text-xl font-onest-medium">My Activities</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {tabs.map((tab, index) => {
                 const isSelected = selectedTab === tab;
@@ -153,6 +196,13 @@ const CreatorDashboard: React.FC = () => {
                     key={`tab-${index}`}
                     onPress={() => setSelectedTab(tab)}
                     className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
+                    style={!isSelected ? {
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.05,
+                      shadowRadius: 3,
+                      elevation: 1,
+                    } : {}}
                   >
                     <Text className={`text-base font-onest-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
                       {tab}
@@ -164,16 +214,55 @@ const CreatorDashboard: React.FC = () => {
 
             <View className="mt-8 min-h-fit">
               {loading ? (
-                <ActivityIndicator size="large" color="#0000ff" />
+                <View className="py-8 items-center">
+                  <ActivityIndicator size="large" color="#1f2937" />
+                  <Text className="mt-2 text-gray-500 font-onest">Updating...</Text>
+                </View>
               ) : filteredExperiences.length === 0 ? (
-                <Text className="text-center text-gray-500 py-10">No experiences found</Text>
+                <View className="py-16 items-center">
+                  <Text className="text-center text-gray-500 font-onest-medium text-lg">
+                    No experiences found
+                  </Text>
+                  <Text className="text-center text-gray-400 px-8 mt-3 font-onest leading-5">
+                    {selectedTab === 'All'
+                      ? "You haven't created any experiences yet"
+                      : `No ${selectedTab.toLowerCase()} experiences found`
+                    }
+                  </Text>
+                  {selectedTab === 'All' && (
+                    <TouchableOpacity
+                      className="mt-8 bg-primary rounded-full px-8 py-4 flex-row items-center"
+                      style={{
+                        shadowColor: '#4F46E5',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 12,
+                        elevation: 6,
+                      }}
+                      onPress={() => router.push('/(createExperience)/createExperience')}
+                    >
+                      <Image
+                        source={require('../../../assets/icons/plus.png')}
+                        className="w-4 h-4 mr-3 opacity-80"
+                        resizeMode="contain"
+                      />
+                      <Text className="text-gray-300 font-onest-medium">Create First Experience</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ) : (
                 filteredExperiences.map((item, index) => (
                   <TouchableOpacity
                     key={`experience-${item.experience_id}-${index}`}
-                    // FIXED: Use experience_id instead of id
                     onPress={() => router.push(`/(experience)/${item.experience_id}`)}
-                    className="mb-4 rounded-lg overflow-hidden border border-gray-200"
+                    className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 12,
+                      elevation: 4,
+                    }}
                     activeOpacity={0.7}
                   >
                     <View className="relative">
@@ -191,9 +280,28 @@ const CreatorDashboard: React.FC = () => {
                       )}
 
                       {/* Price Badge */}
-                      <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
+                      <View className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-md"
+                        style={{
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: 0.1,
+                          shadowRadius: 2,
+                          elevation: 2,
+                        }}
+                      >
                         <Text className="font-onest-medium">
                           {item.price === "0" || !item.price ? 'Free' : `₱${item.price}`}
+                        </Text>
+                      </View>
+
+                      {/* Status Badge */}
+                      <View className={`absolute top-2 left-2 px-2 py-1 rounded-md ${item.status === 'active' ? 'bg-green-100' :
+                          item.status === 'draft' ? 'bg-yellow-100' : 'bg-gray-100'
+                        }`}>
+                        <Text className={`text-xs font-onest-medium ${item.status === 'active' ? 'text-green-600' :
+                            item.status === 'draft' ? 'text-yellow-600' : 'text-gray-600'
+                          }`}>
+                          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                         </Text>
                       </View>
                     </View>
@@ -202,7 +310,7 @@ const CreatorDashboard: React.FC = () => {
                       {/* Title */}
                       <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
 
-                      {/* Location - use destination_name since location might not exist */}
+                      {/* Location */}
                       <View className="flex-row items-center mb-2">
                         <Ionicons name="location-outline" size={16} color="#4F46E5" />
                         <Text className="text-sm text-gray-600 ml-1">{item.destination_name}</Text>
@@ -238,7 +346,6 @@ const CreatorDashboard: React.FC = () => {
                           <TouchableOpacity
                             key={`edit-${item.experience_id}`}
                             className="p-2 mr-2"
-                            // FIXED: Use experience_id instead of id
                             onPress={() => router.push(`/(updateExperience)/updateExperience${item.experience_id}`)}
                           >
                             <Ionicons name="pencil-outline" size={18} color="#6B7280" />
@@ -262,6 +369,13 @@ const CreatorDashboard: React.FC = () => {
 
         <TouchableOpacity
           className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
+          style={{
+            shadowColor: '#4F46E5',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 12,
+            elevation: 6,
+          }}
           onPress={() => router.push('/(createExperience)/createExperience')}
         >
           <View className="flex-row items-center">

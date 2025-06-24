@@ -243,7 +243,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                             <Ionicons name="calendar" size={18} color="#E5E7EB" />
 
                         </View>
-                        <View className="bg-white/20 px-3 py-1.5 rounded-full">
+                        <View className=" px-3 py-1.5 rounded-full">
                             <Text className="text-white font-onest-medium text-sm">
                                 {tripStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                             </Text>
@@ -278,7 +278,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                 >
                                     <View className="flex-row items-center justify-between px-6 py-4">
                                         <View className="flex-row items-center flex-1">
-                                            <View className={`w-12 h-12 rounded-2xl ${hasAvailability ? 'bg-indigo-50' : 'bg-gray-100'
+                                            <View className={`w-16 rounded-2xl ${hasAvailability ? 'bg-indigo-50' : 'bg-gray-100'
                                                 } items-center justify-center mr-4`}>
                                                 <Text className={`font-onest-semibold text-lg ${hasAvailability ? 'text-primary' : 'text-gray-400'
                                                     }`}>
@@ -292,7 +292,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                                 </Text>
                                                 <Text className={`text-sm font-onest ${hasAvailability ? 'text-gray-500' : 'text-gray-400'
                                                     }`}>
-                                                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • Day {dayNumber}
+                                                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} •
                                                 </Text>
                                             </View>
                                         </View>
@@ -333,16 +333,16 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                                             <TouchableOpacity
                                                                 key={idx}
                                                                 onPress={() => handleTimeSlotPress(date, slot.start_time, slot.end_time)}
-                                                                className="rounded-xl p-4 mb-2 bg-green-50 "
+                                                                className="rounded-xl p-4 mb-2 bg-indigo-50 "
                                                                 activeOpacity={0.7}
                                                             >
                                                                 <View className="flex-row items-center">
                                                                     <Ionicons
                                                                         name="time-outline"
                                                                         size={18}
-                                                                        color="#16A34A"
+                                                                        color="#1f2937"
                                                                     />
-                                                                    <Text className="font-onest-medium text-base ml-2 text-green-800">
+                                                                    <Text className="font-onest-medium text-base ml-2 text-gray-800">
                                                                         {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                                                                     </Text>
                                                                 </View>

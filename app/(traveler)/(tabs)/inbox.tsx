@@ -1,17 +1,16 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
     Image,
-    TouchableOpacity,
-    ScrollView,
     RefreshControl,
     SafeAreaView,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import SafeViewAndroid from '../../globalStyle'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { experiences } from '../../../data/experiences'
+import { experiences } from '../../../data/experiences';
+import SafeViewAndroid from '../../globalStyle';
 type SavedExperience = {
     id: string;
     title: string;
@@ -23,7 +22,7 @@ type SavedExperience = {
     savedAt: string;
 };
 
-const SavedScreen = () => {
+const InboxScreen = () => {
     const router = useRouter();
 
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -165,4 +164,4 @@ const SavedScreen = () => {
 };
 
 
-export default SavedScreen;
+export default InboxScreen;

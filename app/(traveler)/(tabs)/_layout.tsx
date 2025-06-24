@@ -4,7 +4,7 @@ import { ImageBackground, Text, View } from 'react-native';
 // import { icons } from '@/constants/icons'
 import { useFonts } from 'expo-font';
 import Trip from '../../../assets/icons/calendar1.svg';
-import Saved from '../../../assets/icons/heart.svg';
+import Inbox from '../../../assets/icons/envelope.svg';
 import HomeIcon from '../../../assets/icons/home.svg';
 import Profile from '../../../assets/icons/user.svg';
 
@@ -126,15 +126,15 @@ const _layout = () => {
       />
 
       <Tabs.Screen
-        name='saved'
+        name='inbox'
         options={{
-          title: 'Saved',
+          title: 'Inbox',
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
-              icon={Saved}
-              title="Saved" />
+              icon={Inbox}
+              title="Inbox" />
 
             // <Home  title="Saved"  focused={focused} width={24} height={24} />
           )

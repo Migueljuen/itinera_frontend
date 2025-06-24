@@ -4,11 +4,12 @@ import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Adjustment from '../../../assets/icons/adjustment.svg';
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
+
 type Experience = {
   id: number;
   title: string;
@@ -48,16 +49,13 @@ const categories = [
 const App = () => {
   const router = useRouter();
   const navigation = useNavigation();
-  const [selectedCategory, setSelectedCategory] = useState('All'); // default selected
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const { isRefreshing, refreshData } = useRefresh();
+  const { isRefreshing, refreshData, profileUpdated } = useRefresh();
   const [searchText, setSearchText] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [experiences, setExperiences] = useState<Experience[]>([]);
-
   const [firstName, setFirstName] = useState("");
   const [profilePic, setProfilePic] = useState("");
-  const { profileUpdated } = useRefresh();
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async () => {
@@ -85,8 +83,6 @@ const App = () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/experience/active`);
-
-
       setExperiences(response.data);
     } catch (error) {
       console.error('Error fetching experiences:', error);
@@ -100,19 +96,12 @@ const App = () => {
     fetchExperiences();
   }, []);
 
-  // Handle refresh context
-  useEffect(() => {
-    if (isRefreshing) {
-      fetchExperiences();
-      refreshData();
-    }
-  }, [isRefreshing]);
-
-  // Handle pull-to-refresh
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchExperiences().then(() => setRefreshing(false));
-  }, []);
+  // Handle refresh - using the same pattern as your trip screen
+  const handleRefresh = async () => {
+    await refreshData();
+    await fetchExperiences();
+    await fetchUserData(); // Also refresh user data
+  };
 
   // Filter experiences based on selected category and search text
   const filteredExperiences: Experience[] = React.useMemo(() => {
@@ -139,11 +128,31 @@ const App = () => {
     return filtered;
   }, [experiences, selectedCategory, searchText]);
 
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gray-50">
+        <ActivityIndicator size="large" color="#1f2937" />
+        <Text className="mt-4 text-gray-600 font-onest">Loading experiences...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView className='bg-gray-50'>
       <View className='w-full h-screen'>
-        <ScrollView className='flex-1' contentContainerStyle={{ paddingBottom: 142 }}>
+        <ScrollView
+          className='flex-1'
+          contentContainerStyle={{ paddingBottom: 142 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#1f2937']}
+              tintColor={'#1f2937'}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
           <View className='flex items-center justify-between flex-row p-6'>
             <View className="">
               <Text className="text-normal text-3xl font-onest-semibold">Hello, {firstName}</Text>
@@ -199,16 +208,28 @@ const App = () => {
             </ScrollView>
 
             <View className="mt-8 min-h-fit">
-              {loading ? (
-                <ActivityIndicator size="large" color="#0000ff" />
-              ) : filteredExperiences.length === 0 ? (
-                <Text className="text-center text-gray-500 py-10">No experiences found</Text>
+              {filteredExperiences.length === 0 ? (
+                <View className="py-16 items-center">
+                  <Text className="text-center text-gray-500 font-onest-medium text-lg">
+                    No experiences found
+                  </Text>
+                  <Text className="text-center text-gray-400 px-8 mt-3 font-onest leading-5">
+                    Try adjusting your search or category filter
+                  </Text>
+                </View>
               ) : (
                 filteredExperiences.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => router.push(`/(experience)/${item.id}`)}
-                    className="mb-4 rounded-lg overflow-hidden border border-gray-200"
+                    className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.06,
+                      shadowRadius: 8,
+                      elevation: 3,
+                    }}
                     activeOpacity={0.7}
                   >
                     <View className="relative">

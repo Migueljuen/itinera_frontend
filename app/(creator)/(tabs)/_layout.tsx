@@ -1,15 +1,11 @@
-import { View, Text, ImageBackground, Image } from 'react-native'
-import React from 'react'
-import { Tabs } from 'expo-router'
-import { images } from '@/constants/images'
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { ImageBackground, Text, View } from 'react-native';
 // import { icons } from '@/constants/icons'
 import { useFonts } from 'expo-font';
-import HomeIcon from '../../../assets/icons/home.svg'
-import Trip from '../../../assets/icons/calendar1.svg'
-import Adjustment from '../../../assets/icons/adjustment.svg'
-import Saved from '../../../assets/icons/heart.svg'
-import Profile from '../../../assets/icons/user.svg'
-import Search from '../../../assets/icons/search.svg'
+import Trip from '../../../assets/icons/calendar1.svg';
+import Saved from '../../../assets/icons/heart.svg';
+import Profile from '../../../assets/icons/user.svg';
 
 
 
@@ -119,13 +115,13 @@ const _layout = () => {
       <Tabs.Screen
         name='experiences'
         options={{
-          title: 'experiences',
+          title: 'Activities',
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
               icon={Saved}
-              title="Experiences" />
+              title="Activities" />
 
             // <Home  title="Saved"  focused={focused} width={24} height={24} />
           )
