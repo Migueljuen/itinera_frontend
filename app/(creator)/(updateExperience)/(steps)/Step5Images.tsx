@@ -37,6 +37,8 @@ interface StepProps {
     onNext: () => void;
     onBack: () => void;
     experience: Experience;
+    deletedImages: string[];
+    setDeletedImages: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 // Extended image type to include file info
@@ -51,10 +53,17 @@ interface ImageInfo {
 // Union type for images in formData
 type ImageItem = string | ImageInfo;
 
-const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack, experience }) => {
+const Step5EditImages: React.FC<StepProps> = ({
+    formData,
+    setFormData,
+    onNext,
+    onBack,
+    experience,
+    deletedImages,
+    setDeletedImages
+}) => {
     const [isLoading, setIsLoading] = useState(false);
     const [originalImages, setOriginalImages] = useState<string[]>([]);
-    const [imagesToDelete, setImagesToDelete] = useState<string[]>([]); // Track URLs of images to delete
 
     // Store original images on mount
     useEffect(() => {
@@ -107,7 +116,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                         name: filename,
                         type: mimeType,
                         isOriginal: false
-                    };
+                    } as ImageInfo;
                 });
 
                 const imageInfoArray = await Promise.all(imageInfoPromises);
@@ -149,7 +158,8 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                         onPress: () => {
                             // If it's an original image (string URL), add to deletion list
                             if (typeof imageToRemove === 'string') {
-                                setImagesToDelete([...imagesToDelete, imageToRemove]);
+                                console.log('Adding to deleted images:', imageToRemove);
+                                setDeletedImages([...deletedImages, imageToRemove]);
                             }
 
                             // Remove from current images
@@ -179,7 +189,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
         if (!formData.images) return originalImages.length > 0;
 
         // Check if any images are marked for deletion
-        if (imagesToDelete.length > 0) {
+        if (deletedImages.length > 0) {
             return true;
         }
 
@@ -222,7 +232,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                     style: 'destructive',
                     onPress: () => {
                         // Clear the images to delete list
-                        setImagesToDelete([]);
+                        setDeletedImages([]);
 
                         // Reset formData to original images
                         setFormData({
@@ -256,7 +266,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
             }
         });
 
-        const deletedCount = imagesToDelete.length;
+        const deletedCount = deletedImages.length;
 
         return {
             original: originalCount,
@@ -268,8 +278,14 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
 
     const imageCounts = getImageCounts();
 
+    // Debug logging
+    useEffect(() => {
+        console.log('Current deletedImages:', deletedImages);
+        console.log('Current formData.images:', formData.images);
+    }, [deletedImages, formData.images]);
+
     return (
-        <View className='text-center py-2'>
+        <ScrollView className='text-center py-2'>
             <Text className="text-center text-xl font-onest-semibold mb-2">Edit Images</Text>
             <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">
                 Manage your experience images. You can add new photos or remove existing ones.
@@ -298,24 +314,17 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                                 (formData.images || []).map((img, index) => {
                                     const uri = typeof img === 'string' ? img : img.uri;
                                     const displayUri = typeof img === 'string' ? getFormattedImageUrl(img) : uri;
-                                    const isOriginal = typeof img === 'string' ||
-                                        (typeof img === 'object' && img !== null && (img as ImageInfo).isOriginal === true);
 
                                     return (
                                         <View key={index} className="relative mr-3">
                                             <Image source={{ uri: displayUri || uri }} className="w-28 h-28 rounded-lg" />
 
-                                            {/* Image type indicator */}
-                                            <View className={`absolute top-1 left-1 px-2 py-1 rounded-full ${isOriginal ? 'bg-blue-600' : 'bg-green-600'}`}>
-                                                <Text className="text-white text-xs font-onest-medium">
-                                                    {isOriginal ? 'Original' : 'New'}
-                                                </Text>
-                                            </View>
+
 
                                             {/* Improved Remove button */}
                                             <TouchableOpacity
                                                 onPress={() => removeImage(uri)}
-                                                className="absolute -top-2 -right-2 bg-red-500 w-7 h-7 rounded-full items-center justify-center"
+                                                className="absolute  -right-2 bg-red-500 w-7 h-7 rounded-full items-center justify-center"
                                                 style={{
                                                     shadowColor: '#000',
                                                     shadowOffset: { width: 0, height: 2 },
@@ -423,7 +432,7 @@ const Step5EditImages: React.FC<StepProps> = ({ formData, setFormData, onNext, o
                     </Pressable>
                 </View>
             </View>
-        </View>
+        </ScrollView>
     );
 };
 

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
@@ -9,10 +10,12 @@ import {
     ScrollView,
     Text,
     TextInput,
+    TouchableOpacity,
     TouchableWithoutFeedback,
     View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import MapSearchComponent from '../../../../components/MapSearch'; // Add this import
 import { ExperienceFormData } from '../../../../types/types';
 
 // Experience type for the original data
@@ -60,6 +63,7 @@ const Step4EditDestination: React.FC<StepProps> = ({
     const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [editMode, setEditMode] = useState(false);
+    const [showMapSearch, setShowMapSearch] = useState(false);
     const [originalData, setOriginalData] = useState({
         destination_name: '',
         city: '',
@@ -130,28 +134,107 @@ const Step4EditDestination: React.FC<StepProps> = ({
         }
     }, [editMode]);
 
-    const handleMapPress = (event: any) => {
+    // Handle map search location selection
+    const handleLocationSelect = async (location: any) => {
+        console.log('Location data received:', location);
+
+        // First set the coordinates
+        const latitude = location.latitude || location.lat;
+        const longitude = location.longitude || location.lng || location.lon;
+
+        setSelectedLocation({
+            latitude: latitude,
+            longitude: longitude,
+        });
+
+        handleChange('latitude', latitude.toString());
+        handleChange('longitude', longitude.toString());
+
+        // Reverse geocode to get address details
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            console.log('Reverse geocoding data:', data);
+
+            if (data && data.display_name) {
+                // Extract place name - try different approaches
+                let placeName = '';
+
+                // Option 1: Use the name field if available
+                if (data.name) {
+                    placeName = data.name;
+                }
+                // Option 2: Try to get business/place name from address components
+                else if (data.address) {
+                    placeName = data.address.tourism ||
+                        data.address.amenity ||
+                        data.address.leisure ||
+                        data.address.building ||
+                        data.address.house_name ||
+                        data.address.shop ||
+                        data.address.office ||
+                        '';
+                }
+                // Option 3: Extract first part of address if it looks like a place name
+                if (!placeName) {
+                    const addressParts = data.display_name.split(',');
+                    const firstPart = addressParts[0].trim();
+                    // Only use first part as name if it doesn't look like a street number
+                    if (firstPart && !/^\d/.test(firstPart)) {
+                        placeName = firstPart;
+                    }
+                }
+
+                // Set destination name if we found a place name
+                if (placeName) {
+                    handleChange('destination_name', placeName);
+                }
+
+                // Extract city from address
+                if (data.address) {
+                    const city = data.address.city ||
+                        data.address.town ||
+                        data.address.village ||
+                        data.address.municipality ||
+                        data.address.county ||
+                        '';
+
+                    if (city) {
+                        handleChange('city', city);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error reverse geocoding:', error);
+            Alert.alert('Location Error', 'Could not fetch address details for selected location.');
+        }
+
+        // Close the search modal
+        setShowMapSearch(false);
+    };
+
+    const handleMapPress = async (event: any) => {
         if (!editMode) return;
 
         const { coordinate } = event.nativeEvent;
         setSelectedLocation(coordinate);
-        handleChange('latitude', coordinate.latitude);
-        handleChange('longitude', coordinate.longitude);
+        handleChange('latitude', coordinate.latitude.toString());
+        handleChange('longitude', coordinate.longitude.toString());
 
-        (async () => {
-            try {
-                const locationDetails = await Location.reverseGeocodeAsync({
-                    latitude: coordinate.latitude,
-                    longitude: coordinate.longitude,
-                });
+        try {
+            const locationDetails = await Location.reverseGeocodeAsync({
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+            });
 
-                if (locationDetails.length > 0 && locationDetails[0].city) {
-                    handleChange('city', locationDetails[0].city);
-                }
-            } catch (error) {
-                console.log('Error getting city:', error);
+            if (locationDetails.length > 0 && locationDetails[0].city) {
+                handleChange('city', locationDetails[0].city);
             }
-        })();
+        } catch (error) {
+            console.log('Error getting city:', error);
+        }
     };
 
     const toggleEditMode = () => {
@@ -219,6 +302,16 @@ const Step4EditDestination: React.FC<StepProps> = ({
         );
     };
 
+    // Open map search
+    const openMapSearch = () => {
+        setShowMapSearch(true);
+    };
+
+    // Close map search
+    const closeMapSearch = () => {
+        setShowMapSearch(false);
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -262,6 +355,20 @@ const Step4EditDestination: React.FC<StepProps> = ({
                                 </View>
                             )}
 
+                            {/* Map Search Button - Only show in edit mode */}
+                            {editMode && (
+                                <TouchableOpacity
+                                    className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex-row items-center justify-center"
+                                    onPress={openMapSearch}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="search" size={20} color="#3B82F6" />
+                                    <Text className="font-onest-medium text-blue-600 ml-2">
+                                        Search for a New Location
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
                             {/* Map Section */}
                             <View className="mb-2">
                                 <Text className="font-onest-medium mb-2 text-gray-800">
@@ -295,7 +402,7 @@ const Step4EditDestination: React.FC<StepProps> = ({
 
                                 {editMode && (
                                     <Text className="text-xs text-gray-500 font-onest mt-2 italic">
-                                        Tap anywhere on the map to select a new location
+                                        Tap anywhere on the map to select a new location or use the search button above
                                     </Text>
                                 )}
 
@@ -320,12 +427,20 @@ const Step4EditDestination: React.FC<StepProps> = ({
                                 <View className="mb-3">
                                     <Text className="text-sm text-gray-600 mb-1">Destination Name</Text>
                                     {editMode ? (
-                                        <TextInput
-                                            className="border border-gray-200 rounded-lg p-3 text-gray-800"
-                                            placeholder="Destination Name"
-                                            value={formData.destination_name}
-                                            onChangeText={(value) => handleChange('destination_name', value)}
-                                        />
+                                        <View className="relative">
+                                            <TextInput
+                                                className="border border-gray-200 rounded-lg p-3 text-gray-800 pr-12"
+                                                placeholder="Destination Name"
+                                                value={formData.destination_name}
+                                                onChangeText={(value) => handleChange('destination_name', value)}
+                                            />
+                                            <Ionicons
+                                                name="location"
+                                                size={20}
+                                                color="#9CA3AF"
+                                                style={{ position: 'absolute', right: 16, top: 12 }}
+                                            />
+                                        </View>
                                     ) : (
                                         <View className="bg-gray-50 p-3 rounded-lg">
                                             <Text className="text-gray-800 font-onest">
@@ -343,12 +458,20 @@ const Step4EditDestination: React.FC<StepProps> = ({
                                 <View>
                                     <Text className="text-sm text-gray-600 mb-1">City</Text>
                                     {editMode ? (
-                                        <TextInput
-                                            className="border border-gray-200 rounded-lg p-3 text-gray-800"
-                                            placeholder="City"
-                                            value={formData.city}
-                                            onChangeText={(value) => handleChange('city', value)}
-                                        />
+                                        <View className="relative">
+                                            <TextInput
+                                                className="border border-gray-200 rounded-lg p-3 text-gray-800 pr-12"
+                                                placeholder="City"
+                                                value={formData.city}
+                                                onChangeText={(value) => handleChange('city', value)}
+                                            />
+                                            <Ionicons
+                                                name="business"
+                                                size={20}
+                                                color="#9CA3AF"
+                                                style={{ position: 'absolute', right: 16, top: 12 }}
+                                            />
+                                        </View>
                                     ) : (
                                         <View className="bg-gray-50 p-3 rounded-lg">
                                             <Text className="text-gray-800 font-onest">
@@ -420,6 +543,15 @@ const Step4EditDestination: React.FC<StepProps> = ({
                             </View>
                         </View>
                     </View>
+
+                    {/* Map Search Modal */}
+                    <MapSearchComponent
+                        visible={showMapSearch}
+                        onClose={closeMapSearch}
+                        onLocationSelect={handleLocationSelect}
+                        initialLatitude={selectedLocation?.latitude}
+                        initialLongitude={selectedLocation?.longitude}
+                    />
                 </ScrollView>
             </TouchableWithoutFeedback>
         </KeyboardAvoidingView>

@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Pressable, Text, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import API_URL from '../../../../constants/api';
 import { ExperienceFormData } from '../../../../types/types';
@@ -23,6 +24,10 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const [loading, setLoading] = useState(true);
     const [originalTags, setOriginalTags] = useState<number[]>([]);
     const [originalTravelCompanion, setOriginalTravelCompanion] = useState<ExperienceFormData['travel_companion']>('');
+    const [showAllSelected, setShowAllSelected] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const screenWidth = Dimensions.get('window').width;
 
     useEffect(() => {
         const fetchTags = async () => {
@@ -66,14 +71,12 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         });
     };
 
-    // Check if there are changes from original
     const hasChanges = () => {
         const tagsChanged = JSON.stringify(formData.tags.sort()) !== JSON.stringify(originalTags.sort());
         const companionChanged = formData.travel_companion !== originalTravelCompanion;
         return tagsChanged || companionChanged;
     };
 
-    // Reset to original values
     const resetToOriginal = () => {
         Alert.alert(
             'Reset Changes',
@@ -95,135 +98,185 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         );
     };
 
-    // Get tag names from IDs for comparison display
     const getTagNames = (tagIds: number[]) => {
         return availableTags
             .filter(tag => tagIds.includes(tag.tag_id))
             .map(tag => tag.name);
     };
 
+    // Filter tags based on search
+    const filteredTags = searchQuery
+        ? availableTags.filter(tag =>
+            tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        : availableTags;
+
+    // Get selected tags
+    const selectedTags = availableTags.filter(tag => formData.tags.includes(tag.tag_id));
+    const displayedSelectedTags = showAllSelected ? selectedTags : selectedTags.slice(0, 6);
+
     return (
-        <ScrollView className="text-center py-2">
-            <Text className="text-center text-xl font-onest-semibold mb-2">Edit Tags & Preferences</Text>
-            <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">
-                Update the tags and travel companion preferences for your experience.
-            </Text>
+        <ScrollView className="flex-1 bg-white">
+            <View className="px-4 py-6">
+                <Text className="text-center text-xl font-onest-semibold mb-2">Edit Tags & Preferences</Text>
+                <Text className="text-center text-sm text-gray-500 font-onest mb-6">
+                    Update the tags and travel companion preferences for your experience.
+                </Text>
 
-            {/* Changes indicator */}
-            {hasChanges() && (
-                <View className="bg-blue-50 p-3 rounded-xl mb-4 mx-4">
-                    <Text className="text-blue-600 text-sm text-center font-onest-medium">
-                        ✓ Changes detected - ready to continue
-                    </Text>
-                </View>
-            )}
-
-            {/* Travel Companion Selection */}
-            <View className="mb-6 mx-4">
-                <Text className="font-onest-medium text-base mb-2">What's this experience best suited with?</Text>
-                <View className="flex-row flex-wrap gap-2 justify-start">
-                    {TRAVEL_COMPANIONS.map((option) => (
-                        <Pressable
-                            key={option}
-                            onPress={() => setCompanion(option)}
-                            className={`px-4 py-2 rounded-full border ${formData.travel_companion === option
-                                ? 'bg-gray-700 border-primary'
-                                : 'bg-white border-gray-300'
-                                }`}
-                        >
-                            <Text className={formData.travel_companion === option ? 'text-white' : 'text-gray-800'}>
-                                {option}
-                                {/* Show original indicator */}
-                                {option === originalTravelCompanion && option !== formData.travel_companion && (
-                                    <Text className="text-xs"> (original)</Text>
-                                )}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-
-                {/* Show original travel companion if changed */}
-                {formData.travel_companion !== originalTravelCompanion && (
-                    <Text className="text-xs text-gray-400 mt-2 px-1">
-                        Original: {originalTravelCompanion}
-                    </Text>
+                {/* Changes indicator */}
+                {hasChanges() && (
+                    <View className="bg-blue-50 p-3 rounded-xl mb-4">
+                        <Text className="text-blue-600 text-sm text-center font-onest-medium">
+                            ✓ Changes detected - ready to continue
+                        </Text>
+                    </View>
                 )}
-            </View>
 
-            <View className="flex justify-evenly gap-4 border-t pt-8 border-gray-200 mx-4">
-                {loading ? (
-                    <ActivityIndicator size="large" color="#0000ff" />
-                ) : (
-                    <View className="bg-white pb-4">
-                        <Text className="font-onest-medium py-2">Available tags</Text>
-                        <View className="flex-row flex-wrap gap-2">
-                            {availableTags.map((tag) => (
+                {/* Travel Companion Selection */}
+                <View className="mb-6">
+                    <Text className="font-onest-medium text-base mb-3">Travel Companion Preference</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View className="flex-row gap-2">
+                            {TRAVEL_COMPANIONS.map((option) => (
                                 <Pressable
-                                    key={tag.tag_id}
-                                    onPress={() => toggleTag(tag.tag_id)}
-                                    className={`px-4 py-2 rounded-full border ${formData.tags.includes(tag.tag_id)
-                                        ? 'bg-gray-700'
-                                        : 'bg-white border-gray-200'
+                                    key={option}
+                                    onPress={() => setCompanion(option)}
+                                    className={`px-4 py-2 rounded-full border ${formData.travel_companion === option
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
                                         }`}
                                 >
-                                    <Text className={formData.tags.includes(tag.tag_id) ? 'text-white' : 'text-gray-800'}>
-                                        {tag.name}
+                                    <Text className={`font-onest-medium ${formData.travel_companion === option ? 'text-white' : 'text-gray-700'
+                                        }`}>
+                                        {option}
                                     </Text>
                                 </Pressable>
                             ))}
                         </View>
-                    </View>
-                )}
-
-                {/* Current Selected Tags */}
-                <View className="bg-white pb-4 mt-4">
-                    <Text className="font-onest-medium py-2">
-                        Currently selected ({formData.tags.length})
-                    </Text>
-                    <View className="flex-row flex-wrap gap-2">
-                        {availableTags
-                            .filter(tag => formData.tags.includes(tag.tag_id))
-                            .map((tag) => (
-                                <View key={tag.tag_id} className="flex-row items-center bg-gray-700 px-4 py-2 rounded-full">
-                                    <Text className="text-white">{tag.name}</Text>
-                                    <Pressable
-                                        onPress={() => toggleTag(tag.tag_id)}
-                                        className="ml-2"
-                                    >
-                                        <Text className="text-white text-xs">✕</Text>
-                                    </Pressable>
-                                </View>
-                            ))}
-                    </View>
-
-                    {formData.tags.length === 0 && (
-                        <Text className="text-gray-400 text-sm mt-2">No tags selected</Text>
+                    </ScrollView>
+                    {formData.travel_companion !== originalTravelCompanion && (
+                        <Text className="text-xs text-gray-400 mt-2">
+                            Original: {originalTravelCompanion}
+                        </Text>
                     )}
                 </View>
 
-                {/* Original vs Current Comparison */}
-                {hasChanges() && (
-                    <View className="bg-gray-50 p-4 rounded-xl mt-4">
-                        <Text className="font-onest-semibold text-gray-700 mb-2">Changes Summary:</Text>
-
-                        {formData.travel_companion !== originalTravelCompanion && (
-                            <View className="mb-2">
-                                <Text className="text-sm text-gray-600">
-                                    Travel Companion: {originalTravelCompanion} → {formData.travel_companion}
+                {/* Selected Tags Summary */}
+                <View className="mb-6">
+                    <View className="flex-row items-center justify-between mb-3">
+                        <Text className="font-onest-medium text-base">
+                            Selected Tags ({formData.tags.length})
+                        </Text>
+                        {selectedTags.length > 6 && (
+                            <Pressable onPress={() => setShowAllSelected(!showAllSelected)}>
+                                <Text className="text-primary font-onest-medium text-sm">
+                                    {showAllSelected ? 'Show Less' : `Show All (${selectedTags.length})`}
                                 </Text>
-                            </View>
+                            </Pressable>
                         )}
+                    </View>
 
-                        {JSON.stringify(formData.tags.sort()) !== JSON.stringify(originalTags.sort()) && (
-                            <View>
-                                <Text className="text-sm text-gray-600 mb-1">Tags changed:</Text>
-                                <Text className="text-xs text-gray-500">
-                                    Before: {getTagNames(originalTags).join(', ') || 'None'}
-                                </Text>
-                                <Text className="text-xs text-gray-500">
-                                    After: {getTagNames(formData.tags).join(', ') || 'None'}
-                                </Text>
+                    {selectedTags.length === 0 ? (
+                        <View className="bg-gray-50 p-4 rounded-xl">
+                            <Text className="text-gray-500 text-center">No tags selected yet</Text>
+                        </View>
+                    ) : (
+                        <View className="bg-gray-50 p-3 rounded-xl">
+                            <View className="flex-row flex-wrap gap-2">
+                                {displayedSelectedTags.map((tag) => (
+                                    <View key={tag.tag_id} className="flex-row items-center bg-primary px-3 py-1.5 rounded-full">
+                                        <Text className="text-white text-sm font-onest">{tag.name}</Text>
+                                        <Pressable
+                                            onPress={() => toggleTag(tag.tag_id)}
+                                            className="ml-2"
+                                        >
+                                            <Ionicons name="close-circle" size={16} color="white" />
+                                        </Pressable>
+                                    </View>
+                                ))}
+                                {!showAllSelected && selectedTags.length > 6 && (
+                                    <View className="bg-gray-300 px-3 py-1.5 rounded-full">
+                                        <Text className="text-gray-700 text-sm font-onest">
+                                            +{selectedTags.length - 6} more
+                                        </Text>
+                                    </View>
+                                )}
                             </View>
+                        </View>
+                    )}
+                </View>
+
+                {/* Tag Categories (Alternative Layout) */}
+                <View className="mb-6">
+                    <Text className="font-onest-medium text-base mb-3">All Available Tags</Text>
+
+                    {/* Search Bar */}
+                    <View className="mb-3">
+                        <View className="flex-row items-center bg-gray-100 rounded-lg px-3 py-2">
+                            <Ionicons name="search" size={20} color="#6B7280" />
+                            <TextInput
+                                placeholder="Search tags..."
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                className="flex-1 ml-2 font-onest"
+                                placeholderTextColor="#9CA3AF"
+                            />
+                            {searchQuery.length > 0 && (
+                                <Pressable onPress={() => setSearchQuery('')}>
+                                    <Ionicons name="close-circle" size={20} color="#6B7280" />
+                                </Pressable>
+                            )}
+                        </View>
+                    </View>
+
+                    {loading ? (
+                        <ActivityIndicator size="large" color="#0000ff" />
+                    ) : (
+                        <View className="flex-row flex-wrap gap-2">
+                            {filteredTags.map((tag) => {
+                                const isSelected = formData.tags.includes(tag.tag_id);
+                                return (
+                                    <Pressable
+                                        key={tag.tag_id}
+                                        onPress={() => toggleTag(tag.tag_id)}
+                                        className={`px-4 py-2 rounded-full border ${isSelected
+                                                ? 'bg-primary border-primary'
+                                                : 'bg-white border-gray-300'
+                                            }`}
+                                    >
+                                        <View className="flex-row items-center">
+                                            {isSelected && (
+                                                <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 4 }} />
+                                            )}
+                                            <Text className={`font-onest ${isSelected ? 'text-white' : 'text-gray-700'
+                                                }`}>
+                                                {tag.name}
+                                            </Text>
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    {searchQuery && filteredTags.length === 0 && (
+                        <Text className="text-gray-500 text-center mt-4">No tags found matching "{searchQuery}"</Text>
+                    )}
+                </View>
+
+                {/* Changes Summary - Compact Version */}
+                {hasChanges() && (
+                    <View className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4">
+                        <Text className="font-onest-medium text-amber-800 text-sm mb-1">Unsaved Changes:</Text>
+                        {formData.travel_companion !== originalTravelCompanion && (
+                            <Text className="text-amber-700 text-xs">
+                                • Companion: {originalTravelCompanion} → {formData.travel_companion}
+                            </Text>
+                        )}
+                        {JSON.stringify(formData.tags.sort()) !== JSON.stringify(originalTags.sort()) && (
+                            <Text className="text-amber-700 text-xs">
+                                • Tags: {originalTags.length} → {formData.tags.length} selected
+                            </Text>
                         )}
                     </View>
                 )}
@@ -232,7 +285,7 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                 {hasChanges() && (
                     <Pressable
                         onPress={resetToOriginal}
-                        className="mt-2 p-3 rounded-xl border border-red-200 bg-red-50"
+                        className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50"
                     >
                         <Text className="text-center font-onest-medium text-sm text-red-600">
                             Reset to Original Values
@@ -247,11 +300,16 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     </Pressable>
                     <Pressable
                         onPress={formData.tags.length > 0 && formData.travel_companion ? onNext : undefined}
-                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && formData.travel_companion ? 'bg-primary' : 'bg-gray-200'
+                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && formData.travel_companion
+                                ? 'bg-primary'
+                                : 'bg-gray-200'
                             }`}
                         disabled={!(formData.tags.length > 0 && formData.travel_companion)}
                     >
-                        <Text className="text-center font-onest-medium text-base text-gray-300">
+                        <Text className={`text-center font-onest-medium text-base ${formData.tags.length > 0 && formData.travel_companion
+                                ? 'text-white'
+                                : 'text-gray-400'
+                            }`}>
                             {hasChanges() ? 'Continue with changes' : 'Next step'}
                         </Text>
                     </Pressable>

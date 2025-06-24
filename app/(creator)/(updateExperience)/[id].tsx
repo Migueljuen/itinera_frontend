@@ -93,6 +93,9 @@ const ExperienceEditForm: React.FC = () => {
         images: [],
     });
 
+    // Track deleted images at parent level
+    const [deletedImages, setDeletedImages] = useState<string[]>([]);
+
     // Check authorization and load experience data
     useEffect(() => {
         const loadExperienceData = async () => {
@@ -256,35 +259,15 @@ const ExperienceEditForm: React.FC = () => {
                     section = 'images';
                     formDataObj.append('section', section);
 
-                    // Calculate which images to delete
-                    const imagesToDelete: string[] = [];
-                    if (experience && experience.images) {
-                        // Find original images that are no longer in formData.images
-                        experience.images.forEach(originalImg => {
-                            const stillExists = formData.images?.some(currentImg => {
-                                if (typeof currentImg === 'string') {
-                                    return currentImg === originalImg ||
-                                        currentImg === `${API_URL}/${originalImg}` ||
-                                        currentImg === `${API_URL}${originalImg}`;
-                                }
-                                return currentImg.uri === originalImg ||
-                                    currentImg.uri === `${API_URL}/${originalImg}` ||
-                                    currentImg.uri === `${API_URL}${originalImg}`;
-                            });
-
-                            if (!stillExists) {
-                                imagesToDelete.push(originalImg);
-                            }
-                        });
-                    }
-
-                    // Add images to delete to the form data
-                    if (imagesToDelete.length > 0) {
-                        formDataObj.append('images_to_delete', JSON.stringify(imagesToDelete));
+                    // Use the deletedImages state that's tracked at parent level
+                    if (deletedImages.length > 0) {
+                        formDataObj.append('images_to_delete', JSON.stringify(deletedImages));
+                        console.log('Images to delete:', deletedImages);
                     }
 
                     // Handle new image uploads
                     if (formData.images && formData.images.length > 0) {
+                        let newImageCount = 0;
                         formData.images.forEach((img, index) => {
                             // Only upload new images (not original URLs)
                             if (typeof img === 'object' && img !== null) {
@@ -294,8 +277,10 @@ const ExperienceEditForm: React.FC = () => {
                                     type: img.type || 'image/jpeg',
                                 };
                                 formDataObj.append('images', fileObj as any);
+                                newImageCount++;
                             }
                         });
+                        console.log('New images to upload:', newImageCount);
                     }
                     break;
             }
@@ -310,6 +295,7 @@ const ExperienceEditForm: React.FC = () => {
             });
 
             const responseData = await response.json();
+            console.log('Save response:', responseData);
 
             if (!response.ok) {
                 throw new Error(responseData.message || 'Failed to save changes');
@@ -326,6 +312,14 @@ const ExperienceEditForm: React.FC = () => {
                     price: formData.price,
                     unit: formData.unit
                 });
+            } else if (step === 5) {
+                // Update the experience images after successful save
+                setExperience({
+                    ...experience,
+                    images: formData.images.filter(img => typeof img === 'string') as string[]
+                });
+                // Clear the deleted images list after successful save
+                setDeletedImages([]);
             }
 
         } catch (err) {
@@ -355,15 +349,19 @@ const ExperienceEditForm: React.FC = () => {
                 // Check tags changes
                 return true; // You can implement more detailed comparison
             case 4:
-                // Check destination changes
+                // Check destination changes - including coordinates
                 return (
                     formData.destination_name !== experience.destination?.name ||
                     formData.city !== experience.destination?.city ||
-                    formData.destination_description !== experience.destination?.description
+                    formData.destination_description !== experience.destination?.description ||
+                    formData.latitude !== experience.destination?.latitude?.toString() ||
+                    formData.longitude !== experience.destination?.longitude?.toString()
                 );
             case 5:
                 // Check image changes
-                return true; // You can implement more detailed comparison
+                return deletedImages.length > 0 ||
+                    formData.images?.some(img => typeof img === 'object') ||
+                    formData.images?.length !== experience.images?.length;
             default:
                 return false;
         }
@@ -414,6 +412,8 @@ const ExperienceEditForm: React.FC = () => {
                     onNext={handleNext}
                     onBack={handleBack}
                     experience={experience}
+                    deletedImages={deletedImages}
+                    setDeletedImages={setDeletedImages}
                 />;
             default:
                 return null;
@@ -461,8 +461,8 @@ const ExperienceEditForm: React.FC = () => {
                         onPress={handleSaveCurrentStep}
                         disabled={isSaving || !hasChangesInCurrentStep()}
                         className={`px-4 py-2 rounded-lg ${hasChangesInCurrentStep() && !isSaving
-                            ? 'bg-primary'
-                            : 'bg-gray-200'
+                                ? 'bg-primary'
+                                : 'bg-gray-200'
                             }`}
                     >
                         {isSaving ? (

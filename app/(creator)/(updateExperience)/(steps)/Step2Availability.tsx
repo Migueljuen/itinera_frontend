@@ -1,10 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AvailabilityDay, ExperienceFormData, TimeSlot } from '../../../../types/types';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const daysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface StepProps {
     formData: ExperienceFormData;
@@ -20,6 +22,8 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
     const [end, setEnd] = useState('');
     const [loading, setLoading] = useState(true);
     const [originalAvailability, setOriginalAvailability] = useState<AvailabilityDay[]>([]);
+    const [expandedDay, setExpandedDay] = useState<string | null>(null);
+    const [showAddForm, setShowAddForm] = useState(false);
 
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date());
@@ -29,16 +33,11 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
 
     // Load existing availability data
     useEffect(() => {
-        // Use data from parent instead of loading independently
         if (formData.availability && formData.availability.length > 0) {
             setOriginalAvailability([...formData.availability]);
         }
-        setLoading(false); // Always set loading to false since parent handles data loading
+        setLoading(false);
     }, [formData.availability]);
-
-    // Add this after the useEffect
-    console.log('Step2 - formData.availability:', formData.availability);
-    console.log('Step2 - originalAvailability:', originalAvailability);
 
     const onChangeStartTime = (event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowStartPicker(Platform.OS === 'ios');
@@ -66,7 +65,6 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
         }
     };
 
-    // Format time with seconds for API consistency
     const formatTimeWithSeconds = (time: string): string => {
         return time.length === 5 ? `${time}:00` : time;
     };
@@ -74,7 +72,6 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
     const addAvailability = () => {
         if (!start || !end || selectedDays.length === 0) return;
 
-        // Validate that end time is after start time
         const startTimeDate = new Date(`2000-01-01T${start}`);
         const endTimeDate = new Date(`2000-01-01T${end}`);
 
@@ -83,7 +80,6 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
             return;
         }
 
-        // Format times with seconds for consistency with backend
         const newTimeSlot: TimeSlot = {
             start_time: formatTimeWithSeconds(start),
             end_time: formatTimeWithSeconds(end)
@@ -95,13 +91,11 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
             const dayIndex = updatedAvailability.findIndex(slot => slot.day_of_week === day);
 
             if (dayIndex !== -1) {
-                // Add to existing time_slots
                 updatedAvailability[dayIndex] = {
                     ...updatedAvailability[dayIndex],
                     time_slots: [...updatedAvailability[dayIndex].time_slots, newTimeSlot]
                 };
             } else {
-                // Create new day with time_slots
                 updatedAvailability.push({
                     day_of_week: day,
                     time_slots: [newTimeSlot]
@@ -114,35 +108,36 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
             availability: updatedAvailability
         }));
 
-        // Clear UI selections
+        // Clear UI selections and close add form
         setSelectedDays([]);
         setStart('');
         setEnd('');
+        setShowAddForm(false);
     };
 
     const removeSlot = (dayIndex: number, slotIndex: number) => {
         const updated = [...formData.availability];
         updated[dayIndex].time_slots.splice(slotIndex, 1);
         if (updated[dayIndex].time_slots.length === 0) {
-            updated.splice(dayIndex, 1); // Remove whole day if no slots left
+            updated.splice(dayIndex, 1);
         }
         setFormData({ ...formData, availability: updated });
     };
 
-    // Format time for display (convert from HH:MM:SS to HH:MM if needed)
     const formatTimeForDisplay = (time: string): string => {
-        return time.length === 8 ? time.substring(0, 5) : time;
+        if (!time) return '';
+        const [hours, minutes] = time.split(':');
+        const hour = parseInt(hours, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        return `${displayHour}:${minutes} ${ampm}`;
     };
 
-    // Check if there are changes from original
     const hasChanges = () => {
         if (formData.availability.length !== originalAvailability.length) return true;
-
-        // Deep comparison of availability
         return JSON.stringify(formData.availability) !== JSON.stringify(originalAvailability);
     };
 
-    // Reset to original availability
     const resetToOriginal = () => {
         Alert.alert(
             'Reset Availability',
@@ -163,6 +158,14 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
         );
     };
 
+    const toggleDayExpansion = (day: string) => {
+        setExpandedDay(expandedDay === day ? null : day);
+    };
+
+    const getTotalSlots = () => {
+        return formData.availability.reduce((total, day) => total + day.time_slots.length, 0);
+    };
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
@@ -173,167 +176,252 @@ const Step2EditAvailability: React.FC<StepProps> = ({ formData, setFormData, onN
     }
 
     return (
-        <ScrollView>
-            <View className='text-center py-2'>
+        <View className="flex-1 bg-white">
+            {/* Fixed Header */}
+            <View className="px-4 pt-6 pb-4 bg-white border-b border-gray-200">
                 <Text className="text-center text-xl font-onest-semibold mb-2">Edit Availability</Text>
-                <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-3/4 m-auto">
-                    Modify when this experience will be available. You can add new time slots or remove existing ones.
+                <Text className="text-center text-sm text-gray-500 font-onest">
+                    Modify when this experience will be available
                 </Text>
+            </View>
 
-                <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200">
-
-                    {/* Current Availability Overview */}
-                    {formData.availability.length > 0 && (
-                        <View className="bg-blue-50 p-4 rounded-xl mb-4">
-                            <Text className="font-onest-semibold text-blue-800 mb-2">Current Availability</Text>
-                            <Text className="text-blue-600 text-sm">
-                                {formData.availability.length} day(s) with {formData.availability.reduce((total, day) => total + day.time_slots.length, 0)} time slot(s)
-                            </Text>
-                            {hasChanges() && (
-                                <Text className="text-blue-600 text-sm mt-1">
-                                    ✓ Changes detected
+            {/* Scrollable Content */}
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                <View className="px-4 py-4">
+                    {/* Summary Card */}
+                    <View className="bg-primary rounded-xl p-4 mb-4">
+                        <View className="flex-row justify-between items-center">
+                            <View>
+                                <Text className="text-white font-onest-semibold text-lg">
+                                    {formData.availability.length} Days Active
                                 </Text>
-                            )}
-                        </View>
-                    )}
-
-                    <View className="bg-white pb-4">
-                        <Text className='font-onest-medium py-2'>Add new availability</Text>
-                        <Text className='font-onest-medium py-2'>Day of week</Text>
-                        <View className="flex-row flex-wrap gap-2">
-                            {daysOfWeek.map((d) => (
-                                <Pressable
-                                    key={d}
-                                    onPress={() => toggleDaySelection(d)}
-                                    className={`px-4 py-2 rounded-full border ${selectedDays.includes(d) ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}
-                                >
-                                    <Text className={selectedDays.includes(d) ? 'text-white' : 'text-gray-800'}>
-                                        {d}
-                                    </Text>
-                                </Pressable>
-                            ))}
+                                <Text className="text-white/80 text-sm font-onest">
+                                    {getTotalSlots()} total time slots
+                                </Text>
+                            </View>
+                            <View className="bg-white/20 px-3 py-1 rounded-full">
+                                {hasChanges() ? (
+                                    <Text className="text-white text-sm font-onest-medium">Modified</Text>
+                                ) : (
+                                    <Text className="text-white text-sm font-onest">Original</Text>
+                                )}
+                            </View>
                         </View>
                     </View>
 
-                    <View className="pb-4">
-                        <Text className="font-onest-medium py-2 text-gray-800">Start time</Text>
-                        <View className='flex flex-row justify-between items-center'>
-                            <Pressable onPress={() => setShowStartPicker(true)}>
-                                <Text className="p-3 border border-gray-200 rounded-lg min-w-[120px] text-center">
-                                    {start || 'Select Start Time'}
+                    {/* Add New Button */}
+                    <TouchableOpacity
+                        onPress={() => setShowAddForm(!showAddForm)}
+                        className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex-row items-center justify-center"
+                    >
+                        <Ionicons name={showAddForm ? "close" : "add-circle"} size={24} color="#16a34a" />
+                        <Text className="ml-2 text-green-700 font-onest-medium">
+                            {showAddForm ? 'Cancel Adding' : 'Add New Time Slots'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Add Form - Collapsible */}
+                    {showAddForm && (
+                        <View className="bg-gray-50 rounded-xl p-4 mb-4">
+                            {/* Day Selection - Compact */}
+                            <Text className="font-onest-medium mb-2">Select Days</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                                <View className="flex-row gap-2">
+                                    {daysOfWeek.map((d, index) => (
+                                        <Pressable
+                                            key={d}
+                                            onPress={() => toggleDaySelection(d)}
+                                            className={`px-3 py-2 rounded-full border ${selectedDays.includes(d)
+                                                    ? 'bg-primary border-primary'
+                                                    : 'bg-white border-gray-300'
+                                                }`}
+                                        >
+                                            <Text className={`font-onest ${selectedDays.includes(d) ? 'text-white' : 'text-gray-700'
+                                                }`}>
+                                                {daysShort[index]}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            </ScrollView>
+
+                            {/* Time Selection - Side by Side */}
+                            <View className="flex-row gap-4 mb-4">
+                                <View className="flex-1">
+                                    <Text className="font-onest-medium mb-2 text-sm">Start Time</Text>
+                                    <Pressable
+                                        onPress={() => setShowStartPicker(true)}
+                                        className="bg-white border border-gray-300 rounded-lg p-3"
+                                    >
+                                        <Text className="text-center font-onest">
+                                            {start || 'Select'}
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="font-onest-medium mb-2 text-sm">End Time</Text>
+                                    <Pressable
+                                        onPress={() => setShowEndPicker(true)}
+                                        className="bg-white border border-gray-300 rounded-lg p-3"
+                                    >
+                                        <Text className="text-center font-onest">
+                                            {end || 'Select'}
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {/* Add Button */}
+                            <Pressable
+                                onPress={addAvailability}
+                                className={`p-3 rounded-lg ${start && end && selectedDays.length > 0
+                                        ? 'bg-green-600'
+                                        : 'bg-gray-300'
+                                    }`}
+                                disabled={!start || !end || selectedDays.length === 0}
+                            >
+                                <Text className="text-white text-center font-onest-medium">
+                                    Add to Selected Days
                                 </Text>
                             </Pressable>
 
-                            {(showStartPicker || Platform.OS === 'ios') && (
+                            {/* Time Pickers */}
+                            {showStartPicker && Platform.OS !== 'ios' && (
                                 <DateTimePicker
                                     value={startTime}
                                     mode="time"
                                     is24Hour={false}
-                                    display={Platform.OS === 'ios' ? "default" : "clock"}
+                                    display="default"
                                     onChange={onChangeStartTime}
                                 />
                             )}
-                        </View>
-                    </View>
-
-                    <View className="bg-white pb-4">
-                        <Text className="font-onest-medium py-2 text-gray-800">End time</Text>
-                        <View className='flex flex-row justify-between items-center'>
-                            <Pressable onPress={() => setShowEndPicker(true)}>
-                                <Text className="p-3 border border-gray-200 rounded-lg min-w-[120px] text-center">
-                                    {end || 'Select End Time'}
-                                </Text>
-                            </Pressable>
-
-                            {(showEndPicker || Platform.OS === 'ios') && (
+                            {showEndPicker && Platform.OS !== 'ios' && (
                                 <DateTimePicker
                                     value={endTime}
                                     mode="time"
                                     is24Hour={false}
-                                    display={Platform.OS === 'ios' ? "default" : "clock"}
+                                    display="default"
                                     onChange={onChangeEndTime}
                                 />
                             )}
                         </View>
-                    </View>
+                    )}
 
-                    <Pressable
-                        onPress={addAvailability}
-                        className={`p-3 rounded-xl ${start && end && selectedDays.length > 0 ? 'bg-green-600' : 'bg-gray-300'}`}
-                        disabled={!start || !end || selectedDays.length === 0}
-                    >
-                        <Text className="text-white text-center font-onest-medium">Add Time Slot</Text>
-                    </Pressable>
-
-                    {/* Existing Availability List */}
-                    <View className="mt-6">
-                        <Text className="font-onest-semibold text-lg mb-4">Current Time Slots</Text>
+                    {/* Current Schedule - Compact View */}
+                    <View className="mb-20">
+                        <Text className="font-onest-semibold text-lg mb-3">Current Schedule</Text>
 
                         {formData.availability.length === 0 ? (
                             <View className="bg-gray-50 p-6 rounded-xl">
-                                <Text className="text-gray-500 text-center">
-                                    No availability set. Add time slots above.
+                                <Ionicons name="calendar-outline" size={48} color="#9CA3AF" style={{ alignSelf: 'center', marginBottom: 8 }} />
+                                <Text className="text-gray-500 text-center font-onest">
+                                    No availability set yet
+                                </Text>
+                                <Text className="text-gray-400 text-center text-sm mt-1">
+                                    Tap "Add New Time Slots" to get started
                                 </Text>
                             </View>
                         ) : (
                             <View>
                                 {formData.availability.map((item, index) => (
-                                    <View key={`${item.day_of_week}-${index}`} className="mb-4 bg-white p-4 rounded-xl border border-gray-200">
-                                        <Text className="font-onest-semibold text-lg mb-2 text-gray-800">{item.day_of_week}</Text>
-                                        {item.time_slots.map((slot, i) => (
-                                            <View
-                                                key={`${item.day_of_week}-${i}`}
-                                                className="flex-row justify-between items-center px-2 py-2 border-b border-gray-100"
-                                            >
-                                                <Text className="font-onest text-gray-700">
-                                                    {formatTimeForDisplay(slot.start_time)} - {formatTimeForDisplay(slot.end_time)}
-                                                </Text>
-                                                <Pressable
-                                                    onPress={() => removeSlot(index, i)}
-                                                    className="bg-red-100 px-3 py-1 rounded-full"
-                                                >
-                                                    <Text className="text-red-600 text-sm font-onest-medium">
-                                                        Remove
-                                                    </Text>
-                                                </Pressable>
+                                    <TouchableOpacity
+                                        key={`${item.day_of_week}-${index}`}
+                                        onPress={() => toggleDayExpansion(item.day_of_week)}
+                                        className="mb-2"
+                                    >
+                                        <View className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                                            {/* Day Header */}
+                                            <View className="flex-row justify-between items-center p-4">
+                                                <View className="flex-row items-center flex-1">
+                                                    <View className="bg-primary/10 p-2 rounded-lg mr-3">
+                                                        <Text className="text-primary font-onest-semibold">
+                                                            {item.day_of_week.substring(0, 3).toUpperCase()}
+                                                        </Text>
+                                                    </View>
+                                                    <View>
+                                                        <Text className="font-onest-semibold text-gray-800">
+                                                            {item.day_of_week}
+                                                        </Text>
+                                                        <Text className="text-sm text-gray-500 font-onest">
+                                                            {item.time_slots.length} time slot{item.time_slots.length !== 1 ? 's' : ''}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Ionicons
+                                                    name={expandedDay === item.day_of_week ? "chevron-up" : "chevron-down"}
+                                                    size={20}
+                                                    color="#6B7280"
+                                                />
                                             </View>
-                                        ))}
-                                    </View>
+
+                                            {/* Expanded Time Slots */}
+                                            {expandedDay === item.day_of_week && (
+                                                <View className="px-4 pb-4 border-t border-gray-100">
+                                                    {item.time_slots.map((slot, i) => (
+                                                        <View
+                                                            key={`${item.day_of_week}-${i}`}
+                                                            className="flex-row justify-between items-center py-2"
+                                                        >
+                                                            <View className="flex-row items-center">
+                                                                <Ionicons name="time-outline" size={16} color="#6B7280" />
+                                                                <Text className="ml-2 font-onest text-gray-700">
+                                                                    {formatTimeForDisplay(slot.start_time)} - {formatTimeForDisplay(slot.end_time)}
+                                                                </Text>
+                                                            </View>
+                                                            <Pressable
+                                                                onPress={() => removeSlot(index, i)}
+                                                                className="p-1"
+                                                            >
+                                                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                                            </Pressable>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
                                 ))}
                             </View>
                         )}
-                    </View>
 
-                    {/* Reset button */}
-                    {hasChanges() && (
-                        <Pressable
-                            onPress={resetToOriginal}
-                            className="mt-2 p-3 rounded-xl border border-red-200 bg-red-50"
-                        >
-                            <Text className="text-center font-onest-medium text-sm text-red-600">
-                                Reset to Original Availability
-                            </Text>
-                        </Pressable>
-                    )}
-
-                    {/* Navigation buttons */}
-                    <View className="flex-row justify-between mt-6">
-                        <Pressable onPress={onBack} className="border border-primary p-4 rounded-xl">
-                            <Text className="text-gray-800 font-onest-medium">Previous step</Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={formData.availability.length > 0 ? onNext : undefined}
-                            className={`p-4 px-6 rounded-xl ${formData.availability.length > 0 ? 'bg-primary' : 'bg-gray-200'}`}
-                            disabled={formData.availability.length === 0}
-                        >
-                            <Text className="text-center font-onest-medium text-base text-gray-300">
-                                {hasChanges() ? 'Continue with changes' : 'Next step'}
-                            </Text>
-                        </Pressable>
+                        {/* Reset button */}
+                        {hasChanges() && (
+                            <Pressable
+                                onPress={resetToOriginal}
+                                className="mt-4 p-3 rounded-xl border border-red-200 bg-red-50"
+                            >
+                                <Text className="text-center font-onest-medium text-sm text-red-600">
+                                    Reset to Original Availability
+                                </Text>
+                            </Pressable>
+                        )}
                     </View>
                 </View>
+            </ScrollView>
+
+            {/* Fixed Bottom Navigation */}
+            <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
+                <View className="flex-row justify-between">
+                    <Pressable
+                        onPress={onBack}
+                        className="flex-1 mr-2 border border-primary p-4 rounded-xl"
+                    >
+                        <Text className="text-center text-gray-800 font-onest-medium">Previous</Text>
+                    </Pressable>
+                    <Pressable
+                        onPress={formData.availability.length > 0 ? onNext : undefined}
+                        className={`flex-1 ml-2 p-4 rounded-xl ${formData.availability.length > 0 ? 'bg-primary' : 'bg-gray-200'
+                            }`}
+                        disabled={formData.availability.length === 0}
+                    >
+                        <Text className={`text-center font-onest-medium ${formData.availability.length > 0 ? 'text-white' : 'text-gray-400'
+                            }`}>
+                            {hasChanges() ? 'Continue' : 'Next'}
+                        </Text>
+                    </Pressable>
+                </View>
             </View>
-        </ScrollView>
+        </View>
     );
 };
 
