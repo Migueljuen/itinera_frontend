@@ -106,7 +106,7 @@ export default function ItineraryActivityDetail() {
             // Type-safe error handling
             console.error('Fetch error:', error);
 
-            let errorMessage = 'An unexpected error occurred';
+            let errorMessage = 'An unexpected error occurred HAHAHA';
 
             if (error instanceof Error) {
                 console.error('Error name:', error.name);
