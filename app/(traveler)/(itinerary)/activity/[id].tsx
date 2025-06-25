@@ -1,5 +1,5 @@
-// /(itinerary)/activity/[itemId].tsx
-// This is a dedicated screen for viewing an activity that's part of an itinerary
+// /(itinerary)/activity/[id].tsx
+// Fixed version with proper data structure handling
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,26 +10,50 @@ import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import API_URL from '../../../../constants/api';
 
+// Updated interface to match the API response structure
 interface ItineraryActivity {
     item_id: number;
     itinerary_id: number;
-    experience_id: number;
     day_number: number;
     start_time: string;
     end_time: string;
     custom_note: string;
-    experience_name: string;
-    experience_description: string;
-    experience_price: string;
-    experience_unit: string;
-    destination_name: string;
-    destination_city: string;
-    destination_latitude: number;
-    destination_longitude: number;
-    destination_address?: string;
-    images?: string[];
-    primary_image?: string;
-    tags?: string[];
+    created_at: string;
+    updated_at: string;
+
+    // Nested experience object
+    experience: {
+        id: number;
+        name: string;
+        description: string;
+        price: string;
+        unit: string;
+        creator_id: number;
+        travel_companion: string;
+        images: string[];
+        primary_image: string | null;
+        tags: string[];
+    } | null;
+
+    // Nested destination object
+    destination: {
+        id: number;
+        name: string;
+        city: string;
+        description: string;
+        latitude: number;
+        longitude: number;
+    } | null;
+
+    // Nested itinerary object
+    itinerary: {
+        id: number;
+        title: string;
+        start_date: string;
+        end_date: string;
+        status: string;
+        notes: string;
+    };
 }
 
 export default function ItineraryActivityDetail() {
@@ -41,7 +65,9 @@ export default function ItineraryActivityDetail() {
     const [isGettingDirections, setIsGettingDirections] = useState(false);
 
     useEffect(() => {
-        fetchActivityDetails();
+        if (id) {
+            fetchActivityDetails();
+        }
     }, [id]);
 
     const fetchActivityDetails = async () => {
@@ -55,9 +81,7 @@ export default function ItineraryActivityDetail() {
                 return;
             }
 
-            console.log('Item ID:', id);
-            console.log('API URL:', API_URL);
-            console.log('Full URL:', `${API_URL}/itinerary/item/${id}`);
+            console.log('Fetching activity with ID:', id);
 
             const response = await fetch(`${API_URL}/itinerary/item/${id}`, {
                 method: 'GET',
@@ -92,27 +116,25 @@ export default function ItineraryActivityDetail() {
                 return;
             }
 
-            const data = await response.json();
-            console.log('Success! Received data:', data);
+            const result = await response.json();
+            console.log('API Response:', result);
 
-            if (data.success && data.data) {
-                setActivity(data.data);
+            if (result.success && result.data) {
+                setActivity(result.data);
+                console.log('Activity set:', result.data);
+                console.log('Destination:', result.data.destination);
+                console.log('Experience:', result.data.experience);
             } else {
-                console.error('Unexpected response structure:', data);
+                console.error('Unexpected response structure:', result);
                 Alert.alert('Error', 'Received invalid data from server');
             }
 
         } catch (error: unknown) {
-            // Type-safe error handling
             console.error('Fetch error:', error);
 
-            let errorMessage = 'An unexpected error occurred HAHAHA';
+            let errorMessage = 'An unexpected error occurred';
 
             if (error instanceof Error) {
-                console.error('Error name:', error.name);
-                console.error('Error message:', error.message);
-                console.error('Error stack:', error.stack);
-
                 if (error.message.includes('Network request failed')) {
                     Alert.alert(
                         'Network Error',
@@ -124,12 +146,7 @@ export default function ItineraryActivityDetail() {
                     );
                     return;
                 }
-
                 errorMessage = error.message;
-            } else if (typeof error === 'string') {
-                errorMessage = error;
-            } else if (error && typeof error === 'object' && 'message' in error) {
-                errorMessage = String((error as any).message);
             }
 
             Alert.alert(
@@ -144,7 +161,6 @@ export default function ItineraryActivityDetail() {
             setLoading(false);
         }
     };
-
 
     const getFormattedImageUrl = (imageUrl: string) => {
         if (!imageUrl) return null;
@@ -166,7 +182,7 @@ export default function ItineraryActivityDetail() {
     };
 
     const handleGetDirections = async () => {
-        if (!activity?.destination_latitude || !activity?.destination_longitude) {
+        if (!activity?.destination?.latitude || !activity?.destination?.longitude) {
             Alert.alert('Error', 'Location coordinates not available');
             return;
         }
@@ -174,22 +190,18 @@ export default function ItineraryActivityDetail() {
         setIsGettingDirections(true);
 
         try {
-            // Request location permission
             const { status } = await Location.requestForegroundPermissionsAsync();
 
             if (status !== 'granted') {
-                // Open without current location if permission denied
                 openMapsWithoutOrigin();
                 return;
             }
 
-            // Get current location
             const userLocation = await Location.getCurrentPositionAsync({});
 
-            // Open maps with directions
             const origin = `${userLocation.coords.latitude},${userLocation.coords.longitude}`;
-            const destination = `${activity.destination_latitude},${activity.destination_longitude}`;
-            const label = encodeURIComponent(activity.experience_name);
+            const destination = `${activity.destination.latitude},${activity.destination.longitude}`;
+            const label = encodeURIComponent(activity.experience?.name || 'Destination');
 
             const url = Platform.select({
                 ios: `maps://app?saddr=${origin}&daddr=${destination}&q=${label}`,
@@ -216,8 +228,10 @@ export default function ItineraryActivityDetail() {
     };
 
     const openMapsWithoutOrigin = async () => {
-        const destination = `${activity!.destination_latitude},${activity!.destination_longitude}`;
-        const label = encodeURIComponent(activity!.experience_name);
+        if (!activity?.destination) return;
+
+        const destination = `${activity.destination.latitude},${activity.destination.longitude}`;
+        const label = encodeURIComponent(activity.experience?.name || 'Destination');
 
         const url = Platform.select({
             ios: `maps://app?daddr=${destination}&q=${label}`,
@@ -241,20 +255,20 @@ export default function ItineraryActivityDetail() {
     };
 
     const handleViewInMap = async () => {
-        if (!activity?.destination_latitude || !activity?.destination_longitude) {
+        if (!activity?.destination?.latitude || !activity?.destination?.longitude) {
             Alert.alert('Error', 'Location not available');
             return;
         }
 
-        const { destination_latitude, destination_longitude, experience_name } = activity;
-        const label = encodeURIComponent(experience_name);
+        const { latitude, longitude } = activity.destination;
+        const label = encodeURIComponent(activity.experience?.name || 'Location');
 
         const url = Platform.select({
-            ios: `maps:0,0?q=${label}@${destination_latitude},${destination_longitude}`,
-            android: `geo:0,0?q=${destination_latitude},${destination_longitude}(${label})`
+            ios: `maps:0,0?q=${label}@${latitude},${longitude}`,
+            android: `geo:0,0?q=${latitude},${longitude}(${label})`
         });
 
-        const webUrl = `https://www.google.com/maps/search/?api=1&query=${destination_latitude},${destination_longitude}&query_place_id=${label}`;
+        const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`;
 
         try {
             const supported = await Linking.canOpenURL(url!);
@@ -292,25 +306,18 @@ export default function ItineraryActivityDetail() {
         );
     }
 
-    const activityImage = activity.primary_image || (activity.images && activity.images[0]);
+    // Get image from nested structure
+    const activityImage = activity.experience?.primary_image ||
+        (activity.experience?.images && activity.experience.images[0]);
 
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {/* Header with Back Button */}
-                <View className="px-6 py-4 flex-row items-center justify-between">
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm"
-                    >
-                        <Ionicons name="arrow-back" size={24} color="#1f2937" />
-                    </TouchableOpacity>
-
-                    <Text className="text-lg font-onest-semibold text-gray-800">
+                <View className="px-6 py-4">
+                    <Text className="text-lg font-onest-semibold text-center text-gray-800">
                         Day {activity.day_number} Activity
                     </Text>
-
-                    <View className="w-10" />
                 </View>
 
                 {/* Image */}
@@ -336,7 +343,7 @@ export default function ItineraryActivityDetail() {
                     {/* Title and Time */}
                     <View className="mb-4">
                         <Text className="text-2xl font-onest-semibold text-gray-800 mb-2">
-                            {activity.experience_name}
+                            {activity.experience?.name || 'Experience Name Not Available'}
                         </Text>
 
                         <View className="flex-row items-center mb-2">
@@ -346,12 +353,14 @@ export default function ItineraryActivityDetail() {
                             </Text>
                         </View>
 
-                        <View className="flex-row items-center">
-                            <Ionicons name="location-outline" size={20} color="#6B7280" />
-                            <Text className="ml-2 text-gray-600 font-onest">
-                                {activity.destination_name}, {activity.destination_city}
-                            </Text>
-                        </View>
+                        {activity.destination && (
+                            <View className="flex-row items-center">
+                                <Ionicons name="location-outline" size={20} color="#6B7280" />
+                                <Text className="ml-2 text-gray-600 font-onest">
+                                    {activity.destination.name}, {activity.destination.city}
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Custom Note */}
@@ -368,19 +377,19 @@ export default function ItineraryActivityDetail() {
                     )}
 
                     {/* Description */}
-                    {activity.experience_description && (
+                    {activity.experience?.description && (
                         <View className="mb-4">
                             <Text className="text-lg font-onest-semibold text-gray-800 mb-2">About</Text>
                             <Text className="text-gray-600 font-onest leading-6">
-                                {activity.experience_description}
+                                {activity.experience.description}
                             </Text>
                         </View>
                     )}
 
                     {/* Tags */}
-                    {activity.tags && activity.tags.length > 0 && (
+                    {activity.experience?.tags && activity.experience.tags.length > 0 && (
                         <View className="flex-row flex-wrap mb-4">
-                            {activity.tags.map((tag) => (
+                            {activity.experience.tags.map((tag) => (
                                 <View key={tag} className="bg-indigo-50 px-3 py-1 rounded-full mr-2 mb-2">
                                     <Text className="text-primary text-xs font-onest-medium">{tag}</Text>
                                 </View>
@@ -389,13 +398,13 @@ export default function ItineraryActivityDetail() {
                     )}
 
                     {/* Price Info */}
-                    {activity.experience_price && (
+                    {activity.experience?.price && (
                         <View className="bg-gray-50 rounded-xl p-4 mb-4">
                             <Text className="text-gray-600 font-onest mb-1">Price</Text>
                             <Text className="text-2xl font-onest-bold text-primary">
-                                ₱{activity.experience_price}
+                                ₱{activity.experience.price}
                             </Text>
-                            <Text className="text-gray-500 font-onest text-sm">{activity.experience_unit}</Text>
+                            <Text className="text-gray-500 font-onest text-sm">{activity.experience.unit}</Text>
                         </View>
                     )}
 
@@ -403,9 +412,9 @@ export default function ItineraryActivityDetail() {
                     <View className="mt-6 mb-8 space-y-3">
                         {/* Get Directions Button */}
                         <TouchableOpacity
-                            className="bg-primary rounded-2xl py-4 flex-row items-center justify-center"
+                            className="bg-primary rounded-2xl py-4 flex-row items-center justify-center mb-3"
                             onPress={handleGetDirections}
-                            disabled={isGettingDirections || !activity.destination_latitude || !activity.destination_longitude}
+                            disabled={isGettingDirections || !activity.destination?.latitude || !activity.destination?.longitude}
                             style={{
                                 shadowColor: '#4F46E5',
                                 shadowOffset: { width: 0, height: 4 },
@@ -428,9 +437,9 @@ export default function ItineraryActivityDetail() {
 
                         {/* View on Map Button */}
                         <TouchableOpacity
-                            className="border border-gray-300 rounded-2xl py-4 flex-row items-center justify-center"
+                            className="border border-gray-300 rounded-2xl py-4 flex-row items-center justify-center mb-3"
                             onPress={handleViewInMap}
-                            disabled={!activity.destination_latitude || !activity.destination_longitude}
+                            disabled={!activity.destination?.latitude || !activity.destination?.longitude}
                         >
                             <Ionicons name="map-outline" size={20} color="#6B7280" />
                             <Text className="ml-2 text-gray-700 font-onest-medium">
@@ -441,12 +450,19 @@ export default function ItineraryActivityDetail() {
                         {/* View Full Experience Button */}
                         <TouchableOpacity
                             className="py-4 flex-row items-center justify-center"
-                            onPress={() => router.push(`/experience/${activity.experience_id}`)}
+                            onPress={() => {
+                                if (activity.experience?.id) {
+                                    console.log('Navigating to experience:', activity.experience.id);
+                                    router.push(`/(traveler)/(experience)/${activity.experience.id}`);
+                                } else {
+                                    Alert.alert('Error', 'Experience ID not available');
+                                }
+                            }}
                         >
                             <Text className="text-primary font-onest-medium">
                                 View Full Experience Details
                             </Text>
-                            <Ionicons name="chevron-forward" size={20} color="#4F46E5" className="ml-1" />
+                            <Ionicons name="chevron-forward" size={20} color="#4F46E5" style={{ marginLeft: 4 }} />
                         </TouchableOpacity>
                     </View>
                 </View>
