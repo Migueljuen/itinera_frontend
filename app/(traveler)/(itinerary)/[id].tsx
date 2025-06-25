@@ -43,6 +43,9 @@ export default function ItineraryDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [itinerary, setItinerary] = useState<Itinerary | null>(null);
 
+    console.log('Activity ID from params:', id);
+
+
     useEffect(() => {
         if (id) {
             fetchItineraryDetails();
@@ -438,7 +441,7 @@ export default function ItineraryDetailScreen() {
                                                     key={item.item_id}
                                                     className={`bg-white p-4 ${index !== items.length - 1 ? 'border-b border-gray-100' : ''}`}
                                                     activeOpacity={0.7}
-                                                    onPress={() => router.push(`/(experience)/${item.experience_id}`)}
+                                                    onPress={() => router.push(`/(traveler)/(itinerary)/activity/${item.item_id}`)}
                                                 >
                                                     <View className="flex-row">
                                                         {/* Time Column */}
