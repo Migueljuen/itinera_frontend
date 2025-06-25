@@ -74,6 +74,32 @@ interface GenerateItineraryResponse {
     activity_intensity: string;
 }
 
+// Enhanced error interface
+interface EnhancedError {
+    error: string;
+    message: string;
+    details?: {
+        total_experiences_in_city: number;
+        filter_breakdown: {
+            after_travel_companion: number;
+            after_budget: number;
+            after_distance: number;
+            after_availability: number;
+        };
+        suggestions: string[];
+        conflicting_preferences: string[];
+        alternative_options: {
+            nearby_cities: Array<{ city: string; experience_count: number }>;
+            popular_experiences: Array<{
+                title: string;
+                price: number;
+                travel_companion: string;
+                popularity: number;
+            }>;
+        };
+    };
+}
+
 interface StepProps {
     formData: ItineraryFormData;
     setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
@@ -86,6 +112,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
     const [saving, setSaving] = useState(false);
     const [generatedItinerary, setGeneratedItinerary] = useState<GeneratedItinerary | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(null);
     const [isPreview, setIsPreview] = useState(true);
 
     useEffect(() => {
@@ -95,6 +122,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
     const generateItinerary = async () => {
         setLoading(true);
         setError(null);
+        setEnhancedError(null);
 
         try {
             // Prepare the request payload based on your backend expectations
@@ -124,10 +152,15 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                 body: JSON.stringify(requestBody)
             });
 
-            const data: GenerateItineraryResponse = await response.json();
+            const data = await response.json();
             console.log('Full API Response:', JSON.stringify(data, null, 2));
 
             if (!response.ok) {
+                // Check if it's an enhanced error response
+                if (data.error === 'no_experiences_found' && data.details) {
+                    setEnhancedError(data);
+                    return;
+                }
                 throw new Error(data.message || 'Failed to generate itinerary');
             }
 
@@ -149,7 +182,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         }
     };
 
-    // NEW: Remove item functionality
+    // Remove item functionality
     const removeItem = (itemToRemove: ItineraryItem) => {
         Alert.alert(
             'Remove Experience',
@@ -303,6 +336,39 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         generateItinerary();
     };
 
+    // Helper component for filter steps
+    const FilterStep = ({
+        label,
+        count,
+        previousCount,
+        icon
+    }: {
+        label: string;
+        count: number;
+        previousCount?: number;
+        icon: string;
+    }) => {
+        const dropped = previousCount ? previousCount - count : 0;
+        const dropPercentage = previousCount ? Math.round((dropped / previousCount) * 100) : 0;
+
+        return (
+            <View className="flex-row items-center justify-between py-2">
+                <View className="flex-row items-center flex-1">
+                    <Ionicons name={icon as any} size={16} color="#6B7280" />
+                    <Text className="ml-2 text-sm font-onest text-gray-700">{label}</Text>
+                </View>
+                <View className="flex-row items-center">
+                    <Text className="font-onest-semibold text-gray-900">{count}</Text>
+                    {dropped > 0 && (
+                        <Text className="ml-2 text-xs font-onest text-red-600">
+                            (-{dropped}, {dropPercentage}%)
+                        </Text>
+                    )}
+                </View>
+            </View>
+        );
+    };
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center p-4">
@@ -311,12 +377,190 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                     Generating your perfect itinerary...
                 </Text>
                 <Text className="text-center text-sm text-gray-500 font-onest">
-                    This may take a few moments while we find the best experiences for you.
+                    This may take a few moments while we find the best activities for you.
                 </Text>
             </View>
         );
     }
 
+    // Enhanced error UI with detailed information
+    if (enhancedError && enhancedError.details) {
+        const details = enhancedError.details;
+        const breakdown = details.filter_breakdown;
+
+        return (
+            <ScrollView className="flex-1 bg-gray-50">
+                {/* Header Section */}
+                <View className="bg-white px-4 py-6 border-b border-gray-200">
+                    <View className="items-center">
+                        <View className="bg-orange-100 rounded-full p-4 mb-4">
+                            <Ionicons name="search-outline" size={40} color="#F97316" />
+                        </View>
+                        <Text className="text-xl font-onest-semibold text-gray-900 text-center mb-2">
+                            No Matching Activities Found
+                        </Text>
+                        <Text className="text-gray-600 font-onest text-center">
+                            We couldn't find activities that match all your preferences
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Filter Analysis Section */}
+                <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-200">
+                    <Text className="font-onest-semibold text-gray-900 mb-3">
+                        Where activities were filtered out:
+                    </Text>
+
+                    <View className="space-y-2">
+                        <FilterStep
+                            label={`Total experiences in ${formData.city}`}
+                            count={details.total_experiences_in_city}
+                            icon="location"
+                        />
+
+                        <FilterStep
+                            label="After travel companion filter"
+                            count={breakdown.after_travel_companion}
+                            previousCount={details.total_experiences_in_city}
+                            icon="people"
+                        />
+
+                        <FilterStep
+                            label="After budget filter"
+                            count={breakdown.after_budget}
+                            previousCount={breakdown.after_travel_companion}
+                            icon="cash"
+                        />
+
+                        <FilterStep
+                            label="After availability filter"
+                            count={breakdown.after_availability}
+                            previousCount={breakdown.after_budget}
+                            icon="calendar"
+                        />
+                    </View>
+                </View>
+
+                {/* Conflicts Section */}
+                {details.conflicting_preferences.length > 0 && (
+                    <View className="bg-yellow-50 mx-4 mt-4 rounded-xl p-4 border border-yellow-200">
+                        <View className="flex-row items-center mb-2">
+                            <Ionicons name="warning" size={20} color="#F59E0B" />
+                            <Text className="ml-2 font-onest-semibold text-yellow-800">
+                                Potential Conflicts
+                            </Text>
+                        </View>
+                        {details.conflicting_preferences.map((conflict, index) => (
+                            <Text key={index} className="text-sm text-yellow-700 font-onest ml-6 mb-1">
+                                • {conflict}
+                            </Text>
+                        ))}
+                    </View>
+                )}
+
+                {/* Suggestions Section */}
+                <View className="bg-blue-50 mx-4 mt-4 rounded-xl p-4 border border-blue-200">
+                    <View className="flex-row items-center mb-2">
+                        <Ionicons name="bulb" size={20} color="#3B82F6" />
+                        <Text className="ml-2 font-onest-semibold text-blue-800">
+                            Suggestions
+                        </Text>
+                    </View>
+                    {details.suggestions.map((suggestion, index) => (
+                        <Text key={index} className="text-sm text-blue-700 font-onest ml-6 mb-1">
+                            • {suggestion}
+                        </Text>
+                    ))}
+                </View>
+
+                {/* Popular Experiences Section */}
+                {details.alternative_options.popular_experiences.length > 0 && (
+                    <View className="mx-4 mt-4">
+                        <Text className="font-onest-semibold text-gray-900 mb-3">
+                            Popular activities in {formData.city}:
+                        </Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {details.alternative_options.popular_experiences.map((exp, index) => (
+                                <View key={index} className="bg-white rounded-lg p-3 mr-3 border border-gray-200 min-w-[200]">
+                                    <Text className="font-onest-medium text-sm text-gray-900" numberOfLines={2}>
+                                        {exp.title}
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 font-onest mt-1">
+                                        ₱{exp.price} • {exp.travel_companion}
+                                    </Text>
+                                    <View className="flex-row items-center mt-1">
+                                        <Ionicons name="star" size={12} color="#F59E0B" />
+                                        <Text className="text-xs text-gray-500 ml-1">
+                                            {exp.popularity} bookings
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* Action Buttons */}
+                <View className="p-4 mt-4">
+                    <TouchableOpacity
+                        onPress={onBack}
+                        className="bg-primary py-4 rounded-xl mb-3"
+                        activeOpacity={0.7}
+                    >
+                        <Text className="text-center font-onest-semibold text-white">
+                            Adjust Preferences
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => {
+                            // Relax the most restrictive filter
+                            const relaxedFormData = { ...formData };
+                            if (breakdown.after_travel_companion === 0) {
+                                relaxedFormData.preferences = {
+                                    ...relaxedFormData.preferences!,
+                                    travelCompanion: 'Any' as TravelCompanion
+                                };
+                            }
+                            setFormData(relaxedFormData);
+                            generateItinerary();
+                        }}
+                        className="py-4 rounded-xl border border-primary"
+                        activeOpacity={0.7}
+                    >
+                        <Text className="text-center font-onest-medium text-primary">
+                            Try with Relaxed Filters
+                        </Text>
+                    </TouchableOpacity>
+
+                    {details.alternative_options.nearby_cities.length > 0 && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                // Change city to the most popular nearby city
+                                const newCity = details.alternative_options.nearby_cities[0].city;
+                                setFormData({
+                                    ...formData,
+                                    city: newCity
+                                });
+                                generateItinerary();
+                            }}
+                            className="py-4 rounded-xl border border-gray-300 mt-3"
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-center font-onest-medium text-gray-700">
+                                Try {details.alternative_options.nearby_cities[0].city} instead
+                            </Text>
+                            <Text className="text-center text-xs text-gray-500 font-onest">
+                                ({details.alternative_options.nearby_cities[0].experience_count} experiences available)
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </ScrollView>
+        );
+    }
+
+    // Simple error UI (fallback)
     if (error) {
         return (
             <View className="flex-1 justify-center items-center p-4">
@@ -475,7 +719,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                                 </View>
                                             )}
 
-                                            {/* NEW: Remove button - only show in preview mode */}
+                                            {/* Remove button - only show in preview mode */}
                                             {isPreview && (
                                                 <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
                                                     <TouchableOpacity
@@ -500,7 +744,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                 <View className="bg-gray-50 rounded-xl p-6 items-center">
                                     <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
                                     <Text className="text-gray-500 font-onest text-sm mt-2">
-                                        No experiences scheduled for this day
+                                        No activities scheduled for this day
                                     </Text>
                                 </View>
                             )}
