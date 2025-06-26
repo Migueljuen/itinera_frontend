@@ -139,12 +139,27 @@ export default function EditItineraryScreen() {
       }
 
       const data = await response.json();
+      console.log('API response:', data);
+
+      // The backend returns: { experience_id, requested_day, availability: [...] }
+      let timeSlots: TimeSlot[] = [];
+
+      if (data.availability && Array.isArray(data.availability)) {
+        // Each availability object contains a time_slots array
+        data.availability.forEach((availability: any) => {
+          if (availability.time_slots && Array.isArray(availability.time_slots)) {
+            timeSlots = timeSlots.concat(availability.time_slots);
+          }
+        });
+      }
+
+      console.log('Extracted time slots:', timeSlots);
 
       // Check each time slot for conflicts with existing itinerary items
-      const slotsWithAvailability = (data.availability || []).map((slot: TimeSlot) => {
+      const slotsWithAvailability = timeSlots.map((slot: TimeSlot) => {
         const conflictingItems = editedItems.filter(item =>
           item.day_number === dayNumber &&
-          item.item_id !== editingItem?.item_id && // Exclude the item being edited
+          item.item_id !== editingItem?.item_id &&
           isTimeOverlapping(slot.start_time, slot.end_time, item.start_time, item.end_time)
         );
 
@@ -156,6 +171,7 @@ export default function EditItineraryScreen() {
       });
 
       setAvailableTimeSlots(slotsWithAvailability);
+
     } catch (error) {
       console.error("Error fetching available time slots:", error);
       Alert.alert("Error", "Failed to load available time slots");
@@ -164,6 +180,7 @@ export default function EditItineraryScreen() {
       setLoadingTimeSlots(false);
     }
   };
+
 
   const isTimeOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
     const s1 = new Date(`2000-01-01T${start1}`);
@@ -348,13 +365,36 @@ export default function EditItineraryScreen() {
     }
   };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
+  const formatTime = (time: string | undefined | null) => {
+    if (!time) {
+      console.warn('formatTime called with invalid time:', time);
+      return 'Invalid Time';
+    }
+
+    // Handle different time formats
+    const timeStr = String(time).trim();
+
+    // Check if it's already formatted (e.g., "2:00 PM")
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      return timeStr;
+    }
+
+    // Handle HH:MM or HH:MM:SS format
+    const parts = timeStr.split(':');
+    if (parts.length < 2) {
+      console.warn('Invalid time format:', timeStr);
+      return timeStr;
+    }
+
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parts[1] || '00';
+
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours % 12 || 12;
+
     return `${displayHour}:${minutes} ${ampm}`;
   };
+
 
   const getImageUri = (imagePath: string) => {
     if (imagePath.startsWith('http')) {
