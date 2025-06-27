@@ -1,11 +1,9 @@
-
 export interface ImageInfo {
     uri: string;
     name?: string;
     type?: string;
     size?: number;
 }
-
 
 export interface TimeSlot {
     slot_id?: number;
@@ -21,6 +19,9 @@ export interface AvailabilityDay {
     time_slots: TimeSlot[];
 }
 
+// Define the travel companion type
+export type TravelCompanionType = 'Solo' | 'Partner' | 'Family' | 'Friends' | 'Group' | 'Any';
+
 export interface ExperienceFormData {
     title: string;
     description: string;
@@ -28,7 +29,8 @@ export interface ExperienceFormData {
     unit: string;
     availability: AvailabilityDay[];
     tags: number[];
-    travel_companion: 'Solo' | 'Partner' | 'Family' | 'Friends' | 'Group' | 'Any' | '';
+    travel_companion: TravelCompanionType | ''; // Keep for backward compatibility
+    travel_companions?: TravelCompanionType[]; // New field for multiple companions
     useExistingDestination: boolean;
     destination_id: number | null;
     destination_name: string;

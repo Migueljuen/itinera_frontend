@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Pressable, Text, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import API_URL from '../../../../constants/api';
-import { ExperienceFormData } from '../../../../types/types';
+import { ExperienceFormData, TravelCompanionType } from '../../../../types/types';
 
 interface StepProps {
     formData: ExperienceFormData;
@@ -17,13 +17,14 @@ type Tag = {
     name: string;
 };
 
-const TRAVEL_COMPANIONS = ['Solo', 'Partner', 'Family', 'Friends', 'Group', 'Any'] as const;
+const TRAVEL_COMPANIONS: TravelCompanionType[] = ['Solo', 'Partner', 'Family', 'Friends', 'Group', 'Any'];
 
 const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(true);
     const [originalTags, setOriginalTags] = useState<number[]>([]);
     const [originalTravelCompanion, setOriginalTravelCompanion] = useState<ExperienceFormData['travel_companion']>('');
+    const [originalTravelCompanions, setOriginalTravelCompanions] = useState<TravelCompanionType[]>([]);
     const [showAllSelected, setShowAllSelected] = useState(false);
     const [showAllAvailable, setShowAllAvailable] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,6 +41,15 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                 // Store original values for comparison
                 setOriginalTags([...formData.tags]);
                 setOriginalTravelCompanion(formData.travel_companion);
+                setOriginalTravelCompanions([...(formData.travel_companions || [])]);
+
+                // Initialize travel_companions if it doesn't exist
+                if (!formData.travel_companions && formData.travel_companion) {
+                    setFormData({
+                        ...formData,
+                        travel_companions: [formData.travel_companion]
+                    });
+                }
             } catch (err) {
                 console.error('Failed to load tags:', err);
                 Alert.alert('Error', 'Failed to load available tags');
@@ -65,17 +75,31 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         }
     };
 
-    const setCompanion = (value: ExperienceFormData['travel_companion']) => {
-        setFormData({
-            ...formData,
-            travel_companion: value,
-        });
+    const toggleCompanion = (companion: TravelCompanionType) => {
+        const currentCompanions = formData.travel_companions || [];
+
+        if (currentCompanions.includes(companion)) {
+            setFormData({
+                ...formData,
+                travel_companions: currentCompanions.filter((c) => c !== companion),
+                travel_companion: '' // Clear the old single value
+            });
+        } else {
+            setFormData({
+                ...formData,
+                travel_companions: [...currentCompanions, companion],
+                travel_companion: '' // Clear the old single value
+            });
+        }
     };
+
+    const selectedCompanions = formData.travel_companions || [];
 
     const hasChanges = () => {
         const tagsChanged = JSON.stringify(formData.tags.sort()) !== JSON.stringify(originalTags.sort());
-        const companionChanged = formData.travel_companion !== originalTravelCompanion;
-        return tagsChanged || companionChanged;
+        const companionsChanged = JSON.stringify((formData.travel_companions || []).sort()) !==
+            JSON.stringify(originalTravelCompanions.sort());
+        return tagsChanged || companionsChanged;
     };
 
     const resetToOriginal = () => {
@@ -91,7 +115,8 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         setFormData({
                             ...formData,
                             tags: [...originalTags],
-                            travel_companion: originalTravelCompanion
+                            travel_companion: originalTravelCompanion,
+                            travel_companions: [...originalTravelCompanions]
                         });
                     }
                 }
@@ -135,31 +160,42 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
                 {/* Travel Companion Selection */}
                 <View className="mb-6">
-                    <Text className="font-onest-medium text-base mb-3">Travel Companion Preference</Text>
+                    <View className="flex-row items-center justify-between mb-3">
+                        <Text className="font-onest-medium text-base">Travel Companion Preferences</Text>
+                        <Text className="text-sm text-gray-500">
+                            {selectedCompanions.length} selected
+                        </Text>
+                    </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View className="flex-row gap-2">
                             {TRAVEL_COMPANIONS.map((option) => (
                                 <Pressable
                                     key={option}
-                                    onPress={() => setCompanion(option)}
-                                    className={`px-4 py-2 rounded-full border ${formData.travel_companion === option
-                                        ? 'bg-primary border-primary'
-                                        : 'bg-white border-gray-300'
+                                    onPress={() => toggleCompanion(option)}
+                                    className={`px-4 py-2 rounded-full border ${selectedCompanions.includes(option)
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
                                         }`}
                                 >
-                                    <Text className={`font-onest-medium ${formData.travel_companion === option ? 'text-white' : 'text-gray-700'
-                                        }`}>
-                                        {option}
-                                    </Text>
+                                    <View className="flex-row items-center">
+                                        {selectedCompanions.includes(option) && (
+                                            <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 4 }} />
+                                        )}
+                                        <Text className={`font-onest-medium ${selectedCompanions.includes(option) ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {option}
+                                        </Text>
+                                    </View>
                                 </Pressable>
                             ))}
                         </View>
                     </ScrollView>
-                    {formData.travel_companion !== originalTravelCompanion && (
-                        <Text className="text-xs text-gray-400 mt-2">
-                            Original: {originalTravelCompanion}
-                        </Text>
-                    )}
+                    {JSON.stringify((formData.travel_companions || []).sort()) !==
+                        JSON.stringify(originalTravelCompanions.sort()) && (
+                            <Text className="text-xs text-gray-400 mt-2">
+                                Original: {originalTravelCompanions.length > 0 ? originalTravelCompanions.join(', ') : 'None'}
+                            </Text>
+                        )}
                 </View>
 
                 {/* Selected Tags Summary */}
@@ -292,11 +328,12 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                 {hasChanges() && (
                     <View className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4">
                         <Text className="font-onest-medium text-amber-800 text-sm mb-1">Unsaved Changes:</Text>
-                        {formData.travel_companion !== originalTravelCompanion && (
-                            <Text className="text-amber-700 text-xs">
-                                • Companion: {originalTravelCompanion} → {formData.travel_companion}
-                            </Text>
-                        )}
+                        {JSON.stringify((formData.travel_companions || []).sort()) !==
+                            JSON.stringify(originalTravelCompanions.sort()) && (
+                                <Text className="text-amber-700 text-xs">
+                                    • Companions: {originalTravelCompanions.length} → {selectedCompanions.length} selected
+                                </Text>
+                            )}
                         {JSON.stringify(formData.tags.sort()) !== JSON.stringify(originalTags.sort()) && (
                             <Text className="text-amber-700 text-xs">
                                 • Tags: {originalTags.length} → {formData.tags.length} selected
@@ -323,16 +360,16 @@ const Step3EditTags: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         <Text className="text-gray-800 font-onest-medium">Previous step</Text>
                     </Pressable>
                     <Pressable
-                        onPress={formData.tags.length > 0 && formData.travel_companion ? onNext : undefined}
-                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && formData.travel_companion
-                            ? 'bg-primary'
-                            : 'bg-gray-200'
+                        onPress={formData.tags.length > 0 && selectedCompanions.length > 0 ? onNext : undefined}
+                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && selectedCompanions.length > 0
+                                ? 'bg-primary'
+                                : 'bg-gray-200'
                             }`}
-                        disabled={!(formData.tags.length > 0 && formData.travel_companion)}
+                        disabled={!(formData.tags.length > 0 && selectedCompanions.length > 0)}
                     >
-                        <Text className={`text-center font-onest-medium text-base ${formData.tags.length > 0 && formData.travel_companion
-                            ? 'text-white'
-                            : 'text-gray-400'
+                        <Text className={`text-center font-onest-medium text-base ${formData.tags.length > 0 && selectedCompanions.length > 0
+                                ? 'text-white'
+                                : 'text-gray-400'
                             }`}>
                             {hasChanges() ? 'Continue with changes' : 'Next step'}
                         </Text>

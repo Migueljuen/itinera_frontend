@@ -1,7 +1,10 @@
+// CHILD ELEMENT / SUBMIT SCREEN / STEP 6
+
 import { useRouter } from "expo-router";
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { ExperienceFormData } from '../../../../types/types';
+
 interface ReviewSubmitProps {
     formData: ExperienceFormData;
     onBack: () => void;
@@ -12,6 +15,9 @@ interface ReviewSubmitProps {
 
 const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit, isSubmitting }) => {
     const router = useRouter();
+
+    // Get travel companions array
+    const companions = formData.travel_companions || [];
 
     return (
         <ScrollView className="text-center py-2">
@@ -62,27 +68,43 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                             <Text className="text-gray-500 text-center py-2">No availability set</Text>
                         )}
                     </View>
-
                 </View>
 
-                {/* Travel Companion Section */}
+                {/* Travel Companions Section */}
                 <View className="bg-white pb-4">
-                    <Text className="font-onest-medium py-2 text-gray-800">Travel Companion</Text>
+                    <Text className="font-onest-medium py-2 text-gray-800">Travel Companions</Text>
                     <View className="rounded-xl border border-gray-200 p-4">
-                        {formData.travel_companion ? (
-                            <View className="bg-gray-100 px-4 py-2 rounded-full self-start">
-                                <Text className="text-gray-800">
-                                    {formData.travel_companion}
-                                </Text>
+                        {companions.length > 0 ? (
+                            <View className="flex-row flex-wrap gap-2">
+                                {companions.map((companion, index) => (
+                                    <View key={index} className="bg-gray-100 px-4 py-2 rounded-full">
+                                        <Text className="text-gray-800">{companion}</Text>
+                                    </View>
+                                ))}
                             </View>
                         ) : (
-                            <Text className="text-gray-500 text-center py-2">No companion selected</Text>
+                            <Text className="text-gray-500 text-center py-2">No companions selected</Text>
                         )}
                     </View>
                 </View>
 
-
-
+                {/* Tags Section */}
+                <View className="bg-white pb-4">
+                    <Text className="font-onest-medium py-2 text-gray-800">Tags</Text>
+                    <View className="rounded-xl border border-gray-200 p-4">
+                        {formData.tags.length > 0 ? (
+                            <View className="flex-row flex-wrap gap-2">
+                                {formData.tags.map((tagId, index) => (
+                                    <View key={index} className="bg-gray-100 px-4 py-2 rounded-full">
+                                        <Text className="text-gray-800">Tag {tagId}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : (
+                            <Text className="text-gray-500 text-center py-2">No tags selected</Text>
+                        )}
+                    </View>
+                </View>
 
                 {/* Destination Section */}
                 <View className="bg-white pb-4">
@@ -146,7 +168,6 @@ const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, onBack, onSubmit,
                     <View className="flex-row gap-3">
                         <Pressable
                             onPress={() => { onSubmit('draft'); router.replace("/dashboard") }}
-
                             disabled={isSubmitting}
                             className={`p-4 px-6 rounded-xl border border-primary ${isSubmitting ? 'bg-gray-100' : 'bg-white'}`}
                         >

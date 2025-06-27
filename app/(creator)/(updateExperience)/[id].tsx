@@ -15,7 +15,7 @@ import Step4EditDestination from './(steps)/Step4Destination';
 import Step5EditImages from './(steps)/Step5Images';
 
 // Types
-import { ExperienceFormData } from '../../../types/types';
+import { ExperienceFormData, TravelCompanionType } from '../../../types/types';
 
 // Experience type for the fetched data
 type Experience = {
@@ -29,6 +29,7 @@ type Experience = {
     destination_id: number;
     status: string;
     travel_companion: string;
+    travel_companions?: TravelCompanionType[]; // New field
     created_at: string;
     tags: string[];
     images: string[];
@@ -83,6 +84,7 @@ const ExperienceEditForm: React.FC = () => {
         availability: [],
         tags: [],
         travel_companion: '',
+        travel_companions: [], // Initialize the new field
         useExistingDestination: false,
         destination_id: null,
         destination_name: '',
@@ -164,6 +166,14 @@ const ExperienceEditForm: React.FC = () => {
                     }));
                 }
 
+                // Handle travel companions - convert from old format if needed
+                let companions: TravelCompanionType[] = [];
+                if (data.travel_companions && Array.isArray(data.travel_companions)) {
+                    companions = data.travel_companions;
+                } else if (data.travel_companion) {
+                    companions = [data.travel_companion as TravelCompanionType];
+                }
+
                 // Populate form data with existing experience data
                 setFormData({
                     title: data.title || '',
@@ -173,6 +183,7 @@ const ExperienceEditForm: React.FC = () => {
                     availability: transformedAvailability,
                     tags: selectedTagIds,
                     travel_companion: data.travel_companion || '',
+                    travel_companions: companions, // Set the array
                     useExistingDestination: true,
                     destination_id: data.destination_id || null,
                     destination_name: data.destination?.name || data.destination_name || '',
@@ -234,11 +245,13 @@ const ExperienceEditForm: React.FC = () => {
                     formDataObj.append('availability', JSON.stringify(transformedAvailability));
                     break;
 
-                case 3: // Tags
+                case 3: // Tags and travel companions
                     section = 'tags';
                     formDataObj.append('section', section);
                     formDataObj.append('tags', JSON.stringify(formData.tags));
                     formDataObj.append('travel_companion', formData.travel_companion);
+                    // Add the new travel_companions array
+                    formDataObj.append('travel_companions', JSON.stringify(formData.travel_companions || []));
                     break;
 
                 case 4: // Destination
@@ -312,6 +325,13 @@ const ExperienceEditForm: React.FC = () => {
                     price: formData.price,
                     unit: formData.unit
                 });
+            } else if (step === 3) {
+                // Update tags and travel companions
+                setExperience({
+                    ...experience,
+                    travel_companion: formData.travel_companion,
+                    travel_companions: formData.travel_companions
+                });
             } else if (step === 5) {
                 // Update the experience images after successful save
                 setExperience({
@@ -346,8 +366,12 @@ const ExperienceEditForm: React.FC = () => {
                 // Check availability changes (simplified)
                 return true; // You can implement more detailed comparison
             case 3:
-                // Check tags changes
-                return true; // You can implement more detailed comparison
+                // Check tags and travel companions changes
+                const originalCompanions = experience.travel_companions ||
+                    (experience.travel_companion ? [experience.travel_companion] : []);
+                const currentCompanions = formData.travel_companions || [];
+
+                return JSON.stringify(currentCompanions.sort()) !== JSON.stringify(originalCompanions.sort());
             case 4:
                 // Check destination changes - including coordinates
                 return (
@@ -461,8 +485,8 @@ const ExperienceEditForm: React.FC = () => {
                         onPress={handleSaveCurrentStep}
                         disabled={isSaving || !hasChangesInCurrentStep()}
                         className={`px-4 py-2 rounded-lg ${hasChangesInCurrentStep() && !isSaving
-                                ? 'bg-primary'
-                                : 'bg-gray-200'
+                            ? 'bg-primary'
+                            : 'bg-gray-200'
                             }`}
                     >
                         {isSaving ? (

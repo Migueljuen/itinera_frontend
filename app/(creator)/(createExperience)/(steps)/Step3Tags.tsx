@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
-import { ExperienceFormData } from '../../../../types/types';
-import API_URL from '../../../../constants/api';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import API_URL from '../../../../constants/api';
+import { ExperienceFormData, TravelCompanionType } from '../../../../types/types';
 
 interface StepProps {
     formData: ExperienceFormData;
@@ -16,7 +16,7 @@ type Tag = {
     name: string;
 };
 
-const TRAVEL_COMPANIONS = ['Solo', 'Partner', 'Family', 'Friends', 'Group', 'Any'] as const;
+const TRAVEL_COMPANIONS: TravelCompanionType[] = ['Solo', 'Partner', 'Family', 'Friends', 'Group', 'Any'];
 
 const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -52,13 +52,27 @@ const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack 
         }
     };
 
-    const setCompanion = (value: ExperienceFormData['travel_companion']) => {
-        setFormData({
-            ...formData,
-            travel_companion: value,
-        });
+    const toggleCompanion = (companion: TravelCompanionType) => {
+        // Initialize travel_companions as empty array if it doesn't exist
+        const currentCompanions = formData.travel_companions || [];
+
+        if (currentCompanions.includes(companion)) {
+            setFormData({
+                ...formData,
+                travel_companions: currentCompanions.filter((c) => c !== companion),
+                travel_companion: '' // Clear the old single value
+            });
+        } else {
+            setFormData({
+                ...formData,
+                travel_companions: [...currentCompanions, companion],
+                travel_companion: '' // Clear the old single value
+            });
+        }
     };
 
+    // Use the new array format
+    const selectedCompanions = formData.travel_companions || [];
 
     return (
         <ScrollView className="text-center py-2">
@@ -69,23 +83,28 @@ const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack 
 
             {/* Travel Companion Selection */}
             <View className="mb-6">
-                <Text className="font-onest-medium text-base mb-2">What’s this experience best suited with?</Text>
+                <Text className="font-onest-medium text-base mb-2">What's this experience best suited with?</Text>
                 <View className="flex-row flex-wrap gap-2 justify-start">
                     {TRAVEL_COMPANIONS.map((option) => (
                         <Pressable
                             key={option}
-                            onPress={() => setCompanion(option)}
-                            className={`px-4 py-2 rounded-full border ${formData.travel_companion === option
-                                ? 'bg-gray-700 border-primary'
-                                : 'bg-white border-gray-300'
+                            onPress={() => toggleCompanion(option)}
+                            className={`px-4 py-2 rounded-full border ${selectedCompanions.includes(option)
+                                    ? 'bg-gray-700 border-primary'
+                                    : 'bg-white border-gray-300'
                                 }`}
                         >
-                            <Text className={formData.travel_companion === option ? 'text-white' : 'text-gray-800'}>
+                            <Text className={selectedCompanions.includes(option) ? 'text-white' : 'text-gray-800'}>
                                 {option}
                             </Text>
                         </Pressable>
                     ))}
                 </View>
+                {selectedCompanions.length > 0 && (
+                    <Text className="text-sm text-gray-500 mt-2">
+                        Selected: {selectedCompanions.length} companion{selectedCompanions.length > 1 ? 's' : ''}
+                    </Text>
+                )}
             </View>
 
             <View className="flex justify-evenly gap-4 border-t pt-8 border-gray-200">
@@ -100,8 +119,8 @@ const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack 
                                     key={tag.tag_id}
                                     onPress={() => toggleTag(tag.tag_id)}
                                     className={`px-4 py-2 rounded-full border ${formData.tags.includes(tag.tag_id)
-                                        ? 'bg-gray-700'
-                                        : 'bg-white border-gray-200'
+                                            ? 'bg-gray-700'
+                                            : 'bg-white border-gray-200'
                                         }`}
                                 >
                                     <Text className={formData.tags.includes(tag.tag_id) ? 'text-white' : 'text-gray-800'}>
@@ -131,8 +150,8 @@ const Step3Tags: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack 
                         <Text className="text-gray-800">Previous step</Text>
                     </Pressable>
                     <Pressable
-                        onPress={formData.tags.length > 0 && formData.travel_companion ? onNext : undefined}
-                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && formData.travel_companion ? 'bg-primary' : 'bg-gray-200'
+                        onPress={formData.tags.length > 0 && selectedCompanions.length > 0 ? onNext : undefined}
+                        className={`p-4 px-6 rounded-xl ${formData.tags.length > 0 && selectedCompanions.length > 0 ? 'bg-primary' : 'bg-gray-200'
                             }`}
                     >
                         <Text className="text-center font-onest-medium text-base text-gray-300">Next step</Text>

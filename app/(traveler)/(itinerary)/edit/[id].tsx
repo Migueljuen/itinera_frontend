@@ -110,6 +110,73 @@ export default function EditItineraryScreen() {
       setLoading(false);
     }
   };
+  // Calculate minutes between two time strings
+  const getMinutesBetween = (endTime1: string, startTime2: string) => {
+    const end1 = new Date(`2000-01-01T${endTime1}`);
+    const start2 = new Date(`2000-01-01T${startTime2}`);
+    return (start2.getTime() - end1.getTime()) / (1000 * 60);
+  };
+
+  // Check if activities on the same day have time conflicts or insufficient gaps
+  const checkTimeConflicts = (items: ItineraryItem[]) => {
+    const conflicts: Array<{
+      item1: ItineraryItem;
+      item2: ItineraryItem;
+      type: 'overlap' | 'no-gap' | 'insufficient-gap';
+      gapMinutes?: number;
+    }> = [];
+
+    // Group by day
+    const itemsByDay = items.reduce((acc, item) => {
+      if (!acc[item.day_number]) acc[item.day_number] = [];
+      acc[item.day_number].push(item);
+      return acc;
+    }, {} as Record<number, ItineraryItem[]>);
+
+    // Check each day
+    Object.entries(itemsByDay).forEach(([day, dayItems]) => {
+      // Sort by start time
+      const sortedItems = [...dayItems].sort((a, b) =>
+        a.start_time.localeCompare(b.start_time)
+      );
+
+      // Check consecutive items
+      for (let i = 0; i < sortedItems.length - 1; i++) {
+        const current = sortedItems[i];
+        const next = sortedItems[i + 1];
+
+        const gapMinutes = getMinutesBetween(current.end_time, next.start_time);
+
+        if (gapMinutes < 0) {
+          // Activities overlap
+          conflicts.push({
+            item1: current,
+            item2: next,
+            type: 'overlap'
+          });
+        } else if (gapMinutes === 0) {
+          // No gap between activities
+          conflicts.push({
+            item1: current,
+            item2: next,
+            type: 'no-gap',
+            gapMinutes: 0
+          });
+        } else if (gapMinutes < 30) {
+          // Less than 30 minutes gap (you can adjust this threshold)
+          conflicts.push({
+            item1: current,
+            item2: next,
+            type: 'insufficient-gap',
+            gapMinutes
+          });
+        }
+      }
+    });
+
+    return conflicts;
+  };
+
 
   const fetchAvailableTimeSlots = async (experienceId: number, dayNumber: number) => {
     setLoadingTimeSlots(true);
@@ -226,16 +293,125 @@ export default function EditItineraryScreen() {
   const confirmTimeSlotSelection = (timeSlot: TimeSlot) => {
     if (!editingItem) return;
 
-    // Update the item in editedItems
-    setEditedItems(prev => prev.map(item =>
+    // Create a temporary updated items array
+    const tempItems = editedItems.map(item =>
       item.item_id === editingItem.item_id
         ? { ...item, start_time: timeSlot.start_time, end_time: timeSlot.end_time }
         : item
-    ));
+    );
 
-    setShowTimeModal(false);
-    setEditingItem(null);
+    // Check for conflicts
+    const conflicts = checkTimeConflicts(tempItems);
+    const relevantConflicts = conflicts.filter(
+      c => c.item1.item_id === editingItem.item_id || c.item2.item_id === editingItem.item_id
+    );
+
+    if (relevantConflicts.length > 0) {
+      // Build warning message
+      let warningMessage = '';
+      relevantConflicts.forEach(conflict => {
+        const otherItem = conflict.item1.item_id === editingItem.item_id ? conflict.item2 : conflict.item1;
+
+        switch (conflict.type) {
+          case 'overlap':
+            warningMessage += `⚠️ This time overlaps with "${otherItem.experience_name}"!\n\n`;
+            break;
+          case 'no-gap':
+            warningMessage += `⚠️ No time gap between this and "${otherItem.experience_name}". You'll need to travel directly from one activity to the next.\n\n`;
+            break;
+          case 'insufficient-gap':
+            warningMessage += `⚠️ Only ${conflict.gapMinutes} minutes between this and "${otherItem.experience_name}". This might not be enough time for travel.\n\n`;
+            break;
+        }
+      });
+
+      Alert.alert(
+        "Schedule Warning",
+        warningMessage + "Do you want to proceed anyway?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Proceed Anyway",
+            style: "destructive",
+            onPress: () => {
+              // Update the item
+              setEditedItems(tempItems);
+              setShowTimeModal(false);
+              setEditingItem(null);
+            }
+          }
+        ]
+      );
+    } else {
+      // No conflicts, proceed normally
+      setEditedItems(tempItems);
+      setShowTimeModal(false);
+      setEditingItem(null);
+    }
   };
+
+  // Add a visual indicator for items with warnings
+  const getItemWarningStatus = (item: ItineraryItem, allItems: ItineraryItem[]) => {
+    const conflicts = checkTimeConflicts(allItems);
+    const itemConflicts = conflicts.filter(
+      c => c.item1.item_id === item.item_id || c.item2.item_id === item.item_id
+    );
+
+    if (itemConflicts.some(c => c.type === 'overlap')) {
+      return { type: 'error', message: 'Time overlap!' };
+    }
+    if (itemConflicts.some(c => c.type === 'no-gap')) {
+      return { type: 'warning', message: 'No travel time' };
+    }
+    if (itemConflicts.some(c => c.type === 'insufficient-gap')) {
+      const minGap = Math.min(...itemConflicts.filter(c => c.gapMinutes).map(c => c.gapMinutes!));
+      return { type: 'warning', message: `Only ${minGap}min gap` };
+    }
+    return null;
+  };
+
+  // Also add a summary of all conflicts at the bottom of the screen
+  const renderConflictSummary = () => {
+    const conflicts = checkTimeConflicts(editedItems);
+
+    if (conflicts.length === 0) return null;
+
+    return (
+      <View className="mx-4 mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+        <View className="flex-row items-center mb-2">
+          <Ionicons name="warning-outline" size={20} color="#EA580C" />
+          <Text className="text-orange-700 font-onest-semibold ml-2">
+            Schedule Warnings ({conflicts.length})
+          </Text>
+        </View>
+        {conflicts.map((conflict, index) => (
+          <Text key={index} className="text-sm text-orange-600 font-onest mb-1">
+            • Day {conflict.item1.day_number}: {
+              conflict.type === 'overlap'
+                ? `"${conflict.item1.experience_name}" overlaps with "${conflict.item2.experience_name}"`
+                : conflict.type === 'no-gap'
+                  ? `No gap between "${conflict.item1.experience_name}" and "${conflict.item2.experience_name}"`
+                  : `Only ${conflict.gapMinutes}min between "${conflict.item1.experience_name}" and "${conflict.item2.experience_name}"`
+            }
+          </Text>
+        ))}
+      </View>
+    );
+  };
+
+  // Add this before your save button
+  { renderConflictSummary() }
+
+  // Optional: Prevent saving if there are critical conflicts
+  const hasCriticalConflicts = () => {
+    const conflicts = checkTimeConflicts(editedItems);
+    return conflicts.some(c => c.type === 'overlap');
+  };
+
+
   const handleRemoveExperience = (itemId: number) => {
     Alert.alert(
       "Remove Experience",
@@ -472,9 +648,6 @@ export default function EditItineraryScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="flex-row items-center justify-end p-8 bg-white border-b border-gray-200 ">
-
-
-
       </View>
 
       <ScrollView className="flex-1 " contentContainerStyle={{ paddingBottom: 100 }}>
@@ -487,6 +660,9 @@ export default function EditItineraryScreen() {
             Tap on time slots to view available times or remove experiences
           </Text>
         </View>
+
+        {/* ADD CONFLICT SUMMARY HERE */}
+        {renderConflictSummary()}
 
         {/* Daily Itinerary */}
         <View className="px-4 relative">
@@ -527,6 +703,24 @@ export default function EditItineraryScreen() {
                               {formatTime(item.end_time)}
                             </Text>
                           </View>
+
+                          {/* ADD WARNING INDICATOR HERE */}
+                          {(() => {
+                            const warning = getItemWarningStatus(item, editedItems);
+                            if (warning) {
+                              return (
+                                <View className={`mt-1 px-2 py-1 rounded ${warning.type === 'error' ? 'bg-red-100' : 'bg-orange-100'
+                                  }`}>
+                                  <Text className={`text-xs font-onest-medium ${warning.type === 'error' ? 'text-red-600' : 'text-orange-600'
+                                    }`}>
+                                    {warning.message}
+                                  </Text>
+                                </View>
+                              );
+                            }
+                            return null;
+                          })()}
+
                           <Text className="text-xs text-primary font-onest mt-1">Change time</Text>
                         </TouchableOpacity>
 
@@ -591,12 +785,25 @@ export default function EditItineraryScreen() {
 
         </View>
       </ScrollView>
+
+      {/* UPDATED SAVE BUTTON WITH CONFLICT CHECK */}
       <TouchableOpacity
         onPress={() => {
           if (!hasChanges() || saving) {
             console.log('Button is disabled, not executing handleSaveChanges');
             return;
           }
+
+          // CHECK FOR CRITICAL CONFLICTS
+          if (hasCriticalConflicts()) {
+            Alert.alert(
+              "Cannot Save",
+              "Your schedule has time overlaps. Please fix them before saving.",
+              [{ text: "OK" }]
+            );
+            return;
+          }
+
           handleSaveChanges();
         }}
         disabled={!hasChanges() || saving}
@@ -623,7 +830,6 @@ export default function EditItineraryScreen() {
           </Text>
         )}
       </TouchableOpacity>
-
 
       {/* Time Slot Selection Modal */}
       <Modal

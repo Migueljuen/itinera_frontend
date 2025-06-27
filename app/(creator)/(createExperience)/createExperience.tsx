@@ -1,5 +1,7 @@
+//PARENT ELEMENT
+
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepIndicator from 'react-native-step-indicator';
 import API_URL from '../../../constants/api';
@@ -48,7 +50,8 @@ const ExperienceCreationForm: React.FC = () => {
         unit: '',
         availability: [],
         tags: [],
-        travel_companion: '',
+        travel_companion: '', // Keep for backward compatibility
+        travel_companions: [], // New array field for multiple companions
         useExistingDestination: false,
         destination_id: null,
         destination_name: '',
@@ -62,6 +65,9 @@ const ExperienceCreationForm: React.FC = () => {
     const validateFormData = () => {
         const requiredUnits = ['Entry', 'Hour', 'Day', 'Package'];
 
+        // Check if we have travel companions selected
+        const hasCompanions = formData.travel_companions && formData.travel_companions.length > 0;
+
         if (
             !formData.title ||
             !formData.description ||
@@ -71,7 +77,8 @@ const ExperienceCreationForm: React.FC = () => {
             !Array.isArray(formData.tags) ||
             formData.tags.length === 0 ||
             !Array.isArray(formData.availability) ||
-            formData.availability.length === 0
+            formData.availability.length === 0 ||
+            !hasCompanions
         ) {
             console.log('Basic form data validation failed');
             return false;
@@ -150,10 +157,11 @@ const ExperienceCreationForm: React.FC = () => {
             // Add tags
             formDataObj.append('tags', JSON.stringify(formData.tags));
 
-            // Add travel companion
-            formDataObj.append('travel_companion', formData.travel_companion);
+            // Add travel companions - send as array
+            const companions = formData.travel_companions || [];
+            formDataObj.append('travel_companions', JSON.stringify(companions));
+
             // Transform availability with the proper structure
-            // We need to ensure that each time slot has the proper fields as expected by the backend
             const transformedAvailability = formData.availability.map((day) => ({
                 availability_id: day.availability_id, // Include if it exists (for editing scenarios)
                 experience_id: day.experience_id, // Include if it exists (for editing scenarios)
@@ -241,11 +249,10 @@ const ExperienceCreationForm: React.FC = () => {
             setIsSubmitting(false);
         }
     };
+
     // Step navigation
     const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
     const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
-
-
 
     const renderStep = () => {
         switch (step) {
@@ -271,6 +278,7 @@ const ExperienceCreationForm: React.FC = () => {
                 return null;
         }
     };
+
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             {/* Step content */}

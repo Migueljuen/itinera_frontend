@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   // Logout function (defined first so it can be used in useEffect)
   const logout = useCallback(async () => {
     try {
-      console.log('Logging out...');
+     
       // Clear state
       setToken(null);
       setUser(null);
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }) => {
     setError('');
     setLoading(true); // Set loading during login
     try {
-      console.log('Attempting login...');
+     
       const response = await axios.post(`${API_URL}/api/login`, { email, password });
 
       const { token, user } = response.data;
