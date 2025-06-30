@@ -22,16 +22,17 @@ type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
 // Itinerary interfaces
 export interface ItineraryFormData {
     traveler_id: number;
-    start_date: string;  // Format: 'YYYY-MM-DD'
-    end_date: string;    // Format: 'YYYY-MM-DD'
+    start_date: string;
+    end_date: string;
     title: string;
     notes?: string;
     city: string;
     items: ItineraryItem[];
-    // Additional fields for preferences
+
     preferences?: {
         experiences: Experience[];
-        travelCompanion: TravelCompanion;
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity: ActivityIntensity;

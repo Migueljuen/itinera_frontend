@@ -29,13 +29,15 @@ export interface ItineraryFormData {
     items: ItineraryItem[];
     preferences?: {
         experiences: Experience[];
-        travelCompanion: TravelCompanion;
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity: ActivityIntensity;
         travelDistance: TravelDistance;
     };
 }
+
 
 export interface ItineraryItem {
     experience_id: number;
@@ -62,6 +64,7 @@ interface GeneratedItinerary {
     notes: string;
     created_at: string;
     status: string;
+    travel_companions?: TravelCompanion[]; // Add this field
     items: ItineraryItem[];
 }
 
@@ -72,6 +75,7 @@ interface GenerateItineraryResponse {
     total_experiences: number;
     selected_experiences: number;
     activity_intensity: string;
+    travel_companions?: TravelCompanion[]; // Add this field
 }
 
 // Enhanced error interface
@@ -94,6 +98,7 @@ interface EnhancedError {
                 title: string;
                 price: number;
                 travel_companion: string;
+                travel_companions?: string[]; // Add array support
                 popularity: number;
             }>;
         };
@@ -125,14 +130,13 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         setEnhancedError(null);
 
         try {
-            // Prepare the request payload based on your backend expectations
-            const requestBody = {
+            // Prepare the request payload - support both old and new format
+            const requestBody: any = {
                 traveler_id: formData.traveler_id,
                 city: formData.city,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 experience_types: formData.preferences?.experiences || [],
-                travel_companion: formData.preferences?.travelCompanion || '',
                 explore_time: formData.preferences?.exploreTime || '',
                 budget: formData.preferences?.budget || '',
                 activity_intensity: formData.preferences?.activityIntensity || '',
@@ -141,8 +145,17 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                 notes: formData.notes || 'Auto-generated itinerary'
             };
 
+            // Handle travel companions - send both formats for backward compatibility
+            if (formData.preferences?.travelCompanions && formData.preferences.travelCompanions.length > 0) {
+                requestBody.travel_companions = formData.preferences.travelCompanions;
+                requestBody.travel_companion = formData.preferences.travelCompanions[0]; // For backward compatibility
+            } else if (formData.preferences?.travelCompanion) {
+                requestBody.travel_companion = formData.preferences.travelCompanion;
+                requestBody.travel_companions = [formData.preferences.travelCompanion];
+            }
+
             console.log('Generating itinerary with data:', requestBody);
-            console.log('Travel distance preference:', formData.preferences?.travelDistance);
+            console.log('Travel companions:', requestBody.travel_companions);
 
             const response = await fetch(`${API_URL}/itinerary/generate`, {
                 method: 'POST',
@@ -369,6 +382,14 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         );
     };
 
+    // Helper to format travel companions for display
+    const formatTravelCompanions = (companions?: TravelCompanion[] | TravelCompanion) => {
+        if (Array.isArray(companions)) {
+            return companions.join(', ');
+        }
+        return companions || 'Any';
+    };
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center p-4">
@@ -446,33 +467,17 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                     <View className="bg-yellow-50 mx-4 mt-4 rounded-xl p-4 border border-yellow-200">
                         <View className="flex-row items-center mb-2">
                             <Ionicons name="warning" size={20} color="#F59E0B" />
-                            <Text className="ml-2 font-onest-semibold text-yellow-800">
-                                Potential Conflicts
+                            <Text className="ml-2 font-onest-semibold text-blue-800">
+                                Suggestions
                             </Text>
                         </View>
-                        {details.conflicting_preferences.map((conflict, index) => (
-                            <Text key={index} className="text-sm text-yellow-700 font-onest ml-6 mb-1">
-                                • {conflict}
+                        {details.suggestions.map((suggestion, index) => (
+                            <Text key={index} className="text-sm text-blue-700 font-onest ml-6 mb-1">
+                                • {suggestion}
                             </Text>
                         ))}
                     </View>
                 )}
-
-                {/* Suggestions Section */}
-                <View className="bg-blue-50 mx-4 mt-4 rounded-xl p-4 border border-blue-200">
-                    <View className="flex-row items-center mb-2">
-                        <Ionicons name="bulb" size={20} color="#3B82F6" />
-                        <Text className="ml-2 font-onest-semibold text-blue-800">
-                            Suggestions
-                        </Text>
-                    </View>
-                    {details.suggestions.map((suggestion, index) => (
-                        <Text key={index} className="text-sm text-blue-700 font-onest ml-6 mb-1">
-                            • {suggestion}
-                        </Text>
-                    ))}
-                </View>
-
                 {/* Popular Experiences Section */}
                 {details.alternative_options.popular_experiences.length > 0 && (
                     <View className="mx-4 mt-4">
@@ -486,7 +491,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                                         {exp.title}
                                     </Text>
                                     <Text className="text-xs text-gray-600 font-onest mt-1">
-                                        ₱{exp.price} • {exp.travel_companion}
+                                        ₱{exp.price} • {exp.travel_companions ? exp.travel_companions.join(', ') : exp.travel_companion}
                                     </Text>
                                     <View className="flex-row items-center mt-1">
                                         <Ionicons name="star" size={12} color="#F59E0B" />
@@ -519,7 +524,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                             if (breakdown.after_travel_companion === 0) {
                                 relaxedFormData.preferences = {
                                     ...relaxedFormData.preferences!,
-                                    travelCompanion: 'Any' as TravelCompanion
+                                    travelCompanions: ['Any'] as TravelCompanion[]
                                 };
                             }
                             setFormData(relaxedFormData);
@@ -639,6 +644,15 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                             </View>
                         </View>
                     </View>
+
+                    {/* Show selected travel companions */}
+                    {(formData.preferences?.travelCompanions || formData.preferences?.travelCompanion) && (
+                        <View className="bg-blue-50 rounded-lg p-3 mb-4">
+                            <Text className="text-xs text-blue-700 font-onest">
+                                Travel companions: {formatTravelCompanions(formData.preferences?.travelCompanions || formData.preferences?.travelCompanion)}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Itinerary Days */}

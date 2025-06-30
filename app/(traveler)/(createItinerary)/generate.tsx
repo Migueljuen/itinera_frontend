@@ -78,7 +78,8 @@ interface ItineraryFormData {
     accommodation?: Accommodation;
     preferences?: {
         experiences: Experience[];
-        travelCompanion: TravelCompanion;
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity: ActivityIntensity;
@@ -126,7 +127,8 @@ const GenerateItineraryForm: React.FC = () => {
         items: [] as ItineraryItem[],
         preferences: {
             experiences: [],
-            travelCompanion: '' as TravelCompanion, // or use a default like 'Any' if needed
+            travelCompanion: '' as TravelCompanion,
+            travelCompanions: [],// or use a default like 'Any' if needed
             exploreTime: '' as ExploreTime,
             budget: '' as Budget,
             activityIntensity: '' as ActivityIntensity,

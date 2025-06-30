@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -42,6 +43,8 @@ interface ApiResponse {
     itineraries: Itinerary[];
 }
 
+const ITEMS_PER_PAGE = 5;
+
 export default function TripScreen() {
     const router = useRouter();
     const { isRefreshing, refreshData } = useRefresh();
@@ -49,11 +52,17 @@ export default function TripScreen() {
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [activeTab, setActiveTab] = useState<'upcoming' | 'ongoing' | 'completed'>('upcoming');
     const [userName, setUserName] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         fetchItineraries();
         fetchUserData();
     }, []);
+
+    // Reset to first page when tab changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
 
     const fetchUserData = async () => {
         try {
@@ -107,9 +116,52 @@ export default function TripScreen() {
 
     const filteredItineraries = itineraries.filter(item => item.status === activeTab);
 
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredItineraries.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedItineraries = filteredItineraries.slice(startIndex, endIndex);
+
+    // Generate page numbers to display
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxPagesToShow = 5;
+
+        if (totalPages <= maxPagesToShow) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            if (currentPage <= 3) {
+                for (let i = 1; i <= 4; i++) {
+                    pages.push(i);
+                }
+                pages.push('...');
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                pages.push(1);
+                pages.push('...');
+                for (let i = totalPages - 3; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                pages.push(1);
+                pages.push('...');
+                pages.push(currentPage - 1);
+                pages.push(currentPage);
+                pages.push(currentPage + 1);
+                pages.push('...');
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
+
     const handleRefresh = async () => {
         await refreshData();
         fetchItineraries();
+        setCurrentPage(1); // Reset to first page on refresh
     };
 
     const formatDateRange = (startDate: string, endDate: string) => {
@@ -415,73 +467,130 @@ export default function TripScreen() {
                                 )}
                             </View>
                         ) : (
-                            filteredItineraries.map((itinerary, index) => {
-                                const previewInfo = getSmartPreviewText(itinerary);
-                                return (
-                                    <TouchableOpacity
-                                        key={itinerary.itinerary_id}
-                                        onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
-                                        className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
-                                        style={{
-                                            shadowColor: '#000',
-                                            shadowOffset: { width: 0, height: 4 },
-                                            shadowOpacity: 0.08,
-                                            shadowRadius: 12,
-                                            elevation: 4,
-                                        }}
-                                    >
-                                        <Image
-                                            source={getItineraryImage(itinerary)}
-                                            className="w-full h-44"
-                                            resizeMode="cover"
-                                        />
-                                        <View className="p-5">
-                                            <Text className="text-lg font-onest-semibold text-gray-800 mb-2">
-                                                {itinerary.title}
-                                            </Text>
-
-                                            <View className="flex-row items-center mb-4">
-                                                <Globe />
-                                                <Text className="text-sm text-gray-600 font-onest ml-2">
-                                                    {getItineraryDestination(itinerary)}
+                            <>
+                                {paginatedItineraries.map((itinerary, index) => {
+                                    const previewInfo = getSmartPreviewText(itinerary);
+                                    return (
+                                        <TouchableOpacity
+                                            key={itinerary.itinerary_id}
+                                            onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
+                                            className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
+                                            style={{
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 4 },
+                                                shadowOpacity: 0.08,
+                                                shadowRadius: 12,
+                                                elevation: 4,
+                                            }}
+                                        >
+                                            <Image
+                                                source={getItineraryImage(itinerary)}
+                                                className="w-full h-44"
+                                                resizeMode="cover"
+                                            />
+                                            <View className="p-5">
+                                                <Text className="text-lg font-onest-semibold text-gray-800 mb-2">
+                                                    {itinerary.title}
                                                 </Text>
-                                            </View>
 
-                                            <View className="flex-row justify-between items-center mb-4">
-                                                <View className="flex-row items-center flex-1">
-                                                    <Calendar />
-                                                    <Text className="text-sm text-gray-500 font-onest ml-2 flex-1">
-                                                        {formatDateRange(itinerary.start_date, itinerary.end_date)}
+                                                <View className="flex-row items-center mb-4">
+                                                    <Globe />
+                                                    <Text className="text-sm text-gray-600 font-onest ml-2">
+                                                        {getItineraryDestination(itinerary)}
                                                     </Text>
                                                 </View>
-                                                {getStatusDisplay(itinerary.status)}
-                                            </View>
 
-                                            {/* 🆕 Enhanced smart preview section */}
-                                            {itinerary.items && itinerary.items.length > 0 && (
-                                                <View className="pt-4 border-t border-gray-100">
-                                                    <Text className="text-sm text-gray-700 font-onest-medium mb-1">
-                                                        {previewInfo.title}
+                                                <View className="flex-row justify-between items-center mb-4">
+                                                    <View className="flex-row items-center flex-1">
+                                                        <Calendar />
+                                                        <Text className="text-sm text-gray-500 font-onest ml-2 flex-1">
+                                                            {formatDateRange(itinerary.start_date, itinerary.end_date)}
+                                                        </Text>
+                                                    </View>
+                                                    {getStatusDisplay(itinerary.status)}
+                                                </View>
+
+                                                {/* 🆕 Enhanced smart preview section */}
+                                                {itinerary.items && itinerary.items.length > 0 && (
+                                                    <View className="pt-4 border-t border-gray-100">
+                                                        <Text className="text-sm text-gray-700 font-onest-medium mb-1">
+                                                            {previewInfo.title}
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-500 font-onest">
+                                                            {previewInfo.subtitle}
+                                                        </Text>
+                                                    </View>
+                                                )}
+
+                                                {/* Show number of experiences */}
+                                                <View className="pt-4 border-t border-gray-100 flex-row justify-between items-center">
+                                                    <Text className="text-sm text-gray-500 font-onest">
+                                                        {getExperiencesCount(itinerary)} {getExperiencesCount(itinerary) !== 1 ? 'activities' : 'activity'}
                                                     </Text>
-                                                    <Text className="text-xs text-gray-500 font-onest">
-                                                        {previewInfo.subtitle}
+                                                    <Text className="text-sm text-primary font-onest-medium">
+                                                        View details →
                                                     </Text>
                                                 </View>
-                                            )}
-
-                                            {/* Show number of experiences */}
-                                            <View className="pt-4 border-t border-gray-100 flex-row justify-between items-center">
-                                                <Text className="text-sm text-gray-500 font-onest">
-                                                    {getExperiencesCount(itinerary)} {getExperiencesCount(itinerary) !== 1 ? 'activities' : 'activity'}
-                                                </Text>
-                                                <Text className="text-sm text-primary font-onest-medium">
-                                                    View details →
-                                                </Text>
                                             </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <View className="mt-6 mb-4">
+                                        {/* Results Info */}
+                                        <Text className="text-center text-gray-500 text-sm mb-4 font-onest">
+                                            Showing {startIndex + 1}-{Math.min(endIndex, filteredItineraries.length)} of {filteredItineraries.length} trips
+                                        </Text>
+
+                                        {/* Pagination Buttons */}
+                                        <View className="flex-row justify-center items-center">
+                                            {/* Previous Button */}
+                                            <TouchableOpacity
+                                                onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                disabled={currentPage === 1}
+                                                className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? 'bg-gray-200' : 'bg-gray-800'}`}
+                                            >
+                                                <Ionicons name="chevron-back" size={20} color={currentPage === 1 ? '#9CA3AF' : '#FFFFFF'} />
+                                            </TouchableOpacity>
+
+                                            {/* Page Numbers */}
+                                            {getPageNumbers().map((page, index) => (
+                                                <TouchableOpacity
+                                                    key={index}
+                                                    onPress={() => typeof page === 'number' && setCurrentPage(page)}
+                                                    disabled={page === '...'}
+                                                    className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                                                            ? 'bg-primary'
+                                                            : page === '...'
+                                                                ? 'bg-transparent'
+                                                                : 'bg-white border border-gray-300'
+                                                        }`}
+                                                >
+                                                    <Text className={`font-onest-medium ${page === currentPage
+                                                            ? 'text-white'
+                                                            : page === '...'
+                                                                ? 'text-gray-400'
+                                                                : 'text-gray-700'
+                                                        }`}>
+                                                        {page}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+
+                                            {/* Next Button */}
+                                            <TouchableOpacity
+                                                onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages ? 'bg-gray-200' : 'bg-gray-800'}`}
+                                            >
+                                                <Ionicons name="chevron-forward" size={20} color={currentPage === totalPages ? '#9CA3AF' : '#FFFFFF'} />
+                                            </TouchableOpacity>
                                         </View>
-                                    </TouchableOpacity>
-                                );
-                            })
+                                    </View>
+                                )}
+                            </>
                         )}
                     </View>
                 </ScrollView>
