@@ -176,6 +176,12 @@ const CreatorDashboard: React.FC = () => {
       setUpdatingStatus(true);
       const token = await AsyncStorage.getItem("token");
 
+      // Debug logs
+      console.log('API_URL:', API_URL);
+      console.log('Experience ID:', experienceId);
+      console.log('Full URL:', `${API_URL}/experience/${experienceId}/status`);
+      console.log('New Status:', newStatus);
+
       const response = await axios.patch(
         `${API_URL}/experience/${experienceId}/status`,
         { status: newStatus },
@@ -186,6 +192,9 @@ const CreatorDashboard: React.FC = () => {
           }
         }
       );
+
+      console.log('Response status:', response.status);
+      console.log('Response data:', response.data);
 
       if (response.status === 200) {
         // Update the local state
@@ -205,6 +214,20 @@ const CreatorDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error updating experience status:', error);
+
+      // Type guard to check if it's an AxiosError
+      if (axios.isAxiosError(error)) {
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Error headers:', error.response?.headers);
+
+        // Check if the update actually succeeded despite the error
+        if (error.response?.status === 500) {
+          // Refresh the experiences to see if it updated
+          await fetchExperiences();
+        }
+      }
+
       Alert.alert(
         'Error',
         'Failed to update experience status. Please try again.',
@@ -503,17 +526,17 @@ const CreatorDashboard: React.FC = () => {
                             onPress={() => typeof page === 'number' && setCurrentPage(page)}
                             disabled={page === '...'}
                             className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                              ? 'bg-primary'
-                              : page === '...'
-                                ? 'bg-transparent'
-                                : 'bg-white border border-gray-300'
+                                ? 'bg-primary'
+                                : page === '...'
+                                  ? 'bg-transparent'
+                                  : 'bg-white border border-gray-300'
                               }`}
                           >
                             <Text className={`font-onest-medium ${page === currentPage
-                              ? 'text-white'
-                              : page === '...'
-                                ? 'text-gray-400'
-                                : 'text-gray-700'
+                                ? 'text-white'
+                                : page === '...'
+                                  ? 'text-gray-400'
+                                  : 'text-gray-700'
                               }`}>
                               {page}
                             </Text>
@@ -568,8 +591,19 @@ const CreatorDashboard: React.FC = () => {
             setSelectedExperience(null);
           }}
         >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-white rounded-t-3xl p-6">
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              setStatusModalVisible(false);
+              setSelectedExperience(null);
+            }}
+            className="flex-1 justify-end bg-black/50"
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => { }}
+              className="bg-white rounded-t-3xl p-6"
+            >
               <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-6" />
 
               <Text className="text-xl font-onest-semibold text-gray-800 mb-2">
@@ -586,8 +620,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'active')}
                   disabled={updatingStatus || selectedExperience?.status === 'active'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border ${selectedExperience?.status === 'active'
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-white border-gray-200'
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >
@@ -610,8 +644,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'draft')}
                   disabled={updatingStatus || selectedExperience?.status === 'draft'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border mt-3 ${selectedExperience?.status === 'draft'
-                    ? 'bg-yellow-50 border-yellow-200'
-                    : 'bg-white border-gray-200'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >
@@ -634,8 +668,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'inactive')}
                   disabled={updatingStatus || selectedExperience?.status === 'inactive'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border mt-3 ${selectedExperience?.status === 'inactive'
-                    ? 'bg-gray-100 border-gray-300'
-                    : 'bg-white border-gray-200'
+                      ? 'bg-gray-100 border-gray-300'
+                      : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >
@@ -668,8 +702,8 @@ const CreatorDashboard: React.FC = () => {
                   {updatingStatus ? 'Updating...' : 'Cancel'}
                 </Text>
               </TouchableOpacity>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       </View>
     </SafeAreaView>

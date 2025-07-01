@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Image, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../../contexts/AuthContext"; // Make sure path is correct
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function Login() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -37,7 +38,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const result = await login(email, password); // assume result.user.role is available
+      const result = await login(email, password);
 
       if (result.success) {
         if (result.user.role === "Traveler") {
@@ -58,8 +59,6 @@ export default function Login() {
     }
   };
 
-
-
   return (
     <SafeAreaView className="bg-white h-full">
       <ScrollView>
@@ -70,37 +69,54 @@ export default function Login() {
         <View className="px-12 gap-4">
           {/* Email input */}
           <View>
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md mb-1 text-lg"
-              style={{
-                paddingVertical: 12, // instead of Tailwind's fixed `p-4`
-                paddingHorizontal: 16,
-                fontSize: 18,
-                lineHeight: 22, // slightly higher than fontSize
-              }}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
+            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+              <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+              <TextInput
+                placeholder="Email"
+                placeholderTextColor="#9CA3AF"
+                className="flex-1 ml-3 text-lg"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
             {errors.email && <Text className="text-red-500 text-sm ml-1">{errors.email}</Text>}
           </View>
 
           {/* Password input */}
           <View>
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              secureTextEntry
-              className="bg-gray-100 rounded-md p-4 text-lg"
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+              <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry={!showPassword}
+                className="flex-1 ml-3 text-lg"
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                className="ml-2"
+              >
+                <Ionicons
+                  name={showPassword ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+            </View>
             {errors.password && <Text className="text-red-500 text-sm ml-1">{errors.password}</Text>}
           </View>
+
+          {/* Forgot Password */}
+          <TouchableOpacity className="self-end">
+            <Text className="text-blue-400 font-medium">
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
+
 
           {/* Login Button */}
           <TouchableOpacity
@@ -122,7 +138,6 @@ export default function Login() {
           </Text>
 
           <TouchableOpacity
-
             className="bg-white shadow-md shadow-zinc-200 py-4 rounded-md"
           >
             <View className="flex flex-row items-center justify-center">
@@ -134,7 +149,6 @@ export default function Login() {
           </TouchableOpacity>
 
           <TouchableOpacity
-
             onPress={() => router.replace("/signup")}
             className="flex justify-center items-center"
           >

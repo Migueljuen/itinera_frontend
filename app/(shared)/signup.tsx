@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Image, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../../contexts/AuthContext"; // Ensure path is correct
+import { useAuth } from "../../contexts/AuthContext";
 
 interface SignupFormData {
   first_name: string;
@@ -12,36 +13,33 @@ interface SignupFormData {
   confirmPassword: string;
   role: string;
 }
-// Define the interface for your errors (matching your form fields)
+
 interface FormErrors {
   first_name?: string;
   last_name?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
-  [key: string]: string | undefined; // Allow for any additional error fields
-
+  [key: string]: string | undefined;
 }
 
 export default function Signup() {
   const router = useRouter();
   const { register } = useAuth();
 
-  // Add this interface above your component
-
-
-  // Then update your useState like this:
   const [formData, setFormData] = useState<SignupFormData>({
     first_name: "",
     last_name: "",
     email: "",
     password: "",
     confirmPassword: "",
-    role: "Traveler" // Default role
+    role: "Traveler"
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (field: keyof SignupFormData, value: string) => {
     setFormData({
@@ -106,101 +104,204 @@ export default function Signup() {
 
   return (
     <SafeAreaView className="bg-white h-full">
-      <ScrollView>
-        <View className="flex justify-center items-start pt-8">
-          <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} />
-        </View>
-
-        <View className="px-12 gap-3">
-          <Text className="text-2xl font-bold mb-2">Create Account</Text>
-
-          {/* First Name */}
-          <View>
-            <TextInput
-              placeholder="First Name"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
-              value={formData.first_name}
-              onChangeText={(text) => handleChange("first_name", text)}
-            />
-            {errors.first_name && <Text className="text-red-500 text-sm ml-1">{errors.first_name}</Text>}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex justify-center items-start pt-8">
+            <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} />
           </View>
 
-          {/* Last Name */}
-          <View>
-            <TextInput
-              placeholder="Last Name"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
-              value={formData.last_name}
-              onChangeText={(text) => handleChange("last_name", text)}
-            />
-            {errors.last_name && <Text className="text-red-500 text-sm ml-1">{errors.last_name}</Text>}
+          <View className="px-12">
+            <Text className="text-2xl font-bold mb-6">Create Account</Text>
+
+            {/* Personal Information Section */}
+            <View className="mb-6">
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="person-outline" size={20} color="#6B7280" />
+                <Text className="text-lg font-semibold text-gray-700 ml-2">Personal Information</Text>
+              </View>
+
+              <View className="space-y-3">
+                {/* First Name */}
+                <View>
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+
+
+                    <TextInput
+                      placeholder="First Name"
+                      placeholderTextColor="#9CA3AF"
+                      className="flex-1 ml-3 text-lg"
+                      value={formData.first_name}
+                      onChangeText={(text) => handleChange("first_name", text)}
+                    />
+                  </View>
+                  {errors.first_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.first_name}</Text>}
+                </View>
+
+                {/* Last Name */}
+                <View>
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+
+                    <TextInput
+                      placeholder="Last Name"
+                      placeholderTextColor="#9CA3AF"
+                      className="flex-1 ml-3 text-lg"
+                      value={formData.last_name}
+                      onChangeText={(text) => handleChange("last_name", text)}
+                    />
+                  </View>
+                  {errors.last_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.last_name}</Text>}
+                </View>
+              </View>
+            </View>
+
+            {/* Account Details Section */}
+            <View className="mb-6">
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="mail-outline" size={20} color="#6B7280" />
+                <Text className="text-lg font-semibold text-gray-700 ml-2">Account Details</Text>
+              </View>
+
+              <View className="space-y-3">
+                {/* Email */}
+                <View>
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+
+                    <TextInput
+                      placeholder="Email"
+                      placeholderTextColor="#9CA3AF"
+                      className="flex-1 ml-3 text-lg"
+                      value={formData.email}
+                      onChangeText={(text) => handleChange("email", text)}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  {errors.email && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.email}</Text>}
+                </View>
+              </View>
+            </View>
+
+            {/* Security Section */}
+            <View className="mb-6">
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
+                <Text className="text-lg font-semibold text-gray-700 ml-2">Security</Text>
+              </View>
+
+              <View className="space-y-3">
+                {/* Password */}
+                <View>
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+
+                    <TextInput
+                      placeholder="Password"
+                      placeholderTextColor="#9CA3AF"
+                      className="flex-1 ml-3 text-lg"
+                      value={formData.password}
+                      onChangeText={(text) => handleChange("password", text)}
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      className="ml-2"
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color="#9CA3AF"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {errors.password && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.password}</Text>}
+                </View>
+
+                {/* Confirm Password */}
+                <View>
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+
+                    <TextInput
+                      placeholder="Confirm Password"
+                      placeholderTextColor="#9CA3AF"
+                      className="flex-1 ml-3 text-lg"
+                      value={formData.confirmPassword}
+                      onChangeText={(text) => handleChange("confirmPassword", text)}
+                      secureTextEntry={!showConfirmPassword}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="ml-2"
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color="#9CA3AF"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {errors.confirmPassword && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.confirmPassword}</Text>}
+                </View>
+              </View>
+            </View>
+
+            {/* Password Requirements */}
+            <View className="bg-gray-50 rounded-md p-4 mb-6">
+              <Text className="text-sm font-medium text-gray-700 mb-2">Password Requirements:</Text>
+              <View className="space-y-1">
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name={formData.password.length >= 6 ? "checkmark-circle" : "ellipse-outline"}
+                    size={16}
+                    color={formData.password.length >= 6 ? "#10B981" : "#9CA3AF"}
+                  />
+                  <Text className={`text-sm ml-2 ${formData.password.length >= 6 ? 'text-green-600' : 'text-gray-500'}`}>
+                    At least 6 characters
+                  </Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name={formData.password && formData.confirmPassword && formData.password === formData.confirmPassword ? "checkmark-circle" : "ellipse-outline"}
+                    size={16}
+                    color={formData.password && formData.confirmPassword && formData.password === formData.confirmPassword ? "#10B981" : "#9CA3AF"}
+                  />
+                  <Text className={`text-sm ml-2 ${formData.password && formData.confirmPassword && formData.password === formData.confirmPassword ? 'text-green-600' : 'text-gray-500'}`}>
+                    Passwords match
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Signup Button */}
+            <TouchableOpacity
+              onPress={handleSignup}
+              disabled={isSubmitting}
+              className="bg-primary py-4 rounded-md mt-4"
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white text-center text-lg font-bold">Sign Up</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.replace("/login")}
+              className="flex justify-center items-center"
+            >
+              <Text className="my-4 font-medium">
+                Already have an account? <Text className="text-blue-400">Log In</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Email */}
-          <View>
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
-              value={formData.email}
-              onChangeText={(text) => handleChange("email", text)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {errors.email && <Text className="text-red-500 text-sm ml-1">{errors.email}</Text>}
-          </View>
-
-          {/* Password */}
-          <View>
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
-              value={formData.password}
-              onChangeText={(text) => handleChange("password", text)}
-              secureTextEntry
-            />
-            {errors.password && <Text className="text-red-500 text-sm ml-1">{errors.password}</Text>}
-          </View>
-
-          {/* Confirm Password */}
-          <View>
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor="#9CA3AF"
-              className="bg-gray-100 rounded-md p-4 mb-1 text-lg"
-              value={formData.confirmPassword}
-              onChangeText={(text) => handleChange("confirmPassword", text)}
-              secureTextEntry
-            />
-            {errors.confirmPassword && <Text className="text-red-500 text-sm ml-1">{errors.confirmPassword}</Text>}
-          </View>
-
-          {/* Signup Button */}
-          <TouchableOpacity
-            onPress={handleSignup}
-            disabled={isSubmitting}
-            className="bg-primary py-4 rounded-md mt-4"
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white text-center text-lg font-bold">Sign Up</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.replace("/login")}
-            className="flex justify-center items-center"
-          >
-            <Text className="my-4 font-medium">
-              Already have an account? <Text className="text-blue-400">Log In</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
