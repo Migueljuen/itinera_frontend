@@ -23,7 +23,8 @@ const ProfileScreen = () => {
   const router = useRouter();
   const bottom = useBottomTabBarHeight();
   const { user, logout } = useAuth();
-  const { isRefreshing, refreshData, profileUpdated } = useRefresh();
+  const { profileUpdated } = useRefresh();
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState({
     first_name: "",
@@ -96,9 +97,18 @@ const ProfileScreen = () => {
     fetchUserData();
   }, [profileUpdated]);
 
+
   const handleRefresh = async () => {
-    await refreshData();
-    await fetchUserData();
+    setRefreshing(true);
+    try {
+      await Promise.all([
+
+        fetchUserData()
+      ]);
+
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -143,7 +153,7 @@ const ProfileScreen = () => {
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={['#1f2937']}
             tintColor={'#1f2937'}

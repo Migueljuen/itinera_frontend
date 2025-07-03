@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Calendar from '../../../assets/icons/calendar.svg';
 import Globe from '../../../assets/icons/globe.svg';
 import API_URL from '../../../constants/api';
-import { useRefresh } from '../../../contexts/RefreshContext';
 
 // Updated types to match your API response
 interface ItineraryItem {
@@ -47,7 +46,8 @@ const ITEMS_PER_PAGE = 5;
 
 export default function TripScreen() {
     const router = useRouter();
-    const { isRefreshing, refreshData } = useRefresh();
+    const [refreshing, setRefreshing] = useState(false);
+
     const [loading, setLoading] = useState(true);
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [activeTab, setActiveTab] = useState<'upcoming' | 'ongoing' | 'completed'>('upcoming');
@@ -159,9 +159,14 @@ export default function TripScreen() {
     };
 
     const handleRefresh = async () => {
-        await refreshData();
-        fetchItineraries();
-        setCurrentPage(1); // Reset to first page on refresh
+        setRefreshing(true);
+        try {
+            await fetchItineraries();
+            await fetchUserData();
+            setCurrentPage(1);
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const formatDateRange = (startDate: string, endDate: string) => {
@@ -380,7 +385,7 @@ export default function TripScreen() {
                 <ScrollView
                     refreshControl={
                         <RefreshControl
-                            refreshing={isRefreshing}
+                            refreshing={refreshing}  // Use local state instead of context
                             onRefresh={handleRefresh}
                             colors={['#1f2937']}
                             tintColor={'#1f2937'}
@@ -562,17 +567,17 @@ export default function TripScreen() {
                                                     onPress={() => typeof page === 'number' && setCurrentPage(page)}
                                                     disabled={page === '...'}
                                                     className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                                                            ? 'bg-primary'
-                                                            : page === '...'
-                                                                ? 'bg-transparent'
-                                                                : 'bg-white border border-gray-300'
+                                                        ? 'bg-primary'
+                                                        : page === '...'
+                                                            ? 'bg-transparent'
+                                                            : 'bg-white border border-gray-300'
                                                         }`}
                                                 >
                                                     <Text className={`font-onest-medium ${page === currentPage
-                                                            ? 'text-white'
-                                                            : page === '...'
-                                                                ? 'text-gray-400'
-                                                                : 'text-gray-700'
+                                                        ? 'text-white'
+                                                        : page === '...'
+                                                            ? 'text-gray-400'
+                                                            : 'text-gray-700'
                                                         }`}>
                                                         {page}
                                                     </Text>

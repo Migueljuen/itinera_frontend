@@ -1,9 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 // Define a type for your context value
 interface RefreshContextType {
-  isRefreshing: boolean;
-  refreshData: () => Promise<void>;
   profileUpdated: boolean;
   triggerProfileUpdate: () => void;
 }
@@ -17,24 +15,14 @@ interface RefreshProviderProps {
 }
 
 export const RefreshProvider = ({ children }: RefreshProviderProps) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [profileUpdated, setProfileUpdated] = useState(false);
 
-  const refreshData = async () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 2000);
-  };
-
-  const triggerProfileUpdate = () => {
-    setProfileUpdated(prev => !prev); // Toggle this value to trigger updates
-  };
+  const triggerProfileUpdate = useCallback(() => {
+    setProfileUpdated(prev => !prev);
+  }, []);
 
   return (
     <RefreshContext.Provider value={{
-      isRefreshing,
-      refreshData,
       profileUpdated,
       triggerProfileUpdate
     }}>

@@ -333,7 +333,6 @@ import {
     View
 } from 'react-native';
 import API_URL from '../../../constants/api';
-import { useRefresh } from '../../../contexts/RefreshContext';
 
 type NotificationType = 'itinerary' | 'activity' | 'reminder' | 'update' | 'alert';
 
@@ -360,7 +359,9 @@ interface Notification {
 
 const InboxScreen = () => {
     const router = useRouter();
-    const { isRefreshing, refreshData } = useRefresh();
+    // Remove the isRefreshing from useRefresh since we'll use local state
+
+    const [refreshing, setRefreshing] = useState(false); // Add this local state
     const [activeFilter, setActiveFilter] = useState('All');
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -486,9 +487,14 @@ const InboxScreen = () => {
     };
 
     const handleRefresh = async () => {
-        await refreshData();
-        await fetchNotifications();
+        setRefreshing(true); // Use local state
+        try {
+            await fetchNotifications();
+        } finally {
+            setRefreshing(false); // Always set to false when done
+        }
     };
+
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -563,7 +569,7 @@ const InboxScreen = () => {
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={
                     <RefreshControl
-                        refreshing={isRefreshing}
+                        refreshing={refreshing} // Use local state instead of isRefreshing
                         onRefresh={handleRefresh}
                         colors={['#1f2937']}
                         tintColor={'#1f2937'}
@@ -658,7 +664,7 @@ const InboxScreen = () => {
             {/* Mark All as Read FAB */}
             {unreadCount > 0 && (
                 <TouchableOpacity
-                    className="absolute bottom-24 right-6 bg-primary rounded-full px-6 py-3 flex-row items-center"
+                    className="absolute bottom-36 right-6 bg-primary rounded-full p-4 flex-row items-center "
                     style={{
                         shadowColor: '#4F46E5',
                         shadowOffset: { width: 0, height: 4 },
@@ -674,7 +680,7 @@ const InboxScreen = () => {
                     ) : (
                         <>
                             <Ionicons name="checkmark-done" size={20} color="#E5E7EB" />
-                            <Text className="ml-2 text-gray-200 font-onest-medium">Mark all read</Text>
+                            <Text className="ml-2 text-gray-300 font-onest">Mark all read</Text>
                         </>
                     )}
                 </TouchableOpacity>

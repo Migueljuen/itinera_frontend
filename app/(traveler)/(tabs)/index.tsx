@@ -53,7 +53,9 @@ const App = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const { isRefreshing, refreshData, profileUpdated } = useRefresh();
+  const { profileUpdated } = useRefresh();
+  const [refreshing, setRefreshing] = useState(false);
+
   const [searchText, setSearchText] = useState('');
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [firstName, setFirstName] = useState("");
@@ -100,11 +102,18 @@ const App = () => {
   }, []);
 
   // Handle refresh - using the same pattern as your trip screen
+  // Update the handleRefresh function
   const handleRefresh = async () => {
-    await refreshData();
-    await fetchExperiences();
-    await fetchUserData(); // Also refresh user data
-    setCurrentPage(1); // Reset to first page on refresh
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchExperiences(),
+        fetchUserData()
+      ]);
+      setCurrentPage(1);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Reset to first page when category or search changes
@@ -196,7 +205,7 @@ const App = () => {
           contentContainerStyle={{ paddingBottom: 142 }}
           refreshControl={
             <RefreshControl
-              refreshing={isRefreshing}
+              refreshing={refreshing}
               onRefresh={handleRefresh}
               colors={['#1f2937']}
               tintColor={'#1f2937'}
