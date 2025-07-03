@@ -1,24 +1,22 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { ImageBackground, Text, View } from 'react-native';
-// import { icons } from '@/constants/icons'
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { useFonts } from 'expo-font';
+import { Tabs } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { AppState, ImageBackground, Text, View } from 'react-native';
 import Trip from '../../../assets/icons/calendar1.svg';
 import Inbox from '../../../assets/icons/envelope.svg';
 import HomeIcon from '../../../assets/icons/home.svg';
 import Profile from '../../../assets/icons/user.svg';
+import API_URL from '../../../constants/api';
+import { useRefresh } from '../../../contexts/RefreshContext';
 
-
-
-const TabIcon = ({ focused, icon: Icon, title }: any) => {
-
+const TabIcon = ({ focused, icon: Icon, title, badge }: any) => {
   if (focused) {
     return (
-
       <ImageBackground
-        className="flex flex-col w-full min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full "
+        className="flex flex-col w-full min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full"
       >
-
         <View
           className="bg-[#274b46] size-16 flex justify-center items-center rounded-full border-4 border-white focus:bg-red-400"
           style={{ position: 'absolute', top: -30 }}
@@ -30,30 +28,43 @@ const TabIcon = ({ focused, icon: Icon, title }: any) => {
             strokeWidth={1.5}
             stroke="#ededed"
           />
+          {/* Badge for focused state */}
+          {badge > 0 && (
+            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[20px] h-5 px-1 items-center justify-center">
+              <Text className="text-white text-xs font-onest-medium">
+                {badge > 99 ? '99+' : badge}
+              </Text>
+            </View>
+          )}
         </View>
-
-
-        <Text className="font-onest-medium  text-[#274b46] mt-7">{title}</Text>
+        <Text className="font-onest-medium text-[#274b46] mt-7">{title}</Text>
       </ImageBackground>
-
-
-    )
+    );
   }
-  return (
-    <View className='flex  w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center flex-col
-        items-center rounded-full overflow-hidden'>
-      <Icon
-        width={24}
-        height={24}
-        fill="#ffffff"
-        stroke="#000"
-        strokeWidth={1.5}
-      />
 
+  return (
+    <View className='flex w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center flex-col items-center rounded-full'>
+      <View className="relative">
+        <Icon
+          width={24}
+          height={24}
+          fill="#ffffff"
+          stroke="#000"
+          strokeWidth={1.5}
+        />
+        {/* Badge for unfocused state */}
+        {badge > 0 && (
+          <View className="absolute -top-2 -right-2 bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center">
+            <Text className="text-white text-[10px] font-onest-medium">
+              {badge > 99 ? '99+' : badge}
+            </Text>
+          </View>
+        )}
+      </View>
       <Text className='font-onest text-sm text-[#65676b] mt-2'>{title}</Text>
     </View>
-  )
-}
+  );
+};
 
 const _layout = () => {
   const [fontsLoaded] = useFonts({
@@ -63,8 +74,56 @@ const _layout = () => {
     "Onest-Light": require('../../../assets/fonts/Onest-Light.ttf')
   });
 
-  if (!fontsLoaded) return null; // 👈 avoid rendering until fonts are ready
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { profileUpdated } = useRefresh();
 
+  // Function to fetch unread notification count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        setUnreadCount(response.data.count);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  // Fetch unread count on mount and when profileUpdated changes
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [profileUpdated]);
+
+  // Set up polling to check for new notifications every 30 seconds
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for focus events to refresh when returning to app
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        fetchUnreadCount();
+      }
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
+  if (!fontsLoaded) return null;
 
   return (
     <Tabs
@@ -75,7 +134,6 @@ const _layout = () => {
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center'
-
         },
         tabBarStyle: {
           height: 100,
@@ -93,11 +151,14 @@ const _layout = () => {
           overflow: 'visible',
           paddingTop: 10
         },
-
+      }}
+      screenListeners={{
+        state: (e) => {
+          // Refresh unread count whenever tab state changes
+          fetchUnreadCount();
+        }
       }}
     >
-
-
       <Tabs.Screen
         name='index'
         options={{
@@ -107,10 +168,12 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={HomeIcon}
-              title="Home" />
+              title="Home"
+            />
           )
         }}
       />
+
       <Tabs.Screen
         name='trips'
         options={{
@@ -120,7 +183,8 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={Trip}
-              title="Trips" />
+              title="Trips"
+            />
           )
         }}
       />
@@ -134,31 +198,42 @@ const _layout = () => {
             <TabIcon
               focused={focused}
               icon={Inbox}
-              title="Inbox" />
-
-            // <Home  title="Saved"  focused={focused} width={24} height={24} />
+              title="Inbox"
+              badge={unreadCount} // Pass the unread count here
+            />
           )
         }}
+        listeners={({ navigation }) => ({
+          focus: () => {
+            // Refresh count when tab is focused
+            fetchUnreadCount();
+          },
+          tabPress: () => {
+            // Also refresh when pressed
+            setTimeout(() => {
+              fetchUnreadCount();
+            }, 100);
+          }
+        })}
       />
 
       <Tabs.Screen
         name='profile'
         options={{
           title: 'Profile',
-          headerShown:
-            false,
+          headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
               icon={Profile}
               size={24}
-              title="Profile" />
-
+              title="Profile"
+            />
           )
         }}
       />
     </Tabs>
-  )
-}
+  );
+};
 
-export default _layout
+export default _layout;
