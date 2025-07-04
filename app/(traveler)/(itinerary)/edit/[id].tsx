@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import API_URL from '../../../../constants/api';
+import { emitNotificationUpdate } from '../../../../utils/notificationEvents';
 
 // Types matching your API response
 interface ItineraryItem {
@@ -469,10 +470,13 @@ export default function EditItineraryScreen() {
 
       // Send updates to API
       const promises = [];
+      let hasUpdates = false;
+      let hasDeletes = false;
 
       // Update modified items
       if (updates.length > 0) {
         console.log('Adding update promise');
+        hasUpdates = true;
         promises.push(
           fetch(`${API_URL}/itinerary/${id}/items/bulk-update`, {
             method: 'PUT',
@@ -488,6 +492,7 @@ export default function EditItineraryScreen() {
       // Delete removed items
       if (deletedItems.length > 0) {
         console.log('Adding delete promise');
+        hasDeletes = true;
         const deleteUrl = `${API_URL}/itinerary/${id}/items/bulk-delete`;
         console.log('Delete URL:', deleteUrl);
         console.log('Delete payload:', { item_ids: deletedItems });
@@ -528,6 +533,14 @@ export default function EditItineraryScreen() {
       }
 
       console.log('All API calls successful');
+
+      // 🎯 EMIT NOTIFICATION UPDATE AFTER SUCCESSFUL SAVE
+      // This will trigger the notification badge to update immediately
+      if (hasUpdates || hasDeletes) {
+        console.log('Emitting notification update...');
+        emitNotificationUpdate();
+      }
+
       Alert.alert("Success", "Itinerary updated successfully", [
         { text: "OK", onPress: () => router.back() }
       ]);

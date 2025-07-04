@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -7,6 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    DeviceEventEmitter,
     RefreshControl,
     SafeAreaView,
     ScrollView,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
+import { NotificationEvents } from '../../../utils/notificationEvents';
 
 type NotificationType = 'itinerary' | 'activity' | 'reminder' | 'update' | 'alert';
 
@@ -85,6 +86,33 @@ const InboxScreen = () => {
     // Fetch notifications on mount and when filter changes
     useEffect(() => {
         fetchNotifications();
+    }, [fetchNotifications]);
+
+    // 🎯 NEW: Listen for notification events to auto-refresh
+    useEffect(() => {
+        console.log('Setting up notification event listeners in inbox...');
+
+        const notificationListener = DeviceEventEmitter.addListener(
+            NotificationEvents.NOTIFICATIONS_UPDATED,
+            () => {
+                console.log('Inbox received NOTIFICATIONS_UPDATED event, refreshing...');
+                fetchNotifications();
+            }
+        );
+
+        const refreshListener = DeviceEventEmitter.addListener(
+            NotificationEvents.REFRESH_NOTIFICATIONS,
+            () => {
+                console.log('Inbox received REFRESH_NOTIFICATIONS event, refreshing...');
+                fetchNotifications();
+            }
+        );
+
+        return () => {
+            console.log('Cleaning up notification event listeners in inbox...');
+            notificationListener.remove();
+            refreshListener.remove();
+        };
     }, [fetchNotifications]);
 
     // Trigger badge refresh when leaving the screen

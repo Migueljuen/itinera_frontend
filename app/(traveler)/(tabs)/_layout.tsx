@@ -1,15 +1,17 @@
+//(tabs)/_layout.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { AppState, ImageBackground, Text, View } from 'react-native';
+import { DeviceEventEmitter, ImageBackground, Text, View } from 'react-native';
 import Trip from '../../../assets/icons/calendar1.svg';
 import Inbox from '../../../assets/icons/envelope.svg';
 import HomeIcon from '../../../assets/icons/home.svg';
 import Profile from '../../../assets/icons/user.svg';
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
+import { NotificationEvents } from '../../../utils/notificationEvents';
 
 const TabIcon = ({ focused, icon: Icon, title, badge }: any) => {
   if (focused) {
@@ -97,29 +99,40 @@ const _layout = () => {
     }
   };
 
-  // Fetch unread count on mount and when profileUpdated changes
+  // Set up polling to check for new notifications more frequently
   useEffect(() => {
     fetchUnreadCount();
-  }, [profileUpdated]);
 
-  // Set up polling to check for new notifications every 30 seconds
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Poll every 5 seconds for more responsive updates
+    const interval = setInterval(fetchUnreadCount, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Listen for focus events to refresh when returning to app
+  // Also fetch when profileUpdated changes
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
+    fetchUnreadCount();
+  }, [profileUpdated]);
+
+  // Listen for notification events
+  useEffect(() => {
+    const notificationListener = DeviceEventEmitter.addListener(
+      NotificationEvents.NOTIFICATIONS_UPDATED,
+      () => {
         fetchUnreadCount();
       }
-    });
+    );
+
+    const refreshListener = DeviceEventEmitter.addListener(
+      NotificationEvents.REFRESH_NOTIFICATIONS,
+      () => {
+        fetchUnreadCount();
+      }
+    );
 
     return () => {
-      subscription?.remove();
+      notificationListener.remove();
+      refreshListener.remove();
     };
   }, []);
 
