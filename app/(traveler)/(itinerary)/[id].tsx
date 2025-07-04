@@ -87,7 +87,7 @@ export default function ItineraryDetailScreen() {
             }
 
             const data = await response.json();
-            console.log('Fetched itinerary:', data);
+            // console.log('Fetched itinerary:', data);
             setItinerary(data.itinerary || data);
         } catch (error) {
             console.error("Error fetching itinerary details:", error);

@@ -111,6 +111,39 @@ export default function EditItineraryScreen() {
       setLoading(false);
     }
   };
+
+  // NEW FUNCTION: Check if a day has already passed
+  const isDayPast = (dayNumber: number) => {
+    if (!itinerary) return false;
+
+    const startDate = new Date(itinerary.start_date);
+    const dayDate = new Date(startDate);
+    dayDate.setDate(startDate.getDate() + dayNumber - 1);
+
+    // Set to end of the day for comparison
+    const endOfDay = new Date(dayDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const now = new Date();
+    return endOfDay < now;
+  };
+
+  // NEW FUNCTION: Check if a specific item is in the past
+  const isItemPast = (item: ItineraryItem) => {
+    if (!itinerary) return false;
+
+    const startDate = new Date(itinerary.start_date);
+    const itemDate = new Date(startDate);
+    itemDate.setDate(startDate.getDate() + item.day_number - 1);
+
+    // Parse the item's end time
+    const [hours, minutes] = item.end_time.split(':').map(Number);
+    itemDate.setHours(hours, minutes, 0, 0);
+
+    const now = new Date();
+    return itemDate < now;
+  };
+
   // Calculate minutes between two time strings
   const getMinutesBetween = (endTime1: string, startTime2: string) => {
     const end1 = new Date(`2000-01-01T${endTime1}`);
@@ -260,6 +293,16 @@ export default function EditItineraryScreen() {
   };
 
   const handleEditTime = async (item: ItineraryItem) => {
+    // Check if the item is in the past
+    if (isItemPast(item)) {
+      Alert.alert(
+        "Cannot Edit Past Activity",
+        "This activity has already occurred and cannot be edited.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     setEditingItem(item);
     setShowTimeModal(true);
     await fetchAvailableTimeSlots(item.experience_id, item.day_number);
@@ -414,6 +457,18 @@ export default function EditItineraryScreen() {
 
 
   const handleRemoveExperience = (itemId: number) => {
+    const item = editedItems.find(i => i.item_id === itemId);
+
+    // Check if the item is in the past
+    if (item && isItemPast(item)) {
+      Alert.alert(
+        "Cannot Remove Past Activity",
+        "This activity has already occurred and cannot be removed.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     Alert.alert(
       "Remove Experience",
       "Are you sure you want to remove this experience from your itinerary?",
@@ -672,6 +727,11 @@ export default function EditItineraryScreen() {
           <Text className="text-sm text-gray-600 font-onest">
             Tap on time slots to view available times or remove experiences
           </Text>
+          {itinerary.status === 'ongoing' && (
+            <Text className="text-xs text-gray-500 font-onest mt-1">
+              Note: Past activities cannot be edited
+            </Text>
+          )}
         </View>
 
         {/* ADD CONFLICT SUMMARY HERE */}
@@ -681,120 +741,156 @@ export default function EditItineraryScreen() {
         <View className="px-4 relative">
           {Object.entries(groupedItems)
             .sort(([a], [b]) => parseInt(a) - parseInt(b))
-            .map(([day, items]) => (
-              <View key={day} className="mb-6 rounded-lg overflow-hidden border border-gray-200">
-                {/* Day Header */}
-                <View className="bg-white p-4 border-b border-gray-100">
-                  <Text className="text-lg font-onest-semibold text-gray-800">
-                    Day {day}
-                  </Text>
-                  <Text className="text-sm text-gray-500 font-onest">
-                    {getDateForDay(parseInt(day))}
-                  </Text>
-                </View>
+            .map(([day, items]) => {
+              const dayIsPast = isDayPast(parseInt(day));
 
-                {/* Day Items */}
-                {items
-                  .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                  .map((item, index) => (
-                    <View
-                      key={`${day}-${item.item_id}-${index}`}
-                      className={`bg-white p-4 ${index !== items.length - 1 ? 'border-b border-gray-100' : ''}`}
-                    >
-                      <View className="flex-row">
-                        {/* Time Column */}
-                        <TouchableOpacity
-                          className="w-20 items-center mr-4"
-                          onPress={() => handleEditTime(item)}
+              return (
+                <View key={day} className="mb-6 rounded-lg overflow-hidden border border-gray-200">
+                  {/* Day Header */}
+                  <View className={`p-4 border-b border-gray-100 ${dayIsPast ? 'bg-gray-100' : 'bg-white'}`}>
+                    <View className="flex-row items-center justify-between">
+                      <View>
+                        <Text className="text-lg font-onest-semibold text-gray-800">
+                          Day {day}
+                        </Text>
+                        <Text className="text-sm text-gray-500 font-onest">
+                          {getDateForDay(parseInt(day))}
+                        </Text>
+                      </View>
+                      {dayIsPast && (
+                        <View className="bg-gray-200 px-2 py-1 rounded">
+                          <Text className="text-xs font-onest-medium text-gray-600">
+                            Completed
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Day Items */}
+                  {items
+                    .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                    .map((item, index) => {
+                      const itemIsPast = isItemPast(item);
+
+                      return (
+                        <View
+                          key={`${day}-${item.item_id}-${index}`}
+                          className={`p-4 ${index !== items.length - 1 ? 'border-b border-gray-100' : ''} ${itemIsPast ? 'bg-gray-50' : 'bg-white'}`}
                         >
-                          <View className="bg-indigo-50 rounded-md p-2 items-center">
-                            <Ionicons name="time-outline" size={14} color="#4F46E5" />
-                            <Text className="text-xs font-onest-medium text-primary mt-1">
-                              {formatTime(item.start_time)}
-                            </Text>
-                            <Text className="text-xs text-gray-500 font-onest">
-                              {formatTime(item.end_time)}
-                            </Text>
-                          </View>
+                          <View className="flex-row">
+                            {/* Time Column */}
+                            <TouchableOpacity
+                              className="w-20 items-center mr-4"
+                              onPress={() => handleEditTime(item)}
+                              disabled={itemIsPast}
+                            >
+                              <View className={`rounded-md p-2 items-center ${itemIsPast ? 'bg-gray-100' : 'bg-indigo-50'}`}>
+                                <Ionicons name="time-outline" size={14} color={itemIsPast ? "#9CA3AF" : "#4F46E5"} />
+                                <Text className={`text-xs font-onest-medium mt-1 ${itemIsPast ? 'text-gray-500' : 'text-primary'}`}>
+                                  {formatTime(item.start_time)}
+                                </Text>
+                                <Text className="text-xs text-gray-500 font-onest">
+                                  {formatTime(item.end_time)}
+                                </Text>
+                              </View>
 
-                          {/* ADD WARNING INDICATOR HERE */}
-                          {(() => {
-                            const warning = getItemWarningStatus(item, editedItems);
-                            if (warning) {
-                              return (
-                                <View className={`mt-1 px-2 py-1 rounded ${warning.type === 'error' ? 'bg-red-100' : 'bg-orange-100'
-                                  }`}>
-                                  <Text className={`text-xs font-onest-medium ${warning.type === 'error' ? 'text-red-600' : 'text-orange-600'
-                                    }`}>
-                                    {warning.message}
+                              {/* ADD WARNING INDICATOR HERE */}
+                              {!itemIsPast && (() => {
+                                const warning = getItemWarningStatus(item, editedItems);
+                                if (warning) {
+                                  return (
+                                    <View className={`mt-1 px-2 py-1 rounded ${warning.type === 'error' ? 'bg-red-100' : 'bg-orange-100'
+                                      }`}>
+                                      <Text className={`text-xs font-onest-medium ${warning.type === 'error' ? 'text-red-600' : 'text-orange-600'
+                                        }`}>
+                                        {warning.message}
+                                      </Text>
+                                    </View>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              {!itemIsPast && (
+                                <Text className="text-xs text-primary font-onest mt-1">Change time</Text>
+                              )}
+                              {itemIsPast && (
+                                <Text className="text-xs text-gray-400 font-onest mt-1">Past activity</Text>
+                              )}
+                            </TouchableOpacity>
+
+                            {/* Content Column */}
+                            <View className="flex-1">
+                              {/* Experience Image */}
+                              {item.primary_image ? (
+                                <Image
+                                  source={{ uri: getImageUri(item.primary_image) }}
+                                  className="w-full h-32 rounded-md mb-3"
+                                  resizeMode="cover"
+                                  style={itemIsPast ? { opacity: 0.7 } : {}}
+                                />
+                              ) : (
+                                <View className="w-full h-32 bg-gray-200 items-center justify-center rounded-md mb-3">
+                                  <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+                                </View>
+                              )}
+
+                              {/* Experience Details */}
+                              <View className="flex-row justify-between items-start mb-2">
+                                <View className="flex-1 mr-2">
+                                  <Text className={`text-lg font-onest-semibold mb-1 ${itemIsPast ? 'text-gray-600' : 'text-gray-800'}`}>
+                                    {item.experience_name}
+                                  </Text>
+                                  <Text className={`text-sm font-onest mb-2 ${itemIsPast ? 'text-gray-500' : 'text-gray-600'}`}>
+                                    {item.experience_description}
                                   </Text>
                                 </View>
-                              );
-                            }
-                            return null;
-                          })()}
 
-                          <Text className="text-xs text-primary font-onest mt-1">Change time</Text>
-                        </TouchableOpacity>
+                                {/* Remove Button */}
+                                <TouchableOpacity
+                                  onPress={() => handleRemoveExperience(item.item_id)}
+                                  className={`p-2 rounded-md ${itemIsPast ? 'bg-gray-100' : 'bg-red-50'}`}
+                                  disabled={itemIsPast}
+                                >
+                                  <Ionicons name="trash-outline" size={16} color={itemIsPast ? "#9CA3AF" : "#EF4444"} />
+                                </TouchableOpacity>
+                              </View>
 
-                        {/* Content Column */}
-                        <View className="flex-1">
-                          {/* Experience Image */}
-                          {item.primary_image ? (
-                            <Image
-                              source={{ uri: getImageUri(item.primary_image) }}
-                              className="w-full h-32 rounded-md mb-3"
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View className="w-full h-32 bg-gray-200 items-center justify-center rounded-md mb-3">
-                              <Ionicons name="image-outline" size={40} color="#A0AEC0" />
+                              {/* Location */}
+                              <View className="flex-row items-center mb-2">
+                                <Ionicons name="location-outline" size={16} color={itemIsPast ? "#9CA3AF" : "#4F46E5"} />
+                                <Text className={`text-sm font-onest ml-1 ${itemIsPast ? 'text-gray-500' : 'text-gray-600'}`}>
+                                  {item.destination_name}, {item.destination_city}
+                                </Text>
+                              </View>
+
+                              {/* Custom Note */}
+                              {item.custom_note && (
+                                <View className={`rounded-md p-2 mt-2 ${itemIsPast ? 'bg-gray-100' : 'bg-indigo-50'}`}>
+                                  <Text className={`text-xs font-onest-medium mb-1 ${itemIsPast ? 'text-gray-600' : 'text-primary'}`}>Note</Text>
+                                  <Text className={`text-xs font-onest ${itemIsPast ? 'text-gray-600' : 'text-primary'}`}>
+                                    {item.custom_note}
+                                  </Text>
+                                </View>
+                              )}
+
+                              {/* Past Activity Badge */}
+                              {itemIsPast && (
+                                <View className="bg-gray-200 self-start px-2 py-1 rounded mt-2">
+                                  <Text className="text-xs font-onest-medium text-gray-600">
+                                    Completed
+                                  </Text>
+                                </View>
+                              )}
                             </View>
-                          )}
-
-                          {/* Experience Details */}
-                          <View className="flex-row justify-between items-start mb-2">
-                            <View className="flex-1 mr-2">
-                              <Text className="text-lg font-onest-semibold text-gray-800 mb-1">
-                                {item.experience_name}
-                              </Text>
-                              <Text className="text-sm text-gray-600 font-onest mb-2">
-                                {item.experience_description}
-                              </Text>
-                            </View>
-
-                            {/* Remove Button */}
-                            <TouchableOpacity
-                              onPress={() => handleRemoveExperience(item.item_id)}
-                              className="bg-red-50 p-2 rounded-md"
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                            </TouchableOpacity>
                           </View>
-
-                          {/* Location */}
-                          <View className="flex-row items-center mb-2">
-                            <Ionicons name="location-outline" size={16} color="#4F46E5" />
-                            <Text className="text-sm text-gray-600 font-onest ml-1">
-                              {item.destination_name}, {item.destination_city}
-                            </Text>
-                          </View>
-
-                          {/* Custom Note */}
-                          {item.custom_note && (
-                            <View className="bg-indigo-50 rounded-md p-2 mt-2">
-                              <Text className="text-xs font-onest-medium text-primary mb-1">Note</Text>
-                              <Text className="text-xs text-primary font-onest">
-                                {item.custom_note}
-                              </Text>
-                            </View>
-                          )}
                         </View>
-                      </View>
-                    </View>
-                  ))}
-              </View>
-            ))}
+                      );
+                    })}
+                </View>
+              );
+            })}
 
         </View>
       </ScrollView>
