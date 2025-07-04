@@ -308,6 +308,29 @@ export default function ItineraryDetailScreen() {
         return Math.max(1, dayDiff);
     };
 
+    // NEW FUNCTION: Check if all activities for a given day have passed
+    const areAllDayActivitiesPast = (dayNumber: number) => {
+        if (!itinerary) return false;
+
+        const dayItems = itinerary.items.filter(item => item.day_number === dayNumber);
+        if (dayItems.length === 0) return true; // No activities for this day
+
+        const now = new Date();
+        const startDate = new Date(itinerary.start_date);
+        const dayDate = new Date(startDate);
+        dayDate.setDate(startDate.getDate() + dayNumber - 1);
+
+        // Check if all activities for this day have ended
+        return dayItems.every(item => {
+            const itemEndDateTime = new Date(dayDate);
+            const [hours, minutes] = item.end_time.split(':').map(Number);
+            itemEndDateTime.setHours(hours, minutes, 0, 0);
+
+            return now > itemEndDateTime;
+        });
+    };
+
+    // UPDATED FUNCTION: Get edit capabilities considering time
     const getEditCapabilities = () => {
         if (!itinerary) return { canEdit: false, editType: 'none' };
 
@@ -323,14 +346,33 @@ export default function ItineraryDetailScreen() {
                 const currentDay = getCurrentDay();
                 const totalDays = getDayRange();
 
+                // Check if all activities for today have passed
+                const todayActivitiesComplete = areAllDayActivitiesPast(currentDay);
+
+                // If today's activities are complete, only future days are editable
+                const firstEditableDay = todayActivitiesComplete ? currentDay + 1 : currentDay;
+
+                // Check if there are any editable days left
+                if (firstEditableDay > totalDays) {
+                    return {
+                        canEdit: false,
+                        editType: 'all_activities_complete',
+                        message: 'All activities have been completed'
+                    };
+                }
+
                 return {
                     canEdit: true,
                     editType: 'current_and_future',
-                    message: `Edit today and future days (Day ${currentDay}+)`,
+                    message: todayActivitiesComplete
+                        ? `Edit future days only (Day ${firstEditableDay}+)`
+                        : `Edit today and future days (Day ${currentDay}+)`,
                     currentDay,
+                    firstEditableDay,
+                    todayComplete: todayActivitiesComplete,
                     editableDays: Array.from(
-                        { length: totalDays - currentDay + 1 },
-                        (_, i) => currentDay + i
+                        { length: totalDays - firstEditableDay + 1 },
+                        (_, i) => firstEditableDay + i
                     )
                 };
 
@@ -350,12 +392,19 @@ export default function ItineraryDetailScreen() {
         const capabilities = getEditCapabilities();
 
         if (!capabilities.canEdit) {
+            let buttonText = 'Cannot Edit';
+            if (capabilities.editType === 'completed') {
+                buttonText = 'Trip Completed';
+            } else if (capabilities.editType === 'all_activities_complete') {
+                buttonText = 'All Activities Done';
+            }
+
             return {
                 disabled: true,
                 style: 'bg-gray-300',
                 textStyle: 'text-gray-500',
                 iconColor: '#9CA3AF',
-                text: capabilities.editType === 'completed' ? 'Trip Completed' : 'Cannot Edit'
+                text: buttonText
             };
         }
 
@@ -379,6 +428,10 @@ export default function ItineraryDetailScreen() {
                 case 'completed':
                     alertTitle = 'Trip Completed';
                     alertMessage = 'Completed trips cannot be modified. You can create a new trip based on this one if needed.';
+                    break;
+                case 'all_activities_complete':
+                    alertTitle = 'All Activities Complete';
+                    alertMessage = 'All activities in this itinerary have already occurred and cannot be modified.';
                     break;
                 case 'trip_ending':
                     alertTitle = 'Trip Ending';
@@ -441,14 +494,15 @@ export default function ItineraryDetailScreen() {
             const isEditable = capabilities.editableDays?.includes(dayNumber);
             const isPast = dayNumber < capabilities.currentDay!;
             const isCurrent = dayNumber === capabilities.currentDay!;
+            const isCurrentButComplete = isCurrent && capabilities.todayComplete;
 
-            if (isPast) {
+            if (isPast || isCurrentButComplete) {
                 return {
                     container: 'bg-gray-50 border-l-4 border-gray-300',
                     text: 'text-gray-500',
                     indicator: '✓ Completed'
                 };
-            } else if (isCurrent) {
+            } else if (isCurrent && !isCurrentButComplete) {
                 return {
                     container: 'bg-blue-50 border-l-4 border-blue-400',
                     text: 'text-blue-700',

@@ -128,7 +128,7 @@ export default function EditItineraryScreen() {
     return endOfDay < now;
   };
 
-  // NEW FUNCTION: Check if a specific item is in the past
+  // NEW FUNCTION: Check if a specific item is in the past or currently ongoing
   const isItemPast = (item: ItineraryItem) => {
     if (!itinerary) return false;
 
@@ -136,12 +136,41 @@ export default function EditItineraryScreen() {
     const itemDate = new Date(startDate);
     itemDate.setDate(startDate.getDate() + item.day_number - 1);
 
-    // Parse the item's end time
-    const [hours, minutes] = item.end_time.split(':').map(Number);
-    itemDate.setHours(hours, minutes, 0, 0);
+    // Create date objects for start and end times
+    const itemStartDate = new Date(itemDate);
+    const [startHours, startMinutes] = item.start_time.split(':').map(Number);
+    itemStartDate.setHours(startHours, startMinutes, 0, 0);
+
+    const itemEndDate = new Date(itemDate);
+    const [endHours, endMinutes] = item.end_time.split(':').map(Number);
+    itemEndDate.setHours(endHours, endMinutes, 0, 0);
 
     const now = new Date();
-    return itemDate < now;
+
+    // Return true if the activity has already started (past or ongoing)
+    return now >= itemStartDate;
+  };
+
+  // NEW FUNCTION: Check if an activity is currently ongoing
+  const isItemOngoing = (item: ItineraryItem) => {
+    if (!itinerary) return false;
+
+    const startDate = new Date(itinerary.start_date);
+    const itemDate = new Date(startDate);
+    itemDate.setDate(startDate.getDate() + item.day_number - 1);
+
+    const itemStartDate = new Date(itemDate);
+    const [startHours, startMinutes] = item.start_time.split(':').map(Number);
+    itemStartDate.setHours(startHours, startMinutes, 0, 0);
+
+    const itemEndDate = new Date(itemDate);
+    const [endHours, endMinutes] = item.end_time.split(':').map(Number);
+    itemEndDate.setHours(endHours, endMinutes, 0, 0);
+
+    const now = new Date();
+
+    // Return true if we're between start and end time
+    return now >= itemStartDate && now < itemEndDate;
   };
 
   // Calculate minutes between two time strings
@@ -293,11 +322,24 @@ export default function EditItineraryScreen() {
   };
 
   const handleEditTime = async (item: ItineraryItem) => {
-    // Check if the item is in the past
+    // Check if the item is in the past or ongoing
     if (isItemPast(item)) {
+      const now = new Date();
+      const startDate = new Date(itinerary!.start_date);
+      const itemDate = new Date(startDate);
+      itemDate.setDate(startDate.getDate() + item.day_number - 1);
+
+      const itemEndDate = new Date(itemDate);
+      const [endHours, endMinutes] = item.end_time.split(':').map(Number);
+      itemEndDate.setHours(endHours, endMinutes, 0, 0);
+
+      const message = now < itemEndDate
+        ? "This activity is currently in progress and cannot be edited."
+        : "This activity has already occurred and cannot be edited.";
+
       Alert.alert(
-        "Cannot Edit Past Activity",
-        "This activity has already occurred and cannot be edited.",
+        "Cannot Edit Activity",
+        message,
         [{ text: "OK" }]
       );
       return;
@@ -459,11 +501,24 @@ export default function EditItineraryScreen() {
   const handleRemoveExperience = (itemId: number) => {
     const item = editedItems.find(i => i.item_id === itemId);
 
-    // Check if the item is in the past
+    // Check if the item is in the past or ongoing
     if (item && isItemPast(item)) {
+      const now = new Date();
+      const startDate = new Date(itinerary!.start_date);
+      const itemDate = new Date(startDate);
+      itemDate.setDate(startDate.getDate() + item.day_number - 1);
+
+      const itemEndDate = new Date(itemDate);
+      const [endHours, endMinutes] = item.end_time.split(':').map(Number);
+      itemEndDate.setHours(endHours, endMinutes, 0, 0);
+
+      const message = now < itemEndDate
+        ? "This activity is currently in progress and cannot be removed."
+        : "This activity has already occurred and cannot be removed.";
+
       Alert.alert(
-        "Cannot Remove Past Activity",
-        "This activity has already occurred and cannot be removed.",
+        "Cannot Remove Activity",
+        message,
         [{ text: "OK" }]
       );
       return;
@@ -815,8 +870,11 @@ export default function EditItineraryScreen() {
                               {!itemIsPast && (
                                 <Text className="text-xs text-primary font-onest mt-1">Change time</Text>
                               )}
-                              {itemIsPast && (
+                              {itemIsPast && !isItemOngoing(item) && (
                                 <Text className="text-xs text-gray-400 font-onest mt-1">Past activity</Text>
+                              )}
+                              {isItemOngoing(item) && (
+                                <Text className="text-xs text-orange-500 font-onest mt-1">Ongoing</Text>
                               )}
                             </TouchableOpacity>
 
@@ -876,10 +934,17 @@ export default function EditItineraryScreen() {
                               )}
 
                               {/* Past Activity Badge */}
-                              {itemIsPast && (
+                              {itemIsPast && !isItemOngoing(item) && (
                                 <View className="bg-gray-200 self-start px-2 py-1 rounded mt-2">
                                   <Text className="text-xs font-onest-medium text-gray-600">
                                     Completed
+                                  </Text>
+                                </View>
+                              )}
+                              {isItemOngoing(item) && (
+                                <View className="bg-orange-100 self-start px-2 py-1 rounded mt-2">
+                                  <Text className="text-xs font-onest-medium text-orange-600">
+                                    In Progress
                                   </Text>
                                 </View>
                               )}
