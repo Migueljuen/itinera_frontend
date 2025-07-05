@@ -92,19 +92,27 @@ export default function TripScreen() {
             const parsedUser = JSON.parse(user);
             const travelerId = parsedUser.user_id;
 
-            // Fetch user's itineraries (now with enhanced activity-based status updates!)
+            // Fetch user's itineraries
             const response = await fetch(`${API_URL}/itinerary/traveler/${travelerId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
 
+            // Handle 404 as a valid response (user has no itineraries)
+            if (response.status === 404) {
+                console.log("No itineraries found for user - this is normal for new users");
+                setItineraries([]);
+                setLoading(false);
+                return;
+            }
+
+            // Handle other error statuses
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data: ApiResponse = await response.json();
-
             setItineraries(data.itineraries || []);
             setLoading(false);
         } catch (error) {
@@ -370,6 +378,58 @@ export default function TripScreen() {
         return `${formatTime(startTime)} - ${formatTime(endTime)}`;
     };
 
+    // Empty state component for better UX
+    const renderEmptyState = () => {
+        const emptyMessages = {
+            upcoming: {
+                title: "No upcoming trips",
+                subtitle: "Plan your next adventure!",
+                showCreateButton: true
+            },
+            ongoing: {
+                title: "No active trips",
+                subtitle: "You don't have any trips in progress",
+                showCreateButton: false
+            },
+            completed: {
+                title: "No completed trips",
+                subtitle: "Your adventure history will appear here",
+                showCreateButton: false
+            }
+        };
+
+        const config = emptyMessages[activeTab];
+
+        return (
+            <View className="py-16 items-center">
+
+                <Text className="text-center text-gray-700 font-onest-semibold text-lg">
+                    {config.title}
+                </Text>
+                <Text className="text-center text-gray-500 px-8 mt-2 font-onest text-sm leading-5">
+                    {config.subtitle}
+                </Text>
+
+                {config.showCreateButton && (
+                    <TouchableOpacity
+                        className="mt-8 bg-primary rounded-full px-8 py-4 flex-row items-center"
+                        style={{
+                            shadowColor: '#4F46E5',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.2,
+                            shadowRadius: 12,
+                            elevation: 6,
+                        }}
+                        onPress={() => router.push('/(createItinerary)/selectionScreen')}
+                    >
+                        <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
+                        <Text className="text-gray-300 font-onest-medium ml-2">Create New Trip</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-gray-50">
@@ -385,7 +445,7 @@ export default function TripScreen() {
                 <ScrollView
                     refreshControl={
                         <RefreshControl
-                            refreshing={refreshing}  // Use local state instead of context
+                            refreshing={refreshing}
                             onRefresh={handleRefresh}
                             colors={['#1f2937']}
                             tintColor={'#1f2937'}
@@ -396,11 +456,10 @@ export default function TripScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Header Section */}
-                    <View className="px-6 pt-4 pb-6">
-                        <Text className="text-3xl font-onest-semibold text-gray-800">My Trips</Text>
-                        <Text className="text-gray-400 font-onest mt-1">Manage your travel itineraries</Text>
+                    <View className="p-6">
+                        <Text className="text-3xl font-onest-semibold text-normal">My Trips</Text>
+                        <Text className="text-gray-400 font-onest">Manage your travel itineraries</Text>
                     </View>
-
                     {/* Tab Navigation with improved shadow */}
                     <View className="mx-6 mb-6">
                         <View
@@ -438,39 +497,9 @@ export default function TripScreen() {
                     </View>
 
                     {/* Itineraries List */}
-                    <View className="px-6 ">
+                    <View className="px-6">
                         {filteredItineraries.length === 0 ? (
-                            <View className="py-16 items-center">
-                                <Text className="text-center text-gray-500 font-onest-medium text-lg">
-                                    No {activeTab} trips
-                                </Text>
-                                <Text className="text-center text-gray-400 px-8 mt-3 font-onest leading-5">
-                                    {activeTab === 'upcoming' ? 'Plan your next adventure!' :
-                                        activeTab === 'ongoing' ? "You don't have any active trips" :
-                                            "You haven't completed any trips yet"}
-                                </Text>
-
-                                {activeTab === 'upcoming' && (
-                                    <TouchableOpacity
-                                        className="mt-8 bg-primary rounded-full px-8 py-4 flex-row items-center"
-                                        style={{
-                                            shadowColor: '#4F46E5',
-                                            shadowOffset: { width: 0, height: 4 },
-                                            shadowOpacity: 0.2,
-                                            shadowRadius: 12,
-                                            elevation: 6,
-                                        }}
-                                        onPress={() => router.push('/(itineraryFlow)/create/')}
-                                    >
-                                        <Image
-                                            source={require('../../../assets/icons/plus.png')}
-                                            className="w-4 h-4 mr-3 opacity-80"
-                                            resizeMode="contain"
-                                        />
-                                        <Text className="text-gray-300 font-onest-medium">Create New Trip</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                            renderEmptyState()
                         ) : (
                             <>
                                 {paginatedItineraries.map((itinerary, index) => {
@@ -479,7 +508,7 @@ export default function TripScreen() {
                                         <TouchableOpacity
                                             key={itinerary.itinerary_id}
                                             onPress={() => router.push(`/(itinerary)/${itinerary.itinerary_id}`)}
-                                            className="bg-white rounded-2xl overflow-hidden mb-4  border border-gray-200"
+                                            className="bg-white rounded-2xl overflow-hidden mb-4 border border-gray-200"
                                             style={{
                                                 shadowColor: '#000',
                                                 shadowOffset: { width: 0, height: 4 },
@@ -606,12 +635,8 @@ export default function TripScreen() {
                     onPress={() => router.push('/(createItinerary)/selectionScreen')}
                 >
                     <View className="flex-row items-center">
-                        <Image
-                            source={require('../../../assets/icons/plus.png')}
-                            className="w-5 h-5 mr-2 opacity-80"
-                            resizeMode="contain"
-                        />
-                        <Text className="text-gray-300 font-onest">Build My Trip</Text>
+                        <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
+                        <Text className="text-gray-300 font-onest ml-2">Build My Trip</Text>
                     </View>
                 </TouchableOpacity>
             </View>

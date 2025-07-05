@@ -213,6 +213,7 @@ const App = () => {
           }
           showsVerticalScrollIndicator={false}
         >
+
           <View className='flex items-center justify-between flex-row p-6'>
             <View className="">
               <Text className="text-normal text-3xl font-onest-semibold">Hello, {firstName}</Text>

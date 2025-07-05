@@ -222,176 +222,183 @@ const Step2Preference: React.FC<StepProps> = ({ formData, setFormData, onNext, o
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1"
         >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View className="flex-1 p-4">
-                    <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                        <View className="text-center py-2">
-                            <Text className="text-center text-xl font-onest-semibold mb-2">
-                                Tell us about your preferences
-                            </Text>
-                            <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-                                Let's customize your itinerary based on what you enjoy most.
-                            </Text>
+            <View className="flex-1">
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    className="flex-1"
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                        <View className="flex-1 p-4">
+                            <View className="text-center py-2">
+                                <Text className="text-center text-xl font-onest-semibold mb-2">
+                                    Tell us about your preferences
+                                </Text>
+                                <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
+                                    Let's customize your itinerary based on what you enjoy most.
+                                </Text>
 
-                            <View className="flex justify-evenly gap-6 border-t pt-8 border-gray-200">
-                                {/* Experience Preferences */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        What kind of experiences are you craving?
-                                    </Text>
-                                    <Text className="text-xs text-gray-500 font-onest mb-2">
-                                        Select all that interest you
-                                    </Text>
-                                    <View className="flex-row flex-wrap justify-between">
-                                        {experienceOptions.map((experience) => (
-                                            <TouchableOpacity
-                                                key={experience}
-                                                className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${selectedExperiences.includes(experience)
-                                                    ? 'border-primary bg-indigo-50'
-                                                    : 'border-gray-300'
-                                                    }`}
-                                                onPress={() => toggleExperience(experience)}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text
-                                                    className={`text-base ${selectedExperiences.includes(experience)
-                                                        ? 'font-onest-medium text-primary'
-                                                        : 'font-onest text-gray-700'
-                                                        }`}
-                                                >
-                                                    {experience}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                    {selectedExperiences.length === 0 && (
-                                        <Text className="text-xs text-red-500 font-onest mt-1">
-                                            Please select at least one experience
+                                <View className="flex justify-evenly gap-6 border-t pt-8 border-gray-200">
+                                    {/* Experience Preferences */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            What kind of experiences are you craving?
                                         </Text>
-                                    )}
-                                </View>
-
-                                {/* Travel Companion */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        Who are you traveling with?
-                                    </Text>
-                                    {companionOptions.map((companion) =>
-                                        renderOption(
-                                            companion,
-                                            selectedCompanion === companion,
-                                            () => setSelectedCompanion(companion),
-                                            companion === 'Solo' ? 'person' :
-                                                companion === 'Partner' ? 'heart' :
-                                                    companion === 'Friends' ? 'people' :
-                                                        companion === 'Family' ? 'home' :
-                                                            companion === 'Any' ? 'person' : 'person'
-                                        )
-                                    )}
-                                </View>
-
-                                {/* Explore Time */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        Do you want to explore more during the day or night?
-                                    </Text>
-                                    {exploreTimeOptions.map((time) =>
-                                        renderOption(
-                                            time,
-                                            selectedExploreTime === time,
-                                            () => setSelectedExploreTime(time),
-                                            time === 'Daytime' ? 'sunny' :
-                                                time === 'Nighttime' ? 'moon' : 'time'
-                                        )
-                                    )}
-                                </View>
-
-                                {/* Budget */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        What's your ideal budget for experiences?
-                                    </Text>
-                                    {budgetOptions.map((budget) =>
-                                        renderOption(
-                                            budget,
-                                            selectedBudget === budget,
-                                            () => setSelectedBudget(budget),
-                                            budget === 'Free' ? 'gift' : 'cash'
-                                        )
-                                    )}
-                                </View>
-
-                                {/* Activity Intensity */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        How packed would you like your days to be?
-                                    </Text>
-                                    <Text className="text-xs text-gray-500 font-onest mb-2">
-                                        This affects the number of experiences per day
-                                    </Text>
-                                    {activityIntensityOptions.map((intensity) =>
-                                        renderOption(
-                                            intensity,
-                                            selectedActivityIntensity === intensity,
-                                            () => setSelectedActivityIntensity(intensity),
-                                            intensity === 'Low' ? 'leaf' :
-                                                intensity === 'Moderate' ? 'walk' : 'flash'
-                                        )
-                                    )}
-                                    {/* Helper text for each intensity level */}
-                                    {selectedActivityIntensity && (
-                                        <View className="mt-2 p-2 bg-gray-50 rounded-lg">
-                                            <Text className="text-xs text-gray-600 font-onest">
-                                                {selectedActivityIntensity === 'Low' && '3-4 experiences per day - Perfect for a relaxed pace'}
-                                                {selectedActivityIntensity === 'Moderate' && '5-6 experiences per day - A good balance of activities and rest'}
-                                                {selectedActivityIntensity === 'High' && '6-8 experiences per day - Action-packed adventure!'}
-                                            </Text>
+                                        <Text className="text-xs text-gray-500 font-onest mb-2">
+                                            Select all that interest you
+                                        </Text>
+                                        <View className="flex-row flex-wrap justify-between">
+                                            {experienceOptions.map((experience) => (
+                                                <TouchableOpacity
+                                                    key={experience}
+                                                    className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${selectedExperiences.includes(experience)
+                                                        ? 'border-primary bg-indigo-50'
+                                                        : 'border-gray-300'
+                                                        }`}
+                                                    onPress={() => toggleExperience(experience)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text
+                                                        className={`text-base ${selectedExperiences.includes(experience)
+                                                            ? 'font-onest-medium text-primary'
+                                                            : 'font-onest text-gray-700'
+                                                            }`}
+                                                    >
+                                                        {experience}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
                                         </View>
-                                    )}
-                                </View>
+                                        {selectedExperiences.length === 0 && (
+                                            <Text className="text-xs text-red-500 font-onest mt-1">
+                                                Please select at least one experience
+                                            </Text>
+                                        )}
+                                    </View>
 
-                                {/* Travel Distance */}
-                                <View className="mb-6">
-                                    <Text className="font-onest-medium text-base mb-3">
-                                        How far are you willing to travel outside your selected city?
-                                    </Text>
-                                    {travelDistanceOptions.map((option) =>
-                                        renderTravelDistanceOption(
-                                            option,
-                                            selectedTravelDistance === option.value,
-                                            () => setSelectedTravelDistance(option.value)
-                                        )
-                                    )}
+                                    {/* Travel Companion */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            Who are you traveling with?
+                                        </Text>
+                                        {companionOptions.map((companion) =>
+                                            renderOption(
+                                                companion,
+                                                selectedCompanion === companion,
+                                                () => setSelectedCompanion(companion),
+                                                companion === 'Solo' ? 'person' :
+                                                    companion === 'Partner' ? 'heart' :
+                                                        companion === 'Friends' ? 'people' :
+                                                            companion === 'Family' ? 'home' :
+                                                                companion === 'Any' ? 'person' : 'person'
+                                            )
+                                        )}
+                                    </View>
+
+                                    {/* Explore Time */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            Do you want to explore more during the day or night?
+                                        </Text>
+                                        {exploreTimeOptions.map((time) =>
+                                            renderOption(
+                                                time,
+                                                selectedExploreTime === time,
+                                                () => setSelectedExploreTime(time),
+                                                time === 'Daytime' ? 'sunny' :
+                                                    time === 'Nighttime' ? 'moon' : 'time'
+                                            )
+                                        )}
+                                    </View>
+
+                                    {/* Budget */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            What's your ideal budget for experiences?
+                                        </Text>
+                                        {budgetOptions.map((budget) =>
+                                            renderOption(
+                                                budget,
+                                                selectedBudget === budget,
+                                                () => setSelectedBudget(budget),
+                                                budget === 'Free' ? 'gift' : 'cash'
+                                            )
+                                        )}
+                                    </View>
+
+                                    {/* Activity Intensity */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            How packed would you like your days to be?
+                                        </Text>
+                                        <Text className="text-xs text-gray-500 font-onest mb-2">
+                                            This affects the number of experiences per day
+                                        </Text>
+                                        {activityIntensityOptions.map((intensity) =>
+                                            renderOption(
+                                                intensity,
+                                                selectedActivityIntensity === intensity,
+                                                () => setSelectedActivityIntensity(intensity),
+                                                intensity === 'Low' ? 'leaf' :
+                                                    intensity === 'Moderate' ? 'walk' : 'flash'
+                                            )
+                                        )}
+                                        {/* Helper text for each intensity level */}
+                                        {selectedActivityIntensity && (
+                                            <View className="mt-2 p-2 bg-gray-50 rounded-lg">
+                                                <Text className="text-xs text-gray-600 font-onest">
+                                                    {selectedActivityIntensity === 'Low' && '3-4 experiences per day - Perfect for a relaxed pace'}
+                                                    {selectedActivityIntensity === 'Moderate' && '5-6 experiences per day - A good balance of activities and rest'}
+                                                    {selectedActivityIntensity === 'High' && '6-8 experiences per day - Action-packed adventure!'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Travel Distance */}
+                                    <View className="mb-6">
+                                        <Text className="font-onest-medium text-base mb-3">
+                                            How far are you willing to travel outside your selected city?
+                                        </Text>
+                                        {travelDistanceOptions.map((option) =>
+                                            renderTravelDistanceOption(
+                                                option,
+                                                selectedTravelDistance === option.value,
+                                                () => setSelectedTravelDistance(option.value)
+                                            )
+                                        )}
+                                    </View>
                                 </View>
                             </View>
+
+                            {/* Navigation Buttons */}
+                            <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200 pb-4">
+                                <TouchableOpacity
+                                    onPress={onBack}
+                                    className="py-4 px-6 rounded-xl border border-gray-300"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-center font-onest-medium text-base text-gray-700">
+                                        Back
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={handleNext}
+                                    className={`py-4 px-8 rounded-xl ${isValid() ? 'bg-primary' : 'bg-gray-200'}`}
+                                    disabled={!isValid()}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-center font-onest-medium text-base text-white">
+                                        Next step
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </ScrollView>
-
-                    {/* Navigation Buttons */}
-                    <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200">
-                        <TouchableOpacity
-                            onPress={onBack}
-                            className="py-4 px-6 rounded-xl border border-gray-300"
-                            activeOpacity={0.7}
-                        >
-                            <Text className="text-center font-onest-medium text-base text-gray-700">
-                                Back
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={handleNext}
-                            className={`py-4 px-8 rounded-xl ${isValid() ? 'bg-primary' : 'bg-gray-200'}`}
-                            disabled={!isValid()}
-                            activeOpacity={0.7}
-                        >
-                            <Text className="text-center font-onest-medium text-base text-white">
-                                Next step
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </TouchableWithoutFeedback>
+                    </TouchableWithoutFeedback>
+                </ScrollView>
+            </View>
         </KeyboardAvoidingView>
     );
 }
