@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AvailabilityCalendar from '../../../components/AvailablityCalendar';
 import API_URL from '../../../constants/api';
@@ -48,6 +49,7 @@ export default function ExperienceDetail() {
     const [imageError, setImageError] = useState(false);
     const [activeTab, setActiveTab] = useState('details');
     const [showAllReviews, setShowAllReviews] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
     // Dummy reviews data
     const dummyReviews: Review[] = [
@@ -111,9 +113,24 @@ export default function ExperienceDetail() {
     useEffect(() => {
         const fetchExperience = async () => {
             try {
-                const response = await fetch(`${API_URL}/experience/${experienceId}`);
+                // Get auth token for authenticated requests
+                const token = await AsyncStorage.getItem('authToken');
+
+                const headers: any = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await fetch(`${API_URL}/experience/${experienceId}`, {
+                    headers
+                });
                 const data = await response.json();
                 setExperience(data);
+
+                // Set the saved status from the backend response
+                if (data.is_saved !== undefined) {
+                    setIsSaved(data.is_saved);
+                }
 
                 if (data && data.destination) {
                     // console.log('Destination coordinates:', {
@@ -131,6 +148,70 @@ export default function ExperienceDetail() {
 
         fetchExperience();
     }, [experienceId]);
+
+
+
+    const handleSaveForLater = async () => {
+        try {
+            const token = await AsyncStorage.getItem('authToken');
+
+            if (!token) {
+                Alert.alert('Authentication Required', 'Please login to save experiences');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/saved-experiences/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ experience_id: experienceId })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setIsSaved(data.action === 'saved');
+
+                Alert.alert(
+                    'Success',
+                    data.action === 'saved'
+                        ? 'Experience saved successfully'
+                        : 'Experience removed from saved list'
+                );
+            } else if (response.status === 401) {
+                Alert.alert('Session Expired', 'Please login again');
+            } else {
+                throw new Error('Failed to update saved status');
+            }
+        } catch (error) {
+            console.error('Error saving experience:', error);
+            Alert.alert('Error', 'Failed to save experience. Please check your connection.');
+        }
+    };
+
+    const handleShare = async () => {
+        try {
+            if (experience) {
+                const result = await Share.share({
+                    message: `Check out this amazing experience: ${experience.title}\n\nPrice: ₱${experience.price} ${experience.unit}\n\nLocation: ${experience.destination?.name || 'N/A'}, ${experience.destination?.city || 'N/A'}`,
+                    title: experience.title,
+                });
+
+                if (result.action === Share.sharedAction) {
+                    if (result.activityType) {
+                        // Shared with activity type of result.activityType
+                    } else {
+                        // Shared
+                    }
+                } else if (result.action === Share.dismissedAction) {
+                    // Dismissed
+                }
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share');
+        }
+    };
 
     const handleOpenMap = async () => {
         if (!experience?.destination) {
@@ -246,7 +327,7 @@ export default function ExperienceDetail() {
     return (
         <View className="flex-1 bg-gray-50">
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {/* Header Image with Back Button */}
+                {/* Header Image with Back Button and Action Buttons */}
                 <View className="relative">
                     <View className="w-full h-80 overflow-hidden bg-gray-200">
                         {experience.images && experience.images.length > 0 && !imageError ? (
@@ -266,6 +347,23 @@ export default function ExperienceDetail() {
                         )}
                     </View>
 
+                    {/* Action buttons overlay - SHARE ONLY */}
+                    <View className="absolute top-12 right-4">
+                        <TouchableOpacity
+                            className="bg-white/90 backdrop-blur rounded-full p-3"
+                            onPress={handleShare}
+                            style={{
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 3,
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="share-outline" size={24} color="#1f2937" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Content Card */}
@@ -479,6 +577,26 @@ export default function ExperienceDetail() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Floating Action Button (FAB) for Save */}
+            <TouchableOpacity
+                className={`absolute bottom-24 right-6 ${isSaved ? 'bg-red-500' : 'bg-white'} rounded-full p-4`}
+                style={{
+                    shadowColor: isSaved ? '#EF4444' : '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isSaved ? 0.3 : 0.15,
+                    shadowRadius: 12,
+                    elevation: 8,
+                }}
+                onPress={handleSaveForLater}
+                activeOpacity={0.8}
+            >
+                <Ionicons
+                    name={isSaved ? "heart" : "heart-outline"}
+                    size={28}
+                    color={isSaved ? "#FFFFFF" : "#1f2937"}
+                />
+            </TouchableOpacity>
         </View>
     );
 }

@@ -369,8 +369,8 @@ export default function ItineraryActivityDetail() {
                             <View className="flex-row items-start">
                                 <Ionicons name="information-circle" size={20} color="#3B82F6" />
                                 <View className="ml-2 flex-1">
-                                    <Text className="text-blue-800 font-onest-medium mb-1">Your Note</Text>
-                                    <Text className="text-blue-700 font-onest">{activity.custom_note}</Text>
+                                    {/* <Text className="text-blue-700 font-onest">{activity.custom_note}</Text> */}
+                                    <Text className="text-blue-700 font-onest">Bring jacket!</Text>
                                 </View>
                             </View>
                         </View>

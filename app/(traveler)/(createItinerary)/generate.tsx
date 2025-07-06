@@ -121,7 +121,7 @@ const GenerateItineraryForm: React.FC = () => {
         traveler_id: 0,
         start_date: '',
         end_date: '',
-        title: 'Generated Itinerary',
+        title: '',
         notes: 'Auto-generated based on preferences',
         city: '',
         items: [] as ItineraryItem[],

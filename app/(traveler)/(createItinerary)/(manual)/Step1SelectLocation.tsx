@@ -10,6 +10,7 @@ import {
     Platform,
     ScrollView,
     Text,
+    TextInput,
     TouchableOpacity,
     TouchableWithoutFeedback,
     View
@@ -132,7 +133,8 @@ const fetchDestinations = async (): Promise<City[]> => {
 };
 
 const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNext }) => {
-
+    // Add title state
+    const [title, setTitle] = useState<string>(formData.title || '');
     const [localCity, setLocalCity] = useState<string | null>(formData.city || null);
     const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
     const [selectedLabel, setSelectedLabel] = useState<string>('Select a city...');
@@ -174,6 +176,14 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
 
         loadCities();
     }, []);
+
+    // Update parent formData when title changes
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            title: title
+        }));
+    }, [title]);
 
     // Update parent formData when localCity changes
     useEffect(() => {
@@ -241,7 +251,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
     };
 
     const isValid = () => {
-        return localCity !== null && startDate !== '' && endDate !== '';
+        return title.trim() !== '' && localCity !== null && startDate !== '' && endDate !== '';
     };
 
     const handleNext = () => {
@@ -376,13 +386,33 @@ const Step1SelectLocation: React.FC<StepProps> = ({ formData, setFormData, onNex
                 <View className="flex-1 p-4">
                     <View className="text-center py-2">
                         <Text className="text-center text-xl font-onest-semibold mb-2">
-                            Where and when are you traveling?
+                            Plan your perfect journey
                         </Text>
                         <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-                            Choose your destination and travel dates. This will help us find the best experiences for you.
+                            Give your itinerary a memorable title and choose your destination and travel dates.
                         </Text>
 
                         <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
+                            {/* Title Input Field */}
+                            <View className="bg-white pb-4 z-10">
+                                <Text className="font-onest-medium py-2">Itinerary Title</Text>
+                                <TextInput
+                                    className={`px-3 py-3 border ${title.trim() ? 'border-primary' : 'border-gray-300'} rounded-md bg-white text-base font-onest`}
+                                    placeholder="e.g., Summer Adventure in Bacolod"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    maxLength={100}
+                                    returnKeyType="done"
+                                    onSubmitEditing={() => Keyboard.dismiss()}
+                                />
+                                {title.length > 0 && (
+                                    <Text className="text-xs text-gray-500 font-onest mt-1 text-right">
+                                        {title.length}/100
+                                    </Text>
+                                )}
+                            </View>
+
                             {/* Custom Dropdown for City Selection */}
                             <View className="bg-white pb-4 z-10">
                                 <Text className="font-onest-medium py-2">Select Available Destination</Text>
