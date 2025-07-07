@@ -5,10 +5,10 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AvailabilityCalendar from '../../../components/AvailablityCalendar';
+import AnimatedHeartButton from '../../../components/SaveButton'; // Adjust the import path as needed
 import API_URL from '../../../constants/api';
 import { useAuth } from '../../../contexts/AuthContext'; // Add this import
 import { ItineraryItem } from '../../../types/itineraryTypes';
-
 type Experience = {
     id: number;
     title: string;
@@ -185,7 +185,7 @@ export default function ExperienceDetail() {
                 return;
             }
 
-            console.log('Saving experience for user:', userId);
+            // console.log('Saving experience for user:', userId);
 
             const response = await fetch(`${API_URL}/saved-experiences/toggle`, {
                 method: 'POST',
@@ -642,24 +642,24 @@ export default function ExperienceDetail() {
             </ScrollView>
 
             {/* Floating Action Button (FAB) for Save */}
-            <TouchableOpacity
-                className={`absolute bottom-24 right-6 ${isSaved ? 'bg-red-500' : 'bg-white'} rounded-full p-4`}
+            <View
+                className="absolute bottom-24 right-6"
                 style={{
                     shadowColor: isSaved ? '#EF4444' : '#000',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: isSaved ? 0.3 : 0.15,
                     shadowRadius: 12,
                     elevation: 8,
+                    backgroundColor: isSaved ? '#EF4444' : '#FFFFFF',
+                    borderRadius: 30,
                 }}
-                onPress={handleSaveForLater}
-                activeOpacity={0.8}
             >
-                <Ionicons
-                    name={isSaved ? "heart" : "heart-outline"}
+                <AnimatedHeartButton
+                    isSaved={isSaved}
+                    onPress={handleSaveForLater}
                     size={28}
-                    color={isSaved ? "#FFFFFF" : "#1f2937"}
                 />
-            </TouchableOpacity>
+            </View>
         </View>
     );
 }
