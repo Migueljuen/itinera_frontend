@@ -19,14 +19,50 @@ import API_URL from '../../../constants/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../contexts/RefreshContext';
 
-const ProfileScreen = () => {
+// Type definitions
+interface UserData {
+  first_name: string;
+  last_name: string;
+  profile_pic: string;
+  email: string;
+  created_at: string;
+}
+
+interface ProfileStats {
+  totalItineraries: number;
+  completedItineraries: number;
+  savedExperiences: number;
+  upcomingTrips: number;
+}
+
+interface SavedExperience {
+  id: number;
+  saved_at: string;
+  experience_id: number;
+  title: string;
+  description?: string;
+  price?: string;
+  unit?: string;
+  destination_name?: string;
+  city?: string;
+  images?: string[];
+  tags?: string[];
+}
+
+interface NotificationSettings {
+  tripReminders: boolean;
+  itineraryUpdates: boolean;
+  nearbyExperiences: boolean;
+}
+
+const ProfileScreen: React.FC = () => {
   const router = useRouter();
   const bottom = useBottomTabBarHeight();
   const { user, logout } = useAuth();
   const { profileUpdated } = useRefresh();
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState({
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [userData, setUserData] = useState<UserData>({
     first_name: "",
     last_name: "",
     profile_pic: "",
@@ -34,49 +70,28 @@ const ProfileScreen = () => {
     created_at: "2024-01-15T00:00:00Z", // Dummy date
   });
 
-  // Dummy stats data
-  const [profileStats] = useState({
+  // Updated stats data - we'll fetch some of this from API
+  const [profileStats, setProfileStats] = useState<ProfileStats>({
     totalItineraries: 12,
     completedItineraries: 8,
-    savedExperiences: 24,
+    savedExperiences: 0, // Will be updated from API
     upcomingTrips: 3
   });
 
-  // Dummy recent experiences
-  const [recentExperiences] = useState([
-    {
-      id: 1,
-      experience_id: 1,
-      experience_title: "Island Hopping in Coron",
-      experience_image: "experiences/coron-island.jpg",
-      saved_at: "2024-12-20T00:00:00Z"
-    },
-    {
-      id: 2,
-      experience_id: 2,
-      experience_title: "Chocolate Hills Adventure",
-      experience_image: "experiences/chocolate-hills.jpg",
-      saved_at: "2024-12-18T00:00:00Z"
-    },
-    {
-      id: 3,
-      experience_id: 3,
-      experience_title: "Manila Food Walk Tour",
-      experience_image: "experiences/manila-food.jpg",
-      saved_at: "2024-12-15T00:00:00Z"
-    }
-  ]);
+  // Replace dummy with real saved experiences state
+  const [recentExperiences, setRecentExperiences] = useState<SavedExperience[]>([]);
+  const [loadingSavedExperiences, setLoadingSavedExperiences] = useState<boolean>(false);
 
   const navigation = useNavigation<any>();
 
   // Notification settings
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     tripReminders: true,
     itineraryUpdates: true,
     nearbyExperiences: false
   });
 
-  const fetchUserData = async () => {
+  const fetchUserData = async (): Promise<void> => {
     try {
       const user = await AsyncStorage.getItem('user');
 
@@ -93,25 +108,75 @@ const ProfileScreen = () => {
     }
   };
 
+  // New function to fetch saved experiences
+  const fetchSavedExperiences = async (): Promise<void> => {
+    try {
+      setLoadingSavedExperiences(true);
+
+      // Get user_id from context or AsyncStorage
+      let userId = user?.user_id;
+
+      if (!userId) {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          try {
+            const userObj = JSON.parse(userData);
+            userId = userObj.user_id;
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+            return;
+          }
+        }
+      }
+
+      if (!userId) {
+        console.log('No user ID found, skipping saved experiences fetch');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/saved-experiences?user_id=${userId}`);
+
+      if (response.ok) {
+        const savedData: SavedExperience[] = await response.json();
+
+        // Update recent experiences (show only first 3 for the profile screen)
+        setRecentExperiences(savedData.slice(0, 3));
+
+        // Update saved experiences count in stats
+        setProfileStats(prev => ({
+          ...prev,
+          savedExperiences: savedData.length
+        }));
+
+        console.log(`Fetched ${savedData.length} saved experiences`);
+      } else {
+        console.error('Failed to fetch saved experiences:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching saved experiences:', error);
+    } finally {
+      setLoadingSavedExperiences(false);
+    }
+  };
+
   useEffect(() => {
     fetchUserData();
-  }, [profileUpdated]);
+    fetchSavedExperiences();
+  }, [profileUpdated, user]);
 
-
-  const handleRefresh = async () => {
+  const handleRefresh = async (): Promise<void> => {
     setRefreshing(true);
     try {
       await Promise.all([
-
-        fetchUserData()
+        fetchUserData(),
+        fetchSavedExperiences()
       ]);
-
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     Alert.alert(
       "Logout",
       "Are you sure you want to logout?",
@@ -131,19 +196,29 @@ const ProfileScreen = () => {
     );
   };
 
-  const toggleSwitch = (setting: keyof typeof notificationSettings) => {
+  const toggleSwitch = (setting: keyof NotificationSettings): void => {
     setNotificationSettings(prevState => ({
       ...prevState,
       [setting]: !prevState[setting]
     }));
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  // Helper function to format image URL
+  const getFormattedImageUrl = (imageUrl: string): string | null => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    const formattedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+    return `${API_URL}${formattedPath}`;
   };
 
   return (
@@ -253,12 +328,14 @@ const ProfileScreen = () => {
               <Text className="text-xs text-gray-500 font-onest mt-1">Trips Completed</Text>
             </View>
 
-            {/* Saved Experiences */}
+            {/* Saved Experiences - Now shows real count */}
             <View className="bg-white rounded-2xl p-5 mr-3 w-32">
               <View className="bg-red-50 rounded-full w-12 h-12 items-center justify-center mb-3">
                 <Ionicons name="heart-outline" size={24} color="#EF4444" />
               </View>
-              <Text className="text-2xl font-onest-bold text-gray-800">{profileStats.savedExperiences}</Text>
+              <Text className="text-2xl font-onest-bold text-gray-800">
+                {loadingSavedExperiences ? '...' : profileStats.savedExperiences}
+              </Text>
               <Text className="text-xs text-gray-500 font-onest mt-1">Saved</Text>
             </View>
 
@@ -273,7 +350,7 @@ const ProfileScreen = () => {
           </ScrollView>
         </View>
 
-        {/* Recent Saved Experiences */}
+        {/* Recent Saved Experiences - Now using real data */}
         {recentExperiences.length > 0 && (
           <View className="mb-6">
             <View className="flex-row justify-between items-center px-6 mb-4">
@@ -284,26 +361,87 @@ const ProfileScreen = () => {
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4">
-              {recentExperiences.map((item) => (
+              {recentExperiences.map((item: SavedExperience) => (
                 <TouchableOpacity
                   key={item.id}
                   className="bg-white rounded-2xl mr-3 overflow-hidden w-48"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 4,
+                    elevation: 2,
+                  }}
                   onPress={() => router.push(`/(traveler)/(experience)/${item.experience_id}`)}
                 >
-                  <View className="w-full h-32 bg-gray-200 items-center justify-center">
-                    <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+                  <View className="w-full h-32 bg-gray-200">
+                    {item.images && item.images.length > 0 && item.images[0] ? (
+                      <Image
+                        source={{ uri: getFormattedImageUrl(item.images[0])! }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                        onError={() => {
+                          // Handle image load error
+                          console.log('Failed to load image:');
+                        }}
+                      />
+                    ) : (
+                      <View className="w-full h-full items-center justify-center">
+                        <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+                      </View>
+                    )}
                   </View>
                   <View className="p-3">
-                    <Text className="font-onest-medium text-sm" numberOfLines={2}>
-                      {item.experience_title}
+                    <Text className="font-onest-medium text-sm text-gray-800" numberOfLines={2}>
+                      {item.title}
                     </Text>
                     <Text className="text-xs text-gray-500 font-onest mt-1">
+                      {item.destination_name && item.city && `${item.destination_name}, ${item.city}`}
+                    </Text>
+                    <Text className="text-xs text-gray-400 font-onest mt-1">
                       Saved {new Date(item.saved_at).toLocaleDateString()}
                     </Text>
+                    {item.price && (
+                      <Text className="text-sm font-onest-semibold text-primary mt-1">
+                        ₱{item.price} {item.unit}
+                      </Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Show loading state for saved experiences */}
+        {loadingSavedExperiences && recentExperiences.length === 0 && (
+          <View className="mb-6">
+            <Text className="px-6 text-xl font-onest-semibold text-gray-800 mb-4">Recent Saves</Text>
+            <View className="px-4">
+              <View className="bg-white rounded-2xl p-4 items-center justify-center h-32">
+                <Text className="text-gray-500 font-onest">Loading saved experiences...</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Show empty state if no saved experiences */}
+        {!loadingSavedExperiences && recentExperiences.length === 0 && (
+          <View className="mb-6">
+            <Text className="px-6 text-xl font-onest-semibold text-gray-800 mb-4">Recent Saves</Text>
+            <View className="mx-4 bg-white rounded-2xl p-6 items-center">
+              <Ionicons name="heart-outline" size={48} color="#9CA3AF" />
+              <Text className="text-gray-500 font-onest-medium mt-2">No saved experiences yet</Text>
+              <Text className="text-gray-400 font-onest text-sm text-center mt-1">
+                Start exploring and save experiences you love
+              </Text>
+              <TouchableOpacity
+                className="bg-primary rounded-xl px-4 py-2 mt-3"
+                onPress={() => router.push('/(traveler)/(home)')}
+              >
+                <Text className="text-white font-onest-medium text-sm">Explore Experiences</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 

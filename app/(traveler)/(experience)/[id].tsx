@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AvailabilityCalendar from '../../../components/AvailablityCalendar';
 import API_URL from '../../../constants/api';
+import { useAuth } from '../../../contexts/AuthContext'; // Add this import
 import { ItineraryItem } from '../../../types/itineraryTypes';
 
 type Experience = {
@@ -18,6 +19,7 @@ type Experience = {
     location: string;
     tags: string[];
     images: string[];
+    is_saved?: boolean; // Add this field
     destination: {
         destination_id: number;
         name: string;
@@ -40,7 +42,9 @@ type Review = {
 
 export default function ExperienceDetail() {
     const router = useRouter();
+    const { user } = useAuth(); // Get user from context
     const { id, tripStartDate: paramTripStart, tripEndDate: paramTripEnd } = useLocalSearchParams();
+
     const experienceId = Number(id);
 
     const [experience, setExperience] = useState<Experience | null>(null);
@@ -113,23 +117,123 @@ export default function ExperienceDetail() {
     useEffect(() => {
         const fetchExperience = async () => {
             try {
-                // Get auth token for authenticated requests
-                const token = await AsyncStorage.getItem('authToken');
-
-                const headers: any = {};
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-
-                const response = await fetch(`${API_URL}/experience/${experienceId}`, {
-                    headers
-                });
+                const response = await fetch(`${API_URL}/experience/${experienceId}`);
                 const data = await response.json();
                 setExperience(data);
 
-                // Set the saved status from the backend response
-                if (data.is_saved !== undefined) {
-                    setIsSaved(data.is_saved);
+                // Check if experience is saved by the current user
+                let userId = user?.user_id;
+
+                if (!userId) {
+                    // Fallback to AsyncStorage
+                    const userData = await AsyncStorage.getItem('user');
+                    if (userData) {
+                        try {
+                            const userObj = JSON.parse(userData);
+                            userId = userObj.user_id;
+                        } catch (e) {
+                            console.error('Error parsing user data:', e);
+                        }
+                    }
+                }
+
+                if (userId) {
+                    const savedResponse = await fetch(`${API_URL}/saved-experiences/check/${experienceId}?user_id=${userId}`);
+                    if (savedResponse.ok) {
+                        const savedData = await savedResponse.json();
+                        setIsSaved(savedData.isSaved);
+                    }
+                }
+
+                if (data && data.destination) {
+                    // console.log('Destination coordinates:', {
+                    //     latitude: data.destination.latitude,
+                    //     longitude: data.destination.longitude,
+                    //     name: data.destination.name
+                    // });
+                }
+            } catch (error) {
+                console.error('Error fetching experience data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchExperience();
+    }, [experienceId, user]);
+
+    const handleSaveForLater = async () => {
+        try {
+            // Use user from context first, fallback to AsyncStorage
+            let userId = user?.user_id;
+
+            if (!userId) {
+                // Fallback to AsyncStorage if context user is not available
+                const userData = await AsyncStorage.getItem('user');
+                if (userData) {
+                    try {
+                        const userObj = JSON.parse(userData);
+                        userId = userObj.user_id;
+                    } catch (e) {
+                        console.error('Error parsing user data:', e);
+                    }
+                }
+            }
+
+            if (!userId) {
+                Alert.alert('Authentication Required', 'Please login to save experiences');
+                return;
+            }
+
+            console.log('Saving experience for user:', userId);
+
+            const response = await fetch(`${API_URL}/saved-experiences/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    experience_id: experienceId,
+                    user_id: userId // This is now guaranteed to be a number
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setIsSaved(data.action === 'saved');
+
+                // Alert.alert(
+                //     'Success',
+                //     data.action === 'saved'
+                //         ? 'Experience saved successfully'
+                //         : 'Experience removed from saved list'
+                // );
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update saved status');
+            }
+        } catch (error) {
+            console.error('Error saving experience:', error);
+            Alert.alert('Error', 'Failed to save experience. Please check your connection.');
+        }
+    };
+
+    // Also update your useEffect to check if experience is saved when component loads
+    useEffect(() => {
+        const fetchExperience = async () => {
+            try {
+                const response = await fetch(`${API_URL}/experience/${experienceId}`);
+                const data = await response.json();
+                setExperience(data);
+
+                // Check if experience is saved by the current user
+                const user_id = await AsyncStorage.getItem('user_id');
+                if (user_id) {
+                    const savedResponse = await fetch(`${API_URL}/saved-experiences/check/${experienceId}?user_id=${user_id}`);
+                    if (savedResponse.ok) {
+                        const savedData = await savedResponse.json();
+                        setIsSaved(savedData.isSaved);
+                    }
                 }
 
                 if (data && data.destination) {
@@ -148,47 +252,6 @@ export default function ExperienceDetail() {
 
         fetchExperience();
     }, [experienceId]);
-
-
-
-    const handleSaveForLater = async () => {
-        try {
-            const token = await AsyncStorage.getItem('authToken');
-
-            if (!token) {
-                Alert.alert('Authentication Required', 'Please login to save experiences');
-                return;
-            }
-
-            const response = await fetch(`${API_URL}/saved-experiences/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ experience_id: experienceId })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setIsSaved(data.action === 'saved');
-
-                Alert.alert(
-                    'Success',
-                    data.action === 'saved'
-                        ? 'Experience saved successfully'
-                        : 'Experience removed from saved list'
-                );
-            } else if (response.status === 401) {
-                Alert.alert('Session Expired', 'Please login again');
-            } else {
-                throw new Error('Failed to update saved status');
-            }
-        } catch (error) {
-            console.error('Error saving experience:', error);
-            Alert.alert('Error', 'Failed to save experience. Please check your connection.');
-        }
-    };
 
     const handleShare = async () => {
         try {
