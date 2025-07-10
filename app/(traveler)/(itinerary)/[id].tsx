@@ -46,6 +46,7 @@ export default function ItineraryDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [itinerary, setItinerary] = useState<Itinerary | null>(null);
     const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+    const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         if (id) {
@@ -95,6 +96,19 @@ export default function ItineraryDetailScreen() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Toggle collapse state for a day
+    const toggleDayCollapse = (dayNumber: number) => {
+        setCollapsedDays(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(dayNumber)) {
+                newSet.delete(dayNumber);
+            } else {
+                newSet.add(dayNumber);
+            }
+            return newSet;
+        });
     };
 
     // Multi-stop navigation handler
@@ -610,26 +624,52 @@ export default function ItineraryDetailScreen() {
                                 const sortedItems = items.sort((a, b) => a.start_time.localeCompare(b.start_time));
                                 const hasMultipleStops = sortedItems.length > 1;
                                 const hasCoordinates = sortedItems.some(item => item.destination_latitude && item.destination_longitude);
+                                const isCollapsed = collapsedDays.has(parseInt(day));
 
                                 return (
                                     <View key={day} className="mb-6 rounded-lg overflow-hidden border border-gray-200">
                                         {/* Enhanced Day Header with Multi-stop Navigation Button */}
-                                        <View className={`p-4 border-b border-gray-100 ${dayStyles.container}`}>
-                                            <View className="flex-row justify-between items-center">
-                                                <View className="flex-1">
-                                                    <Text className={`text-lg font-onest-semibold ${dayStyles.text}`}>
-                                                        Day {day}
-                                                    </Text>
-                                                    <Text className="text-sm text-gray-500 font-onest">
-                                                        {getDateForDay(parseInt(day))}
-                                                    </Text>
+                                        <TouchableOpacity
+                                            className={`p-4 border-b border-gray-100 ${dayStyles.container}`}
+                                            onPress={() => toggleDayCollapse(parseInt(day))}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View>
+                                                {/* First Row: Day info and chevron */}
+                                                <View className="flex-row justify-between items-center">
+                                                    <View className="flex-1 flex-row items-center">
+                                                        <Ionicons
+                                                            name={isCollapsed ? "chevron-forward" : "chevron-down"}
+                                                            size={20}
+                                                            color="#6B7280"
+                                                            style={{ marginRight: 8 }}
+                                                        />
+                                                        <View className="flex-1">
+                                                            <View className="flex-row items-center flex-wrap justify-between">
+                                                                <Text className={`text-lg font-onest-semibold ${dayStyles.text} mr-2`}>
+                                                                    Day {day}
+                                                                </Text>
+                                                                {dayStyles.indicator && (
+                                                                    <Text className="text-xs text-gray-500 font-onest">
+                                                                        {dayStyles.indicator}
+                                                                    </Text>
+                                                                )}
+                                                            </View>
+                                                            <Text className="text-sm text-gray-500 font-onest">
+                                                                {getDateForDay(parseInt(day))} • {sortedItems.length} {sortedItems.length > 1 ? 'activities' : 'activity'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
                                                 </View>
 
-                                                {/* Multi-stop Navigation Button */}
-                                                {hasMultipleStops && hasCoordinates && (
+                                                {/* Second Row: Navigation button when expanded */}
+                                                {hasMultipleStops && hasCoordinates && !isCollapsed && (
                                                     <TouchableOpacity
-                                                        className="bg-primary rounded-full px-4 py-2 flex-row items-center"
-                                                        onPress={() => handleMultiStopNavigation(sortedItems)}
+                                                        className="bg-primary rounded-full px-4 py-2 flex-row items-center self-start mt-3"
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMultiStopNavigation(sortedItems);
+                                                        }}
                                                         activeOpacity={0.7}
                                                     >
                                                         <Ionicons name="navigate" size={16} color="#E5E7EB" />
@@ -638,19 +678,11 @@ export default function ItineraryDetailScreen() {
                                                         </Text>
                                                     </TouchableOpacity>
                                                 )}
-
-                                                {dayStyles.indicator && (
-                                                    <View className="flex-row items-center ml-3">
-                                                        <Text className="text-xs text-gray-500 font-onest">
-                                                            {dayStyles.indicator}
-                                                        </Text>
-                                                    </View>
-                                                )}
                                             </View>
-                                        </View>
+                                        </TouchableOpacity>
 
-                                        {/* Day Items with Navigation Links */}
-                                        {sortedItems.map((item, index) => {
+                                        {/* Day Items with Navigation Links - Only show when not collapsed */}
+                                        {!isCollapsed && sortedItems.map((item, index) => {
                                             const nextItem = sortedItems[index + 1];
                                             const timeCheck = nextItem ? hasEnoughTimeBetween(item, nextItem) : null;
 

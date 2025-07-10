@@ -237,6 +237,32 @@ const InboxScreen = () => {
         }
     };
 
+    const formatTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+
+    const formatRelativeTime = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+        if (diffInMinutes < 1) {
+            return 'Just now';
+        } else if (diffInMinutes < 60) {
+            return `${diffInMinutes}m ago`;
+        } else if (diffInMinutes < 1440) { // Less than 24 hours
+            const hours = Math.floor(diffInMinutes / 60);
+            return `${hours}h ago`;
+        } else {
+            return formatTime(dateString);
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
@@ -360,9 +386,14 @@ const InboxScreen = () => {
                                                         }`}>
                                                         {notification.title}
                                                     </Text>
-                                                    {!notification.is_read && (
-                                                        <View className="w-2 h-2 bg-primary rounded-full mt-2" />
-                                                    )}
+                                                    <View className="flex-row items-center">
+                                                        <Text className="text-xs text-gray-400 font-onest mr-2">
+                                                            {formatRelativeTime(notification.created_at)}
+                                                        </Text>
+                                                        {!notification.is_read && (
+                                                            <View className="w-2 h-2 bg-primary rounded-full" />
+                                                        )}
+                                                    </View>
                                                 </View>
                                                 <Text className="text-gray-500 font-onest text-sm leading-5" numberOfLines={2}>
                                                     {notification.description}

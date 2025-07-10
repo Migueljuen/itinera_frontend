@@ -12,7 +12,41 @@ import {
     View
 } from 'react-native';
 import API_URL from '../../../../constants/api';
-import { ItineraryFormData, ItineraryItem } from './Step2Preference';
+
+// Types - updated to match the corrected parent component
+type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
+type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
+type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
+type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
+type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+
+interface ItineraryItem {
+    experience_id: number;
+    day_number: number;
+    start_time: string;
+    end_time: string;
+    custom_note?: string;
+}
+
+interface ItineraryFormData {
+    traveler_id: number;
+    start_date: string;
+    end_date: string;
+    title: string;
+    notes?: string;
+    city: string;
+    items: ItineraryItem[];
+    preferences?: {
+        experiences: Experience[];
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
+        exploreTime: ExploreTime;
+        budget: Budget;
+        activityIntensity?: ActivityIntensity;
+        travelDistance: TravelDistance;
+    };
+}
 
 interface StepProps {
     formData: ItineraryFormData;
@@ -21,39 +55,39 @@ interface StepProps {
     onBack: () => void;
 }
 
- // ==========  TYPESSSSSSSSSS ==========
-interface Experience {
-    id: number;  // matches experience_id in your schema
+// API Experience Types
+interface ExperienceData {
+    id: number;
     title: string;
     description: string;
     price: number;
     unit: string;
     destination_name: string;
-    location: string;  // city from the destination table
-    tags: string[];  // from the tags table via experience_tags
-    images: string[];  // from experience_images table
-    availability: AvailabilityInfo[];  // from experience_availability joined with availability_time_slots
-    budget_category: 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';  // calculated based on price
+    location: string;
+    tags: string[];
+    images: string[];
+    availability: AvailabilityInfo[];
+    budget_category: 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
     type?: 'recommended' | 'other';
 }
 
 interface AvailabilityInfo {
     availability_id: number;
     experience_id: number;
-    day_of_week: string;  // matches day_of_week in your schema
+    day_of_week: string;
     time_slots: TimeSlot[];
 }
 
 interface TimeSlot {
-    slot_id: number;  // matches slot_id in your schema
+    slot_id: number;
     availability_id: number;
-    start_time: string;  // matches start_time in your schema
-    end_time: string;  // matches end_time in your schema
+    start_time: string;
+    end_time: string;
 }
 
 const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
-    const [experiences, setExperiences] = useState<Experience[]>([]);
-    const [filteredExperiences, setFilteredExperiences] = useState<Experience[]>([]);
+    const [experiences, setExperiences] = useState<ExperienceData[]>([]);
+    const [filteredExperiences, setFilteredExperiences] = useState<ExperienceData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedExperiences, setSelectedExperiences] = useState<Record<number, boolean>>({});
@@ -68,14 +102,13 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             console.log('  Travel companion:', formData.preferences.travelCompanion);
             console.log('  Explore time:', formData.preferences.exploreTime);
             console.log('  Budget:', formData.preferences.budget);
+            console.log('  Travel distance:', formData.preferences.travelDistance);
         }
 
-        // Complete form data
-        // console.log('Complete form data:', formData);
         console.log('==========================================');
     }, []);
 
-  // ==========  Fetch recommended experiences ==========
+    // Fetch recommended experiences
     useEffect(() => {
         const fetchExperiences = async () => {
             try {
@@ -83,7 +116,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
                 // ========== 1. Fetch recommended experiences (with preferences) ==========
                 const fullParams = new URLSearchParams();
-                // fullParams.append('location', formData.city);
+                fullParams.append('location', formData.city);
                 fullParams.append('start_date', formData.start_date);
                 fullParams.append('end_date', formData.end_date);
 
@@ -100,7 +133,12 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     if (formData.preferences.travelCompanion) {
                         fullParams.append('travel_companion', formData.preferences.travelCompanion);
                     }
+                    if (formData.preferences.travelDistance) {
+                        fullParams.append('travel_distance', formData.preferences.travelDistance);
+                    }
                 }
+
+                console.log('Fetching recommended experiences with params:', fullParams.toString());
 
                 const recommendedUrl = `${API_URL}/experience?${fullParams.toString()}`;
                 const recommendedResponse = await fetch(recommendedUrl);
@@ -110,16 +148,20 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                 }
 
                 const recommendedData = await recommendedResponse.json();
+                console.log('Recommended experiences found:', recommendedData.length);
+
                 const recommendedExperiences = recommendedData.map((exp: any) => ({
                     ...exp,
                     type: 'recommended',
                 }));
 
-                // ========== 2. Fetch other experiences (only by date) ==========
+                // ========== 2. Fetch other experiences (fallback) ==========
                 const fallbackParams = new URLSearchParams();
+                fallbackParams.append('location', formData.city);
                 fallbackParams.append('start_date', formData.start_date);
                 fallbackParams.append('end_date', formData.end_date);
 
+                // Include at least experience types for fallback
                 if (formData.preferences?.experiences?.length) {
                     fallbackParams.append('tags', formData.preferences.experiences.join(','));
                 }
@@ -132,6 +174,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                 }
 
                 const otherData = await otherResponse.json();
+                console.log('Other experiences found:', otherData.length);
 
                 // Filter out duplicates (experiences already in recommended)
                 const recommendedIds = new Set(recommendedData.map((exp: any) => exp.id));
@@ -144,23 +187,24 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
                 // ========== Final merge ==========
                 const allExperiences = [...recommendedExperiences, ...otherExperiences];
+                console.log('Total experiences available:', allExperiences.length);
 
                 setExperiences(allExperiences);
                 setFilteredExperiences(allExperiences);
                 setLoading(false);
             } catch (err) {
+                console.error('Error fetching experiences:', err);
                 setError(err instanceof Error ? err.message : 'An error occurred');
                 setLoading(false);
             }
         };
 
-        fetchExperiences();
+        if (formData.city && formData.start_date && formData.end_date) {
+            fetchExperiences();
+        }
     }, [formData.city, formData.start_date, formData.end_date, formData.preferences]);
 
-
-
- // ==========  Toggle experience selection ==========
-    
+    // Toggle experience selection
     const toggleExperienceSelection = (experienceId: number) => {
         setSelectedExperiences(prev => ({
             ...prev,
@@ -223,6 +267,8 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             };
         });
 
+        console.log('Created itinerary items:', itineraryItems);
+
         // Update form data with selected experiences
         setFormData({
             ...formData,
@@ -235,18 +281,16 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     // Retry fetch function
     const retryFetch = () => {
         setError(null);
-        // Re-trigger the useEffect by updating a dependency
         setLoading(true);
-        // The useEffect will handle the actual fetching
     };
 
     // Render experience card
-    const renderExperienceCard = ({ item }: { item: Experience }) => {
+    const renderExperienceCard = ({ item }: { item: ExperienceData }) => {
         const isSelected = selectedExperiences[item.id] || false;
 
         return (
             <TouchableOpacity
-                className={`mb-4 rounded-lg overflow-hidden border ${isSelected ? 'border-primary' : 'border-gray-200'}`}
+                className={`mb-4 rounded-lg overflow-hidden border ${isSelected ? 'border-primary bg-indigo-50' : 'border-gray-200'}`}
                 onPress={() => toggleExperienceSelection(item.id)}
                 activeOpacity={0.7}
             >
@@ -266,7 +310,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
 
                     {/* Price Badge */}
                     <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
-                        <Text className="font-onest-medium">
+                        <Text className="font-onest-medium text-sm">
                             {item.price === 0 ? 'Free' : `${item.price} ${item.unit}`}
                         </Text>
                     </View>
@@ -277,36 +321,49 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                             <Ionicons name="checkmark" size={20} color="white" />
                         </View>
                     )}
+
+                    {/* Recommended Badge */}
+                    {item.type === 'recommended' && (
+                        <View className="absolute bottom-2 left-2 bg-green-500 px-2 py-1 rounded-md">
+                            <Text className="text-white text-xs font-onest-medium">Recommended</Text>
+                        </View>
+                    )}
                 </View>
 
                 <View className="p-3">
                     {/* Title */}
-                    <Text className="text-lg font-onest-semibold mb-1">{item.title}</Text>
+                    <Text className="text-lg font-onest-semibold mb-1" numberOfLines={2}>{item.title}</Text>
 
                     {/* Location */}
                     <View className="flex-row items-center mb-2">
                         <Ionicons name="location-outline" size={16} color="#4F46E5" />
-                        <Text className="text-sm text-gray-600 ml-1">{item.destination_name}</Text>
+                        <Text className="text-sm text-gray-600 ml-1" numberOfLines={1}>{item.destination_name}</Text>
                     </View>
+
+                    {/* Description */}
+                    {item.description && (
+                        <Text className="text-sm text-gray-600 mb-2" numberOfLines={2}>{item.description}</Text>
+                    )}
 
                     {/* Tags */}
                     <View className="flex-row flex-wrap">
                         {item.tags.slice(0, 3).map((tag, index) => (
-                            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2 ">
+                            <View key={index} className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2">
                                 <Text className="text-xs text-primary font-onest-medium">{tag}</Text>
                             </View>
                         ))}
+                        {item.tags.length > 3 && (
+                            <View className="bg-gray-100 px-2 py-1 rounded-md mr-2 mb-2">
+                                <Text className="text-xs text-gray-500 font-onest-medium">+{item.tags.length - 3} more</Text>
+                            </View>
+                        )}
                     </View>
-
-                    {/* Budget Category */}
-                    {/* <View className="flex-row items-center mt-1">
-                        <Ionicons name="cash-outline" size={16} color="#4F46E5" />
-                        <Text className="text-xs text-gray-600 ml-1">{item.budget_category}</Text>
-                    </View> */}
                 </View>
             </TouchableOpacity>
         );
     };
+
+    const selectedCount = Object.values(selectedExperiences).filter(Boolean).length;
 
     return (
         <KeyboardAvoidingView
@@ -316,6 +373,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             <ScrollView
                 contentContainerStyle={{ flexGrow: 1 }}
                 keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
             >
                 <View className="p-4 flex-1">
                     {/* Header */}
@@ -323,19 +381,29 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         <Text className="text-center text-xl font-onest-semibold mb-2">
                             Select Experiences
                         </Text>
-                        <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
+                        <Text className="text-center text-sm text-gray-500 font-onest mb-4 w-11/12 m-auto">
                             Choose the experiences you'd like to add to your itinerary.
                         </Text>
+
+                        {/* Trip Duration Info */}
+                        <View className="bg-blue-50 p-3 rounded-lg mb-4">
+                            <Text className="text-sm text-blue-700 font-onest-medium text-center">
+                                💡 You're planning a {Math.ceil((new Date(formData.end_date).getTime() - new Date(formData.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1}-day trip.
+                                Select as many experiences as you'd like!
+                            </Text>
+                        </View>
                     </View>
 
                     {/* Loading/Error/Content */}
                     {loading ? (
                         <View className="flex-1 justify-center items-center">
                             <ActivityIndicator size="large" color="#4F46E5" />
+                            <Text className="text-gray-500 mt-2 font-onest">Finding experiences for you...</Text>
                         </View>
                     ) : error ? (
                         <View className="flex-1 justify-center items-center">
-                            <Text className="text-red-500 font-onest-medium">{error}</Text>
+                            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                            <Text className="text-red-500 font-onest-medium text-center mt-2">{error}</Text>
                             <TouchableOpacity
                                 onPress={retryFetch}
                                 className="mt-4 bg-primary px-4 py-2 rounded-lg"
@@ -345,52 +413,80 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                         </View>
                     ) : (
                         <>
+                            {/* Recommended Experiences */}
                             {filteredExperiences.filter(exp => exp.type === 'recommended').length > 0 && (
                                 <>
-                                    <Text className="text-xl font-onest-bold mb-2">Recommended for You</Text>
+                                    <View className="flex-row items-center mb-3">
+                                        <Ionicons name="star" size={20} color="#10B981" />
+                                        <Text className="text-lg font-onest-bold ml-2">Recommended for You</Text>
+                                    </View>
+                                    <Text className="text-sm text-gray-600 font-onest mb-4">
+                                        Based on your preferences: {formData.preferences?.experiences.join(', ')}
+                                    </Text>
                                     <FlatList
                                         data={filteredExperiences.filter(exp => exp.type === 'recommended')}
                                         renderItem={renderExperienceCard}
-                                        keyExtractor={(item) => item.id.toString()}
-                                        scrollEnabled={false} // prevent inner scroll
+                                        keyExtractor={(item) => `recommended-${item.id}`}
+                                        scrollEnabled={false}
                                         showsVerticalScrollIndicator={false}
-                                        className="mb-4"
+                                        className="mb-6"
                                     />
                                 </>
                             )}
 
+                            {/* Other Experiences */}
                             {filteredExperiences.filter(exp => exp.type === 'other').length > 0 && (
                                 <>
-                                    <Text className="text-xl font-onest-bold mb-2">Other Experiences</Text>
+                                    <View className="flex-row items-center mb-3">
+                                        <Ionicons name="grid-outline" size={20} color="#6B7280" />
+                                        <Text className="text-lg font-onest-bold ml-2">Other Experiences</Text>
+                                    </View>
                                     <FlatList
                                         data={filteredExperiences.filter(exp => exp.type === 'other')}
                                         renderItem={renderExperienceCard}
-                                        keyExtractor={(item) => item.id.toString()}
-                                        scrollEnabled={false} // prevent inner scroll
+                                        keyExtractor={(item) => `other-${item.id}`}
+                                        scrollEnabled={false}
                                         showsVerticalScrollIndicator={false}
                                     />
                                 </>
+                            )}
+
+                            {/* No Experiences Found */}
+                            {filteredExperiences.length === 0 && (
+                                <View className="flex-1 justify-center items-center">
+                                    <Ionicons name="search-outline" size={48} color="#9CA3AF" />
+                                    <Text className="text-gray-500 font-onest-medium text-center mt-2">
+                                        No experiences found for your selected preferences.
+                                    </Text>
+                                    <Text className="text-gray-400 font-onest text-center mt-1">
+                                        Try adjusting your preferences or check back later.
+                                    </Text>
+                                </View>
                             )}
                         </>
                     )}
 
-                    {/* Selected Count Indicator */}
-                    {Object.values(selectedExperiences).filter(Boolean).length > 0 && (
-                        <View className="bg-indigo-50 p-2 rounded-lg mt-2 mb-2 flex-row justify-between items-center">
-                            <Text className="font-onest-medium text-primary">
-                                {Object.values(selectedExperiences).filter(Boolean).length} experiences selected
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => setSelectedExperiences({})}
-                                className="px-2 py-1"
-                            >
-                                <Text className="text-gray-500 font-onest-medium">Clear</Text>
-                            </TouchableOpacity>
+                    {/* Selection Summary */}
+                    {selectedCount > 0 && (
+                        <View className="bg-indigo-50 p-3 rounded-lg mt-4 mb-4">
+                            <View className="flex-row justify-between items-center">
+                                <View>
+                                    <Text className="font-onest-semibold text-primary">
+                                        {selectedCount} experience{selectedCount !== 1 ? 's' : ''} selected
+                                    </Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={() => setSelectedExperiences({})}
+                                    className="px-3 py-1 bg-white rounded-md border border-gray-200"
+                                >
+                                    <Text className="text-gray-600 font-onest-medium">Clear All</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     )}
 
                     {/* Navigation Buttons */}
-                    <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-200">
+                    <View className="flex-row justify-between mt-4 pt-4 border-t border-gray-200 pb-4">
                         <TouchableOpacity
                             onPress={onBack}
                             className="py-4 px-6 rounded-xl border border-gray-300"
@@ -407,7 +503,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                             disabled={!isNextEnabled()}
                             activeOpacity={0.7}
                         >
-                            <Text className="text-center font-onest-medium text-base text-white">
+                            <Text className={`text-center font-onest-medium text-base ${isNextEnabled() ? 'text-white' : 'text-gray-500'}`}>
                                 Next step
                             </Text>
                         </TouchableOpacity>

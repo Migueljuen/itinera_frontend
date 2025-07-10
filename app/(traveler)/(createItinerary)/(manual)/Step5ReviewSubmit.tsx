@@ -3,6 +3,15 @@ import { useRouter } from "expo-router";
 import React, { useEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
+// Define preference types
+type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
+type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
+type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
+type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
+type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+
+
 // Import your types
 interface ItineraryItem {
     experience_id: number;
@@ -12,19 +21,23 @@ interface ItineraryItem {
     custom_note?: string;
 }
 
-interface ItineraryFormData {
+export interface ItineraryFormData {
     traveler_id: number;
-    start_date: string;
-    end_date: string;
+    start_date: string;  // Format: 'YYYY-MM-DD'
+    end_date: string;    // Format: 'YYYY-MM-DD'
     title: string;
     notes?: string;
     city: string;
     items: ItineraryItem[];
+    // Updated preferences to match generate itinerary version
     preferences?: {
-        experiences: any[];
-        travelCompanion: any;
-        exploreTime: any;
-        budget: any;
+        experiences: Experience[];
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
+        exploreTime: ExploreTime;
+        budget: Budget;
+        activityIntensity?: ActivityIntensity; // Made optional since it's not used in manual creation
+        travelDistance: TravelDistance;
     };
 }
 

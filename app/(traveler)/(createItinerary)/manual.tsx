@@ -6,14 +6,20 @@ import API_URL from '../../../constants/api';
 
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
-import Step1_1Accommodation from './(manual)/Step1.1Accommodation';
 import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
 import Step4Calendar from './(manual)/Step4Calendar';
 import Step5ReviewSubmit from './(manual)/Step5ReviewSubmit';
 
-// Types - move these to a separate types file
+// Types - updated to match the corrected Step2Preference
+type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
+type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
+type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
+type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
+type ActivityIntensity = 'Low' | 'Moderate' | 'High';
+type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+
 interface ItineraryItem {
     experience_id: number;
     day_number: number;
@@ -42,12 +48,16 @@ interface ItineraryFormData {
     notes?: string;
     city: string;
     items: ItineraryItem[];
-    accommodation?: Accommodation; // New accommodation field
+    accommodation?: Accommodation;
+    // Updated preferences to make activityIntensity optional
     preferences?: {
-        experiences: any[];
-        travelCompanion: any;
-        exploreTime: any;
-        budget: any;
+        experiences: Experience[];
+        travelCompanion?: TravelCompanion;
+        travelCompanions?: TravelCompanion[];
+        exploreTime: ExploreTime;
+        budget: Budget;
+        activityIntensity?: ActivityIntensity; // Made optional for manual creation
+        travelDistance: TravelDistance;
     };
 }
 
@@ -75,10 +85,9 @@ const ItineraryCreationForm: React.FC = () => {
     // Get the logged-in user from AuthContext
     const { user, token, loading: authLoading } = useAuth();
 
-    // Step state management - updated to handle step 1.1
+    // Step state management - simplified (removed sub-step logic)
     const [step, setStep] = useState<number>(1);
-    const [subStep, setSubStep] = useState<number>(0); // 0 for main step, 1 for sub-step
-    const stepCount = 6; // Increased from 5 to 6 to account for accommodation
+    const stepCount = 5; // Back to 5 steps (no accommodation sub-step)
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form data state with default values
@@ -100,9 +109,9 @@ const ItineraryCreationForm: React.FC = () => {
         console.log('User ID:', user?.user_id);
         console.log('Token exists:', !!token);
         console.log('Form traveler_id:', formData.traveler_id);
-        console.log('Current step:', step, 'Sub-step:', subStep);
+        console.log('Current step:', step);
         console.log('=====================================');
-    }, [user, token, authLoading, formData.traveler_id, step, subStep]);
+    }, [user, token, authLoading, formData.traveler_id, step]);
 
     // Update traveler_id when user is available
     useEffect(() => {
@@ -115,48 +124,13 @@ const ItineraryCreationForm: React.FC = () => {
         }
     }, [user, formData.traveler_id]);
 
-    // Step navigation handlers
+    // Step navigation handlers - simplified
     const handleNext = () => {
-        if (step === 1 && subStep === 0) {
-            // From Step 1 Location to Step 1.1 Accommodation
-            setSubStep(1);
-        } else if (step === 1 && subStep === 1) {
-            // From Step 1.1 Accommodation to Step 2
-            setStep(2);
-            setSubStep(0);
-        } else {
-            // Regular step progression
-            setStep((prev) => Math.min(prev + 1, 5)); // Max step is still 5 (Review)
-            setSubStep(0);
-        }
+        setStep((prev) => Math.min(prev + 1, 5));
     };
 
     const handleBack = () => {
-        if (step === 2 && subStep === 0) {
-            // From Step 2 back to Step 1.1 Accommodation
-            setStep(1);
-            setSubStep(1);
-        } else if (step === 1 && subStep === 1) {
-            // From Step 1.1 Accommodation back to Step 1 Location
-            setSubStep(0);
-        } else {
-            // Regular step back progression
-            setStep((prev) => Math.max(prev - 1, 1));
-            setSubStep(0);
-        }
-    };
-
-    // Skip accommodation step
-    const handleSkipAccommodation = () => {
-        setStep(2);
-        setSubStep(0);
-    };
-
-    // Get current step position for progress bar
-    const getCurrentStepPosition = () => {
-        if (step === 1 && subStep === 0) return 1; // Step 1 Location
-        if (step === 1 && subStep === 1) return 2; // Step 1.1 Accommodation
-        return step + 1; // Other steps shifted by 1
+        setStep((prev) => Math.max(prev - 1, 1));
     };
 
     // Validate form data before submission
@@ -228,7 +202,9 @@ const ItineraryCreationForm: React.FC = () => {
                     custom_note: item.custom_note || ''
                 })),
                 // Include accommodation if provided
-                ...(formData.accommodation && { accommodation: formData.accommodation })
+                ...(formData.accommodation && { accommodation: formData.accommodation }),
+                // Include preferences if provided
+                ...(formData.preferences && { preferences: formData.preferences })
             };
 
             console.log('Submitting payload:', payload);
@@ -287,32 +263,51 @@ const ItineraryCreationForm: React.FC = () => {
 
     // Render current step component
     const renderStep = () => {
-        if (step === 1 && subStep === 0) {
-            return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
-        } else if (step === 1 && subStep === 1) {
-            return <Step1_1Accommodation
-                formData={formData}
-                setFormData={setFormData}
-                onNext={handleNext}
-                onBack={handleBack}
-                onSkip={handleSkipAccommodation}
-            />;
-        }
-
         switch (step) {
+            case 1:
+                return (
+                    <Step1SelectLocation
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+                    />
+                );
             case 2:
-                return <Step2Preference formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+                return (
+                    <Step2Preference
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+                        onBack={handleBack}
+                    />
+                );
             case 3:
-                return <Step3AddItems formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+                return (
+                    <Step3AddItems
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+                        onBack={handleBack}
+                    />
+                );
             case 4:
-                return <Step4Calendar formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+                return (
+                    <Step4Calendar
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+                        onBack={handleBack}
+                    />
+                );
             case 5:
-                return <Step5ReviewSubmit
-                    formData={formData}
-                    onBack={handleBack}
-                    onSubmit={handleSubmit}
-                    isSubmitting={isSubmitting}
-                />;
+                return (
+                    <Step5ReviewSubmit
+                        formData={formData}
+                        onBack={handleBack}
+                        onSubmit={handleSubmit}
+                        isSubmitting={isSubmitting}
+                    />
+                );
             default:
                 return null;
         }
@@ -321,7 +316,7 @@ const ItineraryCreationForm: React.FC = () => {
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             <View className="flex-1 px-6 py-4">
-                <ProgressBar currentStep={getCurrentStepPosition()} totalSteps={stepCount} />
+                <ProgressBar currentStep={step} totalSteps={stepCount} />
                 {renderStep()}
             </View>
         </SafeAreaView>
