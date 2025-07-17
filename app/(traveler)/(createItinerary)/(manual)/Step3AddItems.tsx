@@ -39,8 +39,8 @@ interface ItineraryFormData {
     items: ItineraryItem[];
     preferences?: {
         experiences: Experience[];
-        travelCompanion?: TravelCompanion;
-        travelCompanions?: TravelCompanion[];
+        travelCompanion?: TravelCompanion; // Keep for backward compatibility
+        travelCompanions?: TravelCompanion[]; // New array field
         exploreTime: ExploreTime;
         budget: Budget;
         activityIntensity?: ActivityIntensity;
@@ -85,12 +85,18 @@ interface TimeSlot {
     end_time: string;
 }
 
+const ITEMS_PER_PAGE = 5;
+
 const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [experiences, setExperiences] = useState<ExperienceData[]>([]);
     const [filteredExperiences, setFilteredExperiences] = useState<ExperienceData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedExperiences, setSelectedExperiences] = useState<Record<number, boolean>>({});
+
+    // Pagination states
+    const [currentPageRecommended, setCurrentPageRecommended] = useState(1);
+    const [currentPageOther, setCurrentPageOther] = useState(1);
 
     useEffect(() => {
         console.log('=== User selections from STEP 2 ===');
@@ -99,7 +105,8 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         if (formData.preferences) {
             console.log('From Step 2:');
             console.log('  Experiences:', formData.preferences.experiences);
-            console.log('  Travel companion:', formData.preferences.travelCompanion);
+            console.log('  Travel companion (old):', formData.preferences.travelCompanion);
+            console.log('  Travel companions (new):', formData.preferences.travelCompanions);
             console.log('  Explore time:', formData.preferences.exploreTime);
             console.log('  Budget:', formData.preferences.budget);
             console.log('  Travel distance:', formData.preferences.travelDistance);
@@ -130,9 +137,17 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     if (formData.preferences.exploreTime) {
                         fullParams.append('explore_time', formData.preferences.exploreTime);
                     }
-                    if (formData.preferences.travelCompanion) {
-                        fullParams.append('travel_companion', formData.preferences.travelCompanion);
+
+                    // Handle travel companions - support both old and new format
+                    if (formData.preferences.travelCompanions && formData.preferences.travelCompanions.length > 0) {
+                        // New format: send multiple companions
+                        formData.preferences.travelCompanions.forEach(companion => {
+                            if (companion !== 'Any') {
+                                fullParams.append('travel_companions', companion);
+                            }
+                        });
                     }
+
                     if (formData.preferences.travelDistance) {
                         fullParams.append('travel_distance', formData.preferences.travelDistance);
                     }
@@ -203,6 +218,59 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
             fetchExperiences();
         }
     }, [formData.city, formData.start_date, formData.end_date, formData.preferences]);
+
+    // Calculate pagination for recommended and other experiences
+    const recommendedExperiences = filteredExperiences.filter(exp => exp.type === 'recommended');
+    const otherExperiences = filteredExperiences.filter(exp => exp.type === 'other');
+
+    const totalPagesRecommended = Math.ceil(recommendedExperiences.length / ITEMS_PER_PAGE);
+    const totalPagesOther = Math.ceil(otherExperiences.length / ITEMS_PER_PAGE);
+
+    const paginatedRecommended = recommendedExperiences.slice(
+        (currentPageRecommended - 1) * ITEMS_PER_PAGE,
+        currentPageRecommended * ITEMS_PER_PAGE
+    );
+
+    const paginatedOther = otherExperiences.slice(
+        (currentPageOther - 1) * ITEMS_PER_PAGE,
+        currentPageOther * ITEMS_PER_PAGE
+    );
+
+    // Generate page numbers to display
+    const getPageNumbers = (currentPage: number, totalPages: number) => {
+        const pages = [];
+        const maxPagesToShow = 5;
+
+        if (totalPages <= maxPagesToShow) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            if (currentPage <= 3) {
+                for (let i = 1; i <= 4; i++) {
+                    pages.push(i);
+                }
+                pages.push('...');
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                pages.push(1);
+                pages.push('...');
+                for (let i = totalPages - 3; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                pages.push(1);
+                pages.push('...');
+                pages.push(currentPage - 1);
+                pages.push(currentPage);
+                pages.push(currentPage + 1);
+                pages.push('...');
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
 
     // Toggle experience selection
     const toggleExperienceSelection = (experienceId: number) => {
@@ -282,6 +350,17 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
     const retryFetch = () => {
         setError(null);
         setLoading(true);
+        window.location.reload();
+    };
+
+    // Helper function to get travel companions display text
+    const getTravelCompanionsText = () => {
+        if (formData.preferences?.travelCompanions && formData.preferences.travelCompanions.length > 0) {
+            return formData.preferences.travelCompanions.join(', ');
+        } else if (formData.preferences?.travelCompanion) {
+            return formData.preferences.travelCompanion;
+        }
+        return '';
     };
 
     // Render experience card
@@ -363,6 +442,65 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
         );
     };
 
+    // Render pagination controls
+    const renderPaginationControls = (currentPage: number, setCurrentPage: React.Dispatch<React.SetStateAction<number>>, totalPages: number, startIndex: number, endIndex: number, totalItems: number) => {
+        if (totalPages <= 1) return null;
+
+        return (
+            <View className="mt-6 mb-4">
+                {/* Results Info */}
+                <Text className="text-center text-gray-500 text-sm mb-4 font-onest">
+                    Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} experiences
+                </Text>
+
+                {/* Pagination Buttons */}
+                <View className="flex-row justify-center items-center">
+                    {/* Previous Button */}
+                    <TouchableOpacity
+                        onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? 'bg-gray-200' : 'bg-gray-800'}`}
+                    >
+                        <Ionicons name="chevron-back" size={20} color={currentPage === 1 ? '#9CA3AF' : '#FFFFFF'} />
+                    </TouchableOpacity>
+
+                    {/* Page Numbers */}
+                    {getPageNumbers(currentPage, totalPages).map((page, index) => (
+                        <TouchableOpacity
+                            key={index}
+                            onPress={() => typeof page === 'number' && setCurrentPage(page)}
+                            disabled={page === '...'}
+                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                                ? 'bg-primary'
+                                : page === '...'
+                                    ? 'bg-transparent'
+                                    : 'bg-white border border-gray-300'
+                                }`}
+                        >
+                            <Text className={`font-onest-medium ${page === currentPage
+                                ? 'text-white'
+                                : page === '...'
+                                    ? 'text-gray-400'
+                                    : 'text-gray-700'
+                                }`}>
+                                {page}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+
+                    {/* Next Button */}
+                    <TouchableOpacity
+                        onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages ? 'bg-gray-200' : 'bg-gray-800'}`}
+                    >
+                        <Ionicons name="chevron-forward" size={20} color={currentPage === totalPages ? '#9CA3AF' : '#FFFFFF'} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
     const selectedCount = Object.values(selectedExperiences).filter(Boolean).length;
 
     return (
@@ -414,7 +552,7 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                     ) : (
                         <>
                             {/* Recommended Experiences */}
-                            {filteredExperiences.filter(exp => exp.type === 'recommended').length > 0 && (
+                            {recommendedExperiences.length > 0 && (
                                 <>
                                     <View className="flex-row items-center mb-3">
                                         <Ionicons name="star" size={20} color="#10B981" />
@@ -422,32 +560,48 @@ const Step3AddItems: React.FC<StepProps> = ({ formData, setFormData, onNext, onB
                                     </View>
                                     <Text className="text-sm text-gray-600 font-onest mb-4">
                                         Based on your preferences: {formData.preferences?.experiences.join(', ')}
+                                        {getTravelCompanionsText() && ` • Traveling with: ${getTravelCompanionsText()}`}
                                     </Text>
                                     <FlatList
-                                        data={filteredExperiences.filter(exp => exp.type === 'recommended')}
+                                        data={paginatedRecommended}
                                         renderItem={renderExperienceCard}
                                         keyExtractor={(item) => `recommended-${item.id}`}
                                         scrollEnabled={false}
                                         showsVerticalScrollIndicator={false}
-                                        className="mb-6"
                                     />
+                                    {renderPaginationControls(
+                                        currentPageRecommended,
+                                        setCurrentPageRecommended,
+                                        totalPagesRecommended,
+                                        (currentPageRecommended - 1) * ITEMS_PER_PAGE,
+                                        currentPageRecommended * ITEMS_PER_PAGE,
+                                        recommendedExperiences.length
+                                    )}
                                 </>
                             )}
 
                             {/* Other Experiences */}
-                            {filteredExperiences.filter(exp => exp.type === 'other').length > 0 && (
+                            {otherExperiences.length > 0 && (
                                 <>
-                                    <View className="flex-row items-center mb-3">
+                                    <View className="flex-row items-center mb-3 mt-6">
                                         <Ionicons name="grid-outline" size={20} color="#6B7280" />
                                         <Text className="text-lg font-onest-bold ml-2">Other Experiences</Text>
                                     </View>
                                     <FlatList
-                                        data={filteredExperiences.filter(exp => exp.type === 'other')}
+                                        data={paginatedOther}
                                         renderItem={renderExperienceCard}
                                         keyExtractor={(item) => `other-${item.id}`}
                                         scrollEnabled={false}
                                         showsVerticalScrollIndicator={false}
                                     />
+                                    {renderPaginationControls(
+                                        currentPageOther,
+                                        setCurrentPageOther,
+                                        totalPagesOther,
+                                        (currentPageOther - 1) * ITEMS_PER_PAGE,
+                                        currentPageOther * ITEMS_PER_PAGE,
+                                        otherExperiences.length
+                                    )}
                                 </>
                             )}
 

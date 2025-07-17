@@ -196,19 +196,21 @@ const InboxScreen = () => {
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     const handleNotificationPress = async (notification: Notification) => {
-        // Mark as read if unread
-        if (!notification.is_read) {
-            await markAsRead(notification.id);
-        }
 
-        // Navigate based on notification type
-        if (notification.itinerary_id) {
-            router.push(`/(traveler)/(itinerary)/${notification.itinerary_id}`);
-        } else if (notification.itinerary_item_id) {
-            router.push(`/(traveler)/(itinerary)/activity/${notification.itinerary_item_id}`);
-        } else if (notification.experience_id) {
-            router.push(`/(traveler)/(experience)/${notification.experience_id}`);
-        }
+        router.push(`/(traveler)/(notification)/${notification.id}`);
+        // // Mark as read if unread
+        // if (!notification.is_read) {
+        //     await markAsRead(notification.id);
+        // }
+
+        // // Navigate based on notification type
+        // if (notification.itinerary_id) {
+        //     router.push(`/(traveler)/(itinerary)/${notification.itinerary_id}`);
+        // } else if (notification.itinerary_item_id) {
+        //     router.push(`/(traveler)/(itinerary)/activity/${notification.itinerary_item_id}`);
+        // } else if (notification.experience_id) {
+        //     router.push(`/(traveler)/(experience)/${notification.experience_id}`);
+        // }
     };
 
     const handleRefresh = async () => {

@@ -34,7 +34,7 @@ export default function TravelerLayout() {
                 }}
             />
 
-             <Stack.Screen
+            <Stack.Screen
                 name="(itinerary)"
                 options={{
                     headerShown: true,
@@ -56,6 +56,7 @@ export default function TravelerLayout() {
                 }}
             />
             <Stack.Screen name="(createItinerary)" options={{ headerShown: false }} />
+            <Stack.Screen name="(notification)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
     );

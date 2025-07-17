@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -114,12 +114,10 @@ export default function Signup() {
           contentContainerStyle={{ paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="flex justify-center items-start pt-8">
-            <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} />
-          </View>
 
-          <View className="px-12">
-            <Text className="text-2xl font-bold mb-6">Create Account</Text>
+
+          <View className="p-12">
+            <Text className="text-3xl font-onest-bold mb-12">Create Account</Text>
 
             {/* Personal Information Section */}
             <View className="mb-6">
@@ -128,18 +126,19 @@ export default function Signup() {
                 <Text className="text-lg font-semibold text-gray-700 ml-2">Personal Information</Text>
               </View>
 
-              <View className="space-y-3">
+              <View className="gap-4">
                 {/* First Name */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
-
-
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="First Name"
                       placeholderTextColor="#9CA3AF"
                       className="flex-1 ml-3 text-lg"
                       value={formData.first_name}
                       onChangeText={(text) => handleChange("first_name", text)}
+                      multiline={false}
+                      textAlignVertical="center"
+                      style={{ height: '100%' }}
                     />
                   </View>
                   {errors.first_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.first_name}</Text>}
@@ -147,14 +146,16 @@ export default function Signup() {
 
                 {/* Last Name */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
-
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Last Name"
                       placeholderTextColor="#9CA3AF"
                       className="flex-1 ml-3 text-lg"
                       value={formData.last_name}
                       onChangeText={(text) => handleChange("last_name", text)}
+                      multiline={false}
+                      textAlignVertical="center"
+                      style={{ height: '100%' }}
                     />
                   </View>
                   {errors.last_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.last_name}</Text>}
@@ -172,8 +173,7 @@ export default function Signup() {
               <View className="space-y-3">
                 {/* Email */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
-
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Email"
                       placeholderTextColor="#9CA3AF"
@@ -182,6 +182,9 @@ export default function Signup() {
                       onChangeText={(text) => handleChange("email", text)}
                       keyboardType="email-address"
                       autoCapitalize="none"
+                      multiline={false}
+                      textAlignVertical="center"
+                      style={{ height: '100%' }}
                     />
                   </View>
                   {errors.email && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.email}</Text>}
@@ -196,11 +199,10 @@ export default function Signup() {
                 <Text className="text-lg font-semibold text-gray-700 ml-2">Security</Text>
               </View>
 
-              <View className="space-y-3">
+              <View className="gap-4">
                 {/* Password */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
-
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Password"
                       placeholderTextColor="#9CA3AF"
@@ -208,6 +210,9 @@ export default function Signup() {
                       value={formData.password}
                       onChangeText={(text) => handleChange("password", text)}
                       secureTextEntry={!showPassword}
+                      multiline={false}
+                      textAlignVertical="center"
+                      style={{ height: '100%' }}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
@@ -225,8 +230,7 @@ export default function Signup() {
 
                 {/* Confirm Password */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
-
+                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Confirm Password"
                       placeholderTextColor="#9CA3AF"
@@ -234,6 +238,9 @@ export default function Signup() {
                       value={formData.confirmPassword}
                       onChangeText={(text) => handleChange("confirmPassword", text)}
                       secureTextEntry={!showConfirmPassword}
+                      multiline={false}
+                      textAlignVertical="center"
+                      style={{ height: '100%' }}
                     />
                     <TouchableOpacity
                       onPress={() => setShowConfirmPassword(!showConfirmPassword)}

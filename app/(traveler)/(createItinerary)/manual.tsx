@@ -103,12 +103,12 @@ const ItineraryCreationForm: React.FC = () => {
 
     // Debug logging
     useEffect(() => {
-        console.log('=== ItineraryCreationForm Debug ===');
-        console.log('Auth loading:', authLoading);
-        console.log('Current user object:', user);
-        console.log('User ID:', user?.user_id);
-        console.log('Token exists:', !!token);
-        console.log('Form traveler_id:', formData.traveler_id);
+        // console.log('=== ItineraryCreationForm Debug ===');
+        // console.log('Auth loading:', authLoading);
+        // console.log('Current user object:', user);
+        // console.log('User ID:', user?.user_id);
+        // console.log('Token exists:', !!token);
+        // console.log('Form traveler_id:', formData.traveler_id);
         console.log('Current step:', step);
         console.log('=====================================');
     }, [user, token, authLoading, formData.traveler_id, step]);

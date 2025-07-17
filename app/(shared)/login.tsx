@@ -69,7 +69,7 @@ export default function Login() {
         <View className="px-12 gap-4">
           {/* Email input */}
           <View>
-            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
               <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
               <TextInput
                 placeholder="Email"
@@ -79,6 +79,9 @@ export default function Login() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                multiline={false}
+                textAlignVertical="center"
+                style={{ height: '100%' }}
               />
             </View>
             {errors.email && <Text className="text-red-500 text-sm ml-1">{errors.email}</Text>}
@@ -86,7 +89,7 @@ export default function Login() {
 
           {/* Password input */}
           <View>
-            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3">
+            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
               <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
               <TextInput
                 placeholder="Password"
@@ -95,6 +98,9 @@ export default function Login() {
                 className="flex-1 ml-3 text-lg"
                 value={password}
                 onChangeText={setPassword}
+                multiline={false}
+                textAlignVertical="center"
+                style={{ height: '100%' }}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -116,7 +122,6 @@ export default function Login() {
               Forgot Password?
             </Text>
           </TouchableOpacity>
-
 
           {/* Login Button */}
           <TouchableOpacity
