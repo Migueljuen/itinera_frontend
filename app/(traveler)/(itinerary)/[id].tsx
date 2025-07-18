@@ -112,6 +112,8 @@ export default function ItineraryDetailScreen() {
     };
 
     // Multi-stop navigation handler
+
+    // Multi-stop navigation handler
     const handleMultiStopNavigation = async (dayItems: ItineraryItem[]) => {
         const itemsWithCoordinates = dayItems.filter(
             item => item.destination_latitude && item.destination_longitude
@@ -129,43 +131,53 @@ export default function ItineraryDetailScreen() {
 
         try {
             let origin = '';
+            let currentLocation = userLocation;
 
-            if (!userLocation) {
+            // Try to get current location if we don't have it
+            if (!currentLocation) {
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status === 'granted') {
-                    const location = await Location.getCurrentPositionAsync({});
-                    origin = `${location.coords.latitude},${location.coords.longitude}`;
+                    currentLocation = await Location.getCurrentPositionAsync({});
+                    origin = `${currentLocation.coords.latitude},${currentLocation.coords.longitude}`;
+                } else {
+                    // If location permission is denied, show alert and return
+                    Alert.alert(
+                        'Location Required',
+                        'Please enable location access to navigate from your current location.',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+                        ]
+                    );
+                    return;
                 }
             } else {
-                origin = `${userLocation.coords.latitude},${userLocation.coords.longitude}`;
+                origin = `${currentLocation.coords.latitude},${currentLocation.coords.longitude}`;
             }
 
-            if (!origin) {
-                origin = `${itemsWithCoordinates[0].destination_latitude},${itemsWithCoordinates[0].destination_longitude}`;
-                itemsWithCoordinates.shift();
-            }
+            // For iOS: Apple Maps has a different waypoint system
+            if (Platform.OS === 'ios') {
+                // Apple Maps URL format: saddr (start) -> daddr (multiple destinations separated by '+to:')
+                // Example: saddr=Current+Location&daddr=Stop1+to:Stop2+to:Stop3
 
-            const destination = `${itemsWithCoordinates[itemsWithCoordinates.length - 1].destination_latitude},${itemsWithCoordinates[itemsWithCoordinates.length - 1].destination_longitude}`;
+                const destinations = itemsWithCoordinates
+                    .map(item => `${item.destination_latitude},${item.destination_longitude}`)
+                    .join('+to:');
 
-            const waypoints = itemsWithCoordinates.slice(0, -1).map(item =>
-                `${item.destination_latitude},${item.destination_longitude}`
-            ).join('|');
+                const url = `https://maps.apple.com/?saddr=${origin}&daddr=${destinations}`;
 
-            const url = Platform.select({
-                ios: waypoints
-                    ? `https://maps.apple.com/?saddr=${origin}&daddr=${waypoints}+to:${destination}`
-                    : `https://maps.apple.com/?saddr=${origin}&daddr=${destination}`,
-                android: `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`
-            });
-
-            if (url) {
                 const supported = await Linking.canOpenURL(url);
                 if (supported) {
                     await Linking.openURL(url);
                 } else {
-                    const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
-                    await Linking.openURL(webUrl);
+                    // Fallback to web-based Google Maps
+                    const fallbackUrl = createGoogleMapsUrl(origin, itemsWithCoordinates);
+                    await Linking.openURL(fallbackUrl);
                 }
+            } else {
+                // Android: Google Maps
+                const url = createGoogleMapsUrl(origin, itemsWithCoordinates);
+                await Linking.openURL(url);
             }
         } catch (error) {
             console.error('Error opening maps:', error);
@@ -173,6 +185,22 @@ export default function ItineraryDetailScreen() {
         }
     };
 
+    // Helper function to create Google Maps URL
+    const createGoogleMapsUrl = (origin: string, items: ItineraryItem[]) => {
+        // Google Maps format:
+        // - origin: starting point
+        // - destination: final destination
+        // - waypoints: intermediate stops (all except the last one)
+
+        const destination = `${items[items.length - 1].destination_latitude},${items[items.length - 1].destination_longitude}`;
+
+        // All stops except the last one become waypoints
+        const waypoints = items.slice(0, -1)
+            .map(item => `${item.destination_latitude},${item.destination_longitude}`)
+            .join('|');
+
+        return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+    };
     // Single navigation handler
     const handleSingleNavigation = async (item: ItineraryItem) => {
         if (!item.destination_latitude || !item.destination_longitude) {
