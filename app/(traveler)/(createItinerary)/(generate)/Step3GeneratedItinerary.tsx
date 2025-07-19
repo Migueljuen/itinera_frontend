@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     Image,
     ScrollView,
     Text,
@@ -38,7 +39,6 @@ export interface ItineraryFormData {
     };
 }
 
-
 export interface ItineraryItem {
     experience_id: number;
     day_number: number;
@@ -64,7 +64,7 @@ interface GeneratedItinerary {
     notes: string;
     created_at: string;
     status: string;
-    travel_companions?: TravelCompanion[]; // Add this field
+    travel_companions?: TravelCompanion[];
     items: ItineraryItem[];
 }
 
@@ -75,7 +75,7 @@ interface GenerateItineraryResponse {
     total_experiences: number;
     selected_experiences: number;
     activity_intensity: string;
-    travel_companions?: TravelCompanion[]; // Add this field
+    travel_companions?: TravelCompanion[];
 }
 
 // Enhanced error interface
@@ -98,7 +98,7 @@ interface EnhancedError {
                 title: string;
                 price: number;
                 travel_companion: string;
-                travel_companions?: string[]; // Add array support
+                travel_companions?: string[];
                 popularity: number;
             }>;
         };
@@ -111,6 +111,305 @@ interface StepProps {
     onNext: () => void;
     onBack: () => void;
 }
+
+const CollapsibleFilter: React.FC<{
+    preferences: ItineraryFormData['preferences'];
+    city: string;
+    startDate: string;
+    endDate: string;
+    onRegenerateWithNewFilters: (newPreferences: ItineraryFormData['preferences']) => void;
+}> = ({ preferences, city, startDate, endDate, onRegenerateWithNewFilters }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [maxHeight] = useState(new Animated.Value(0));
+    const [localPreferences, setLocalPreferences] = useState<ItineraryFormData['preferences']>(preferences || {
+        experiences: [],
+        travelCompanions: [],
+        exploreTime: 'Both' as ExploreTime,
+        budget: 'Mid-range' as Budget,
+        activityIntensity: 'Moderate' as ActivityIntensity,
+        travelDistance: 'Moderate' as TravelDistance
+    });
+    const [hasChanges, setHasChanges] = useState(false);
+
+    const toggleExpanded = () => {
+        const toValue = isExpanded ? 0 : 1000; // Use a large value that's bigger than content
+
+        Animated.timing(maxHeight, {
+            toValue,
+            duration: 300,
+            useNativeDriver: false,
+        }).start();
+
+        setIsExpanded(!isExpanded);
+    };
+
+    const updatePreference = <K extends keyof NonNullable<ItineraryFormData['preferences']>>(
+        key: K,
+        value: NonNullable<ItineraryFormData['preferences']>[K]
+    ) => {
+        if (!localPreferences) return;
+        const newPreferences = { ...localPreferences, [key]: value };
+        setLocalPreferences(newPreferences);
+        setHasChanges(true);
+    };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
+    const getExperienceIcon = (exp: Experience) => {
+        switch (exp) {
+            case 'Adventure': return 'rocket';
+            case 'Cultural': return 'school';
+            case 'Food': return 'restaurant';
+            case 'Nature': return 'leaf';
+            case 'Relaxation': return 'bed';
+            case 'Nightlife': return 'moon';
+            default: return 'star';
+        }
+    };
+
+    const formatTravelCompanions = (companions?: TravelCompanion[] | TravelCompanion) => {
+        if (Array.isArray(companions)) {
+            return companions.join(', ');
+        }
+        return companions || 'Any';
+    };
+
+    return (
+        <View className="mb-4">
+            {/* Header */}
+            <TouchableOpacity
+                onPress={toggleExpanded}
+                className="bg-white rounded-xl border border-gray-200 p-4"
+                activeOpacity={0.7}
+            >
+                <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center flex-1">
+                        <Ionicons name="options-outline" size={20} color="#4F46E5" />
+                        <Text className="ml-2 font-onest-semibold text-base text-gray-900">
+                            Trip Preferences
+                        </Text>
+                        {hasChanges && (
+                            <View className="ml-2 bg-orange-100 px-2 py-1 rounded">
+                                <Text className="text-xs font-onest text-orange-600">Modified</Text>
+                            </View>
+                        )}
+                    </View>
+                    <Ionicons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={20}
+                        color="#6B7280"
+                    />
+                </View>
+            </TouchableOpacity>
+
+            {/* Expandable Content */}
+            <Animated.View
+                style={{
+                    maxHeight: maxHeight,
+                    overflow: 'hidden',
+                }}
+            >
+                <View className="bg-white rounded-xl border border-gray-200 border-t-0 rounded-t-none px-4 pb-4">
+                    {/* Experience Types */}
+                    <View className="mt-4">
+                        <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                            Experience Types
+                        </Text>
+                        <View className="flex-row flex-wrap">
+                            {(['Adventure', 'Cultural', 'Food', 'Nature', 'Relaxation', 'Nightlife'] as Experience[]).map((exp) => {
+                                const isSelected = localPreferences?.experiences?.includes(exp) || false;
+                                return (
+                                    <TouchableOpacity
+                                        key={exp}
+                                        onPress={() => {
+                                            const currentExperiences = localPreferences?.experiences || [];
+                                            const newExperiences = isSelected
+                                                ? currentExperiences.filter(e => e !== exp)
+                                                : [...currentExperiences, exp];
+                                            updatePreference('experiences', newExperiences);
+                                        }}
+                                        className={`flex-row items-center px-3 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons
+                                            name={getExperienceIcon(exp) as any}
+                                            size={16}
+                                            color={isSelected ? '#FFFFFF' : '#6B7280'}
+                                        />
+                                        <Text className={`ml-1 text-sm font-onest ${isSelected ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {exp}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* Travel Companions */}
+                    <View className="mt-4">
+                        <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                            Travel Companions
+                        </Text>
+                        <View className="flex-row flex-wrap">
+                            {(['Solo', 'Partner', 'Friends', 'Family', 'Any'] as TravelCompanion[]).map((companion) => {
+                                const currentCompanions = localPreferences?.travelCompanions || [];
+                                const isSelected = currentCompanions.includes(companion);
+                                return (
+                                    <TouchableOpacity
+                                        key={companion}
+                                        onPress={() => {
+                                            const newCompanions = isSelected
+                                                ? currentCompanions.filter(c => c !== companion)
+                                                : [...currentCompanions, companion];
+                                            updatePreference('travelCompanions', newCompanions);
+                                        }}
+                                        className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className={`text-sm font-onest ${isSelected ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {companion}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* Other Preferences */}
+                    <View className="mt-4 space-y-3">
+                        {/* Explore Time */}
+                        <View>
+                            <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                                Explore Time
+                            </Text>
+                            <View className="flex-row">
+                                {(['Daytime', 'Nighttime', 'Both'] as ExploreTime[]).map((time) => (
+                                    <TouchableOpacity
+                                        key={time}
+                                        onPress={() => updatePreference('exploreTime', time)}
+                                        className={`px-3 py-2 rounded-lg mr-2 border ${localPreferences?.exploreTime === time
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className={`text-sm font-onest ${localPreferences?.exploreTime === time ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {time}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        {/* Budget */}
+                        <View>
+                            <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                                Budget
+                            </Text>
+                            <View className="flex-row flex-wrap">
+                                {(['Free', 'Budget-friendly', 'Mid-range', 'Premium'] as Budget[]).map((budget) => (
+                                    <TouchableOpacity
+                                        key={budget}
+                                        onPress={() => updatePreference('budget', budget)}
+                                        className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${localPreferences?.budget === budget
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className={`text-sm font-onest ${localPreferences?.budget === budget ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {budget}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        {/* Activity Intensity */}
+                        <View>
+                            <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                                Activity Intensity
+                            </Text>
+                            <View className="flex-row">
+                                {(['Low', 'Moderate', 'High'] as ActivityIntensity[]).map((intensity) => (
+                                    <TouchableOpacity
+                                        key={intensity}
+                                        onPress={() => updatePreference('activityIntensity', intensity)}
+                                        className={`px-3 py-2 rounded-lg mr-2 border ${localPreferences?.activityIntensity === intensity
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className={`text-sm font-onest ${localPreferences?.activityIntensity === intensity ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {intensity}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        {/* Travel Distance */}
+                        <View>
+                            <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+                                Travel Distance
+                            </Text>
+                            <View className="flex-row">
+                                {(['Nearby', 'Moderate', 'Far'] as TravelDistance[]).map((distance) => (
+                                    <TouchableOpacity
+                                        key={distance}
+                                        onPress={() => updatePreference('travelDistance', distance)}
+                                        className={`px-3 py-2 rounded-lg mr-2 border ${localPreferences?.travelDistance === distance
+                                            ? 'bg-primary border-primary'
+                                            : 'bg-white border-gray-300'
+                                            }`}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className={`text-sm font-onest ${localPreferences?.travelDistance === distance ? 'text-white' : 'text-gray-700'
+                                            }`}>
+                                            {distance}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Apply Changes Button */}
+                    {hasChanges && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                onRegenerateWithNewFilters(localPreferences);
+                                setIsExpanded(false);
+                                setHasChanges(false);
+                            }}
+                            className="mt-4 bg-primary py-3 rounded-xl"
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-center font-onest-semibold text-white">
+                                Apply Changes & Regenerate
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </Animated.View>
+        </View>
+    );
+};
 
 const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, onNext, onBack }) => {
     const [loading, setLoading] = useState(false);
@@ -193,6 +492,15 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleRegenerateWithNewFilters = (newPreferences: ItineraryFormData['preferences']) => {
+        setFormData({
+            ...formData,
+            preferences: newPreferences
+        });
+        // Trigger regeneration with new preferences
+        setTimeout(() => generateItinerary(), 100);
     };
 
     // Remove item functionality
@@ -601,7 +909,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
     const totalDays = Object.keys(groupedItems).length;
 
     return (
-        <View className="flex-1 p-4">
+        <View className="flex-1 bg-gray-50">
             {isPreview && (
                 <View className="bg-blue-50 border-b border-blue-200 px-4 py-3">
                     <View className="flex-row items-center justify-center">
@@ -613,167 +921,169 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                 </View>
             )}
             <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                {/* Header */}
-                <View className="mb-6">
-                    {/* Stats */}
-                    <View className="bg-gray-50 rounded-xl p-4 mb-4">
-                        <View className="flex-row justify-between items-center">
-                            <View className="items-center">
-                                <Text className="text-2xl font-onest-bold text-primary">
-                                    {totalDays}
-                                </Text>
-                                <Text className="text-xs text-gray-600 font-onest">
-                                    Days
-                                </Text>
-                            </View>
-                            <View className="items-center">
-                                <Text className="text-2xl font-onest-bold text-primary">
-                                    {generatedItinerary.items.length}
-                                </Text>
-                                <Text className="text-xs text-gray-600 font-onest">
-                                    Activities
-                                </Text>
-                            </View>
-                            <View className="items-center">
-                                <Text className={`text-sm font-onest-medium capitalize ${getActivityIntensityColor(formData.preferences?.activityIntensity || '')}`}>
-                                    {formData.preferences?.activityIntensity || ''}
-                                </Text>
-                                <Text className="text-xs text-gray-600 font-onest">
-                                    Intensity
-                                </Text>
+                <View className="p-4">
+                    {/* Collapsible Filter */}
+                    <CollapsibleFilter
+                        preferences={formData.preferences}
+                        city={formData.city}
+                        startDate={formData.start_date}
+                        endDate={formData.end_date}
+                        onRegenerateWithNewFilters={handleRegenerateWithNewFilters}
+                    />
+
+                    {/* Header */}
+                    <View className="mb-6">
+                        {/* Stats */}
+                        <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                            <View className="flex-row justify-between items-center">
+                                <View className="items-center">
+                                    <Text className="text-2xl font-onest-bold text-primary">
+                                        {totalDays}
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 font-onest">
+                                        Days
+                                    </Text>
+                                </View>
+                                <View className="items-center">
+                                    <Text className="text-2xl font-onest-bold text-primary">
+                                        {generatedItinerary.items.length}
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 font-onest">
+                                        Activities
+                                    </Text>
+                                </View>
+                                <View className="items-center">
+                                    <Text className={`text-sm font-onest-medium capitalize ${getActivityIntensityColor(formData.preferences?.activityIntensity || '')}`}>
+                                        {formData.preferences?.activityIntensity || ''}
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 font-onest">
+                                        Intensity
+                                    </Text>
+                                </View>
                             </View>
                         </View>
                     </View>
 
-                    {/* Show selected travel companions */}
-                    {(formData.preferences?.travelCompanions || formData.preferences?.travelCompanion) && (
-                        <View className="bg-blue-50 rounded-lg p-3 mb-4">
-                            <Text className="text-xs text-blue-700 font-onest">
-                                Travel companions: {formatTravelCompanions(formData.preferences?.travelCompanions || formData.preferences?.travelCompanion)}
-                            </Text>
-                        </View>
-                    )}
-                </View>
+                    {/* Itinerary Days */}
+                    {Object.keys(groupedItems).map((dayNumber) => {
+                        const dayItems = groupedItems[parseInt(dayNumber)];
+                        const dayDate = new Date(generatedItinerary.start_date);
+                        dayDate.setDate(dayDate.getDate() + parseInt(dayNumber) - 1);
 
-                {/* Itinerary Days */}
-                {Object.keys(groupedItems).map((dayNumber) => {
-                    const dayItems = groupedItems[parseInt(dayNumber)];
-                    const dayDate = new Date(generatedItinerary.start_date);
-                    dayDate.setDate(dayDate.getDate() + parseInt(dayNumber) - 1);
-
-                    return (
-                        <View key={dayNumber} className="mb-6">
-                            {/* Day Header */}
-                            <View className="flex-row items-center mb-3">
-                                <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3">
-                                    <Text className="text-white font-onest-bold text-sm">
-                                        {dayNumber}
+                        return (
+                            <View key={dayNumber} className="mb-6">
+                                {/* Day Header */}
+                                <View className="flex-row items-center mb-3">
+                                    <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3">
+                                        <Text className="text-white font-onest-bold text-sm">
+                                            {dayNumber}
+                                        </Text>
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="font-onest-semibold text-lg">
+                                            Day {dayNumber}
+                                        </Text>
+                                        <Text className="text-gray-600 font-onest text-sm">
+                                            {formatDate(dayDate.toISOString())}
+                                        </Text>
+                                    </View>
+                                    <Text className="text-gray-500 font-onest text-xs">
+                                        {dayItems.length} {dayItems.length !== 1 ? 'activities' : 'activity'}
                                     </Text>
                                 </View>
-                                <View className="flex-1">
-                                    <Text className="font-onest-semibold text-lg">
-                                        Day {dayNumber}
-                                    </Text>
-                                    <Text className="text-gray-600 font-onest text-sm">
-                                        {formatDate(dayDate.toISOString())}
-                                    </Text>
-                                </View>
-                                <Text className="text-gray-500 font-onest text-xs">
-                                    {dayItems.length} {dayItems.length !== 1 ? 'activities' : 'activity'}
-                                </Text>
-                            </View>
 
-                            {/* Day Items */}
-                            {dayItems.map((item, index) => (
-                                <View key={`${dayNumber}-${index}`} className="mb-4">
-                                    <View className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                        {/* Image */}
-                                        {item.primary_image && (
-                                            <Image
-                                                source={{ uri: `${API_URL}/${item.primary_image}` }}
-                                                className="w-full h-32"
-                                                resizeMode="cover"
-                                            />
-                                        )}
+                                {/* Day Items */}
+                                {dayItems.map((item, index) => (
+                                    <View key={`${dayNumber}-${index}`} className="mb-4">
+                                        <View className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                            {/* Image */}
+                                            {item.primary_image && (
+                                                <Image
+                                                    source={{ uri: `${API_URL}/${item.primary_image}` }}
+                                                    className="w-full h-32"
+                                                    resizeMode="cover"
+                                                />
+                                            )}
 
-                                        {/* Content */}
-                                        <View className="p-4">
-                                            <View className="flex-row justify-between items-start mb-2">
-                                                <View className="flex-1 mr-3">
-                                                    <Text className="font-onest-semibold text-base mb-1">
-                                                        {item.experience_name || 'Experience'}
-                                                    </Text>
-                                                    <Text className="text-gray-600 font-onest text-sm">
-                                                        {item.destination_name}
-                                                    </Text>
-                                                </View>
-                                                <View className="items-end">
-                                                    <Text className="font-onest-bold text-primary">
-                                                        {formatTime(item.start_time)} - {formatTime(item.end_time)}
-                                                    </Text>
-                                                    {item.price && item.price > 0 && (
+                                            {/* Content */}
+                                            <View className="p-4">
+                                                <View className="flex-row justify-between items-start mb-2">
+                                                    <View className="flex-1 mr-3">
+                                                        <Text className="font-onest-semibold text-base mb-1">
+                                                            {item.experience_name || 'Experience'}
+                                                        </Text>
                                                         <Text className="text-gray-600 font-onest text-sm">
-                                                            ₱{item.price} {item.unit && `/ ${item.unit}`}
+                                                            {item.destination_name}
                                                         </Text>
-                                                    )}
+                                                    </View>
+                                                    <View className="items-end">
+                                                        <Text className="font-onest-bold text-primary">
+                                                            {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                                                        </Text>
+                                                        {item.price && item.price > 0 && (
+                                                            <Text className="text-gray-600 font-onest text-sm">
+                                                                ₱{item.price} {item.unit && `/ ${item.unit}`}
+                                                            </Text>
+                                                        )}
+                                                    </View>
                                                 </View>
-                                            </View>
 
-                                            {item.experience_description && (
-                                                <Text className="text-gray-700 font-onest text-sm mb-2">
-                                                    {item.experience_description}
-                                                </Text>
-                                            )}
-
-                                            {item.custom_note && (
-                                                <View className="bg-blue-50 rounded-lg p-2 mt-2">
-                                                    <Text className="text-blue-800 font-onest text-xs">
-                                                        {item.custom_note}
+                                                {item.experience_description && (
+                                                    <Text className="text-gray-700 font-onest text-sm mb-2">
+                                                        {item.experience_description}
                                                     </Text>
-                                                </View>
-                                            )}
+                                                )}
 
-                                            {/* Remove button - only show in preview mode */}
-                                            {isPreview && (
-                                                <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
-                                                    <TouchableOpacity
-                                                        onPress={() => removeItem(item)}
-                                                        className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
-                                                        activeOpacity={0.7}
-                                                    >
-                                                        <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                                                        <Text className="ml-2 text-red-600 font-onest text-sm">
-                                                            Remove
+                                                {item.custom_note && (
+                                                    <View className="bg-blue-50 rounded-lg p-2 mt-2">
+                                                        <Text className="text-blue-800 font-onest text-xs">
+                                                            {item.custom_note}
                                                         </Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            )}
+                                                    </View>
+                                                )}
+
+                                                {/* Remove button - only show in preview mode */}
+                                                {isPreview && (
+                                                    <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
+                                                        <TouchableOpacity
+                                                            onPress={() => removeItem(item)}
+                                                            className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
+                                                            activeOpacity={0.7}
+                                                        >
+                                                            <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                                                            <Text className="ml-2 text-red-600 font-onest text-sm">
+                                                                Remove
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-                            ))}
+                                ))}
 
-                            {/* Show message if day has no experiences */}
-                            {dayItems.length === 0 && (
-                                <View className="bg-gray-50 rounded-xl p-6 items-center">
-                                    <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
-                                    <Text className="text-gray-500 font-onest text-sm mt-2">
-                                        No activities scheduled for this day
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    );
-                })}
+                                {/* Show message if day has no experiences */}
+                                {dayItems.length === 0 && (
+                                    <View className="bg-gray-50 rounded-xl p-6 items-center">
+                                        <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
+                                        <Text className="text-gray-500 font-onest text-sm mt-2">
+                                            No activities scheduled for this day
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })}
+                </View>
             </ScrollView>
 
             {/* Navigation Buttons */}
-            <View className="px-4">
+            <View className="px-4 bg-white border-t border-gray-200">
                 {isPreview ? (
-                    <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200">
+                    <View className="flex-row justify-between py-4">
                         <TouchableOpacity
                             onPress={onBack}
-                            className="py-4 px-6 rounded-xl border border-gray-300"
+                            className="py-3 px-5 rounded-xl border border-gray-300"
                             activeOpacity={0.7}
                             disabled={saving}
                         >
@@ -784,7 +1094,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
 
                         <TouchableOpacity
                             onPress={handleRetry}
-                            className="py-4 px-6 rounded-xl border border-primary"
+                            className="py-3 px-5 rounded-xl border border-primary"
                             activeOpacity={0.7}
                             disabled={saving}
                         >
@@ -795,7 +1105,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
 
                         <TouchableOpacity
                             onPress={saveItinerary}
-                            className="py-4 px-8 rounded-xl bg-primary"
+                            className="py-3 px-7 rounded-xl bg-primary"
                             activeOpacity={0.7}
                             disabled={saving}
                         >
@@ -809,7 +1119,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <View className="items-center mt-4 pt-2 border-t border-gray-200">
+                    <View className="items-center py-4">
                         <View className="flex-row items-center mb-3">
                             <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                             <Text className="ml-2 text-green-600 font-onest-medium">
