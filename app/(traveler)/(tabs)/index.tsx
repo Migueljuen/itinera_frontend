@@ -406,12 +406,8 @@ const App = () => {
           onPress={() => router.push('/(createItinerary)/selectionScreen')}
         >
           <View className="flex-row items-center">
-            <Image
-              source={require('../../../assets/icons/plus.png')}
-              className="w-5 h-5 mr-2 opacity-80"
-              resizeMode="contain"
-            />
-            <Text className="text-gray-300 font-onest">Build My Trip</Text>
+            <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
+            <Text className="text-gray-300 font-onest ml-2">Build My Trip</Text>
           </View>
         </TouchableOpacity>
       </View>
