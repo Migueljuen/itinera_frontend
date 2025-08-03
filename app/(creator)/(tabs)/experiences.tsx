@@ -526,17 +526,17 @@ const CreatorDashboard: React.FC = () => {
                             onPress={() => typeof page === 'number' && setCurrentPage(page)}
                             disabled={page === '...'}
                             className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                                ? 'bg-primary'
-                                : page === '...'
-                                  ? 'bg-transparent'
-                                  : 'bg-white border border-gray-300'
+                              ? 'bg-primary'
+                              : page === '...'
+                                ? 'bg-transparent'
+                                : 'bg-white border border-gray-300'
                               }`}
                           >
                             <Text className={`font-onest-medium ${page === currentPage
-                                ? 'text-white'
-                                : page === '...'
-                                  ? 'text-gray-400'
-                                  : 'text-gray-700'
+                              ? 'text-white'
+                              : page === '...'
+                                ? 'text-gray-400'
+                                : 'text-gray-700'
                               }`}>
                               {page}
                             </Text>
@@ -620,8 +620,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'active')}
                   disabled={updatingStatus || selectedExperience?.status === 'active'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border ${selectedExperience?.status === 'active'
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-white border-gray-200'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >
@@ -644,8 +644,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'draft')}
                   disabled={updatingStatus || selectedExperience?.status === 'draft'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border mt-3 ${selectedExperience?.status === 'draft'
-                      ? 'bg-yellow-50 border-yellow-200'
-                      : 'bg-white border-gray-200'
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >
@@ -668,8 +668,8 @@ const CreatorDashboard: React.FC = () => {
                   onPress={() => selectedExperience && updateExperienceStatus(selectedExperience.experience_id, 'inactive')}
                   disabled={updatingStatus || selectedExperience?.status === 'inactive'}
                   className={`flex-row items-center justify-between p-4 rounded-xl border mt-3 ${selectedExperience?.status === 'inactive'
-                      ? 'bg-gray-100 border-gray-300'
-                      : 'bg-white border-gray-200'
+                    ? 'bg-gray-100 border-gray-300'
+                    : 'bg-white border-gray-200'
                     }`}
                   activeOpacity={0.7}
                 >

@@ -320,10 +320,10 @@ const ProfileScreen: React.FC = () => {
         return;
       }
 
-      console.log('Uploading to:', `${API_URL}/user/${userData.user_id}`);
+      console.log('Uploading to:', `${API_URL}/users/${userData.user_id}`);
 
       // Make request
-      const response = await fetch(`${API_URL}/user/${userData.user_id}`, {
+      const response = await fetch(`${API_URL}/users/${userData.user_id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

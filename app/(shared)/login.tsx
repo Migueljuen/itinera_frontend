@@ -69,7 +69,7 @@ export default function Login() {
         <View className="px-12 gap-4">
           {/* Email input */}
           <View>
-            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+            <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
               <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
               <TextInput
                 placeholder="Email"
@@ -89,7 +89,7 @@ export default function Login() {
 
           {/* Password input */}
           <View>
-            <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+            <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
               <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
               <TextInput
                 placeholder="Password"
@@ -143,7 +143,7 @@ export default function Login() {
           </Text>
 
           <TouchableOpacity
-            className="bg-white shadow-md shadow-zinc-200 py-4 rounded-md"
+            className="bg-white border border-gray-300  shadow-zinc-200 py-4 rounded-md"
           >
             <View className="flex flex-row items-center justify-center">
               <Image source={require('../../assets/images/google.png')} style={{ width: 20, height: 20 }} />

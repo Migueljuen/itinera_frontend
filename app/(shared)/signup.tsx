@@ -129,7 +129,7 @@ export default function Signup() {
               <View className="gap-4">
                 {/* First Name */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="First Name"
                       placeholderTextColor="#9CA3AF"
@@ -146,7 +146,7 @@ export default function Signup() {
 
                 {/* Last Name */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Last Name"
                       placeholderTextColor="#9CA3AF"
@@ -173,7 +173,7 @@ export default function Signup() {
               <View className="space-y-3">
                 {/* Email */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Email"
                       placeholderTextColor="#9CA3AF"
@@ -202,7 +202,7 @@ export default function Signup() {
               <View className="gap-4">
                 {/* Password */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Password"
                       placeholderTextColor="#9CA3AF"
@@ -230,7 +230,7 @@ export default function Signup() {
 
                 {/* Confirm Password */}
                 <View>
-                  <View className="flex-row items-center bg-gray-100 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
                     <TextInput
                       placeholder="Confirm Password"
                       placeholderTextColor="#9CA3AF"
@@ -259,7 +259,7 @@ export default function Signup() {
             </View>
 
             {/* Password Requirements */}
-            <View className="bg-gray-50 rounded-md p-4 mb-6">
+            <View className=" bg-gray-100 rounded-md p-4 mb-6">
               <Text className="text-sm font-medium text-gray-700 mb-2">Password Requirements:</Text>
               <View className="space-y-1">
                 <View className="flex-row items-center">

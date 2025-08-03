@@ -1,16 +1,12 @@
-import { View, Text, TouchableOpacity, Image, ScrollView, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import React, { useState } from 'react';
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useFonts } from "expo-font";
 import Logo from "../../assets/images/undraw.svg";
 import Logo1 from "../../assets/images/undraw1.svg";
 import Logo2 from "../../assets/images/undraw2.svg";
-import { useFonts } from "expo-font";
-// import { experiences } from '../../data/experiences'
-// import { Heart } from 'lucide-react-native';
-// import Home from '../../assets/icons/home.svg'
-
 
 const categories = ['All', 'Food', 'Culture', 'Adventure', 'Fitness', 'Relaxation', 'Sports', 'Music', 'Art'];
 
