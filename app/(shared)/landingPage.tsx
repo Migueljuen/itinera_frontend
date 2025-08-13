@@ -10,7 +10,6 @@
 
 // const categories = ['All', 'Food', 'Culture', 'Adventure', 'Fitness', 'Relaxation', 'Sports', 'Music', 'Art'];
 
-
 // export default function landingPage() {
 //   const [selectedCategory, setSelectedCategory] = useState('All'); // default selected
 
@@ -121,8 +120,6 @@
 //             <Text className="text-center mt-8 text-grey">© 2025 Itinera. All rights reserved</Text>
 //           </View>
 
-
-
 //         </ScrollView >
 //       </View>
 
@@ -130,7 +127,7 @@
 //   );
 // }
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from "react";
 import {
   Dimensions,
   NativeScrollEvent,
@@ -140,12 +137,11 @@ import {
   TouchableOpacity,
   View,
   Image,
-  ImageBackground
-} from 'react-native';
-
-const { width } = Dimensions.get('window');
+  ImageBackground,
+} from "react-native";
+import { useFonts } from "expo-font";
+const { width } = Dimensions.get("window");
 const router = useRouter();
-
 
 interface OnboardingSlide {
   id: string;
@@ -156,37 +152,47 @@ interface OnboardingSlide {
 
 const onboardingData: OnboardingSlide[] = [
   {
-    id: '1',
-    title: 'Uncover Real Experiences',
-    description: 'Go beyond the itinerary—discover unique moments that make every trip unforgettable.',
-    image: require('../../assets/images/1.jpg')
+    id: "1",
+    title: "Uncover Real Experiences",
+    description:
+      "Go beyond the itinerary—discover unique moments that make every trip unforgettable.",
+    image: require("../../assets/images/1.jpg"),
   },
   {
-    id: '2',
-    title: 'Personalized Recommendations',
-    description: 'Plan, customize, and optimize your trips. Whether its for vacations or everyday adventures.',
-    image: require('../../assets/images/1.jpg')
-
+    id: "2",
+    title: "Personalized Recommendations",
+    description:
+      "Plan, customize, and optimize your trips. Whether its for vacations or everyday adventures.",
+    image: require("../../assets/images/1.jpg"),
   },
   {
-    id: '3',
-    title: 'Feel every moment',
-    description: 'It’s not about where you go, but how it makes you feel. Travel with meaning.',
-    image: require('../../assets/images/1.jpg')
-
+    id: "3",
+    title: "Feel every moment",
+    description:
+      "It’s not about where you go, but how it makes you feel. Travel with meaning.",
+    image: require("../../assets/images/1.jpg"),
   },
   {
-    id: '4',
-    title: 'Get Started',
-    description: 'Ready to begin your journey? Let\'s dive in and explore together!',
-    image: require('../../assets/images/1.jpg')
-
+    id: "4",
+    title: "Get Started",
+    description:
+      "Ready to begin your journey? Let's dive in and explore together!",
+    image: require("../../assets/images/1.jpg"),
   },
 ];
 
 const OnboardingCarousel: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // const [fontsLoaded] = useFonts({
+  //   "Onest-Medium": require("../../assets/fonts/Onest-Medium.ttf"),
+  //   "Onest-ExtraBold": require("../../assets/fonts/Onest-ExtraBold.ttf"),
+  //   "Onest-Bold": require("../../assets/fonts/Onest-Bold.ttf"),
+  //   "Onest-SemiBold": require("../../assets/fonts/Onest-SemiBold.ttf"),
+  //   "Onest-Regular": require("../../assets/fonts/Onest-Regular.ttf"),
+  //   "Onest-Light": require("../../assets/fonts/Onest-Light.ttf"),
+  // });
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -202,11 +208,13 @@ const OnboardingCarousel: React.FC = () => {
     setCurrentIndex(index);
   };
 
-
   return (
     <View className="flex-1  font-onest flex items-center justify-start">
       {/* Carousel */}
-      <Image source={require('../../assets/images/logo.png')} style={{ width: 150, height: 150, marginTop: 36 }} />
+      <Image
+        source={require("../../assets/images/logo.png")}
+        style={{ width: 150, height: 150, marginTop: 36 }}
+      />
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -216,31 +224,23 @@ const OnboardingCarousel: React.FC = () => {
         scrollEventThrottle={16}
         className=""
       >
-
         {onboardingData.map((slide, index) => (
           <View
             key={slide.id}
-
             className="justify-center items-center px-8  flex-1"
             style={{ width }}
-
           >
-
             <Image
               source={slide.image}
               className="h-[70%] mb-4"
               resizeMode="contain"
             />
-
-
             <Text className="text-black/90 text-4xl font-onest-bold text-center leading-tight mb-4">
               {slide.title}
             </Text>
-
             <Text className="text-black/60 text-lg font-onest text-center leading-6 opacity-90 ">
               {slide.description}
             </Text>
-
           </View>
         ))}
       </ScrollView>
@@ -253,19 +253,22 @@ const OnboardingCarousel: React.FC = () => {
             <TouchableOpacity
               key={index}
               onPress={() => goToSlide(index)}
-              className={`h-3 rounded-full mx-1 ${index === currentIndex
-                ? 'bg-buttonPrimary w-8'
-                : 'bg-gray-300 w-3'
-                }`}
+              className={`h-3 rounded-full mx-1 ${
+                index === currentIndex
+                  ? "bg-buttonPrimary w-8"
+                  : "bg-gray-300 w-3"
+              }`}
             />
           ))}
         </View>
 
-
-        <TouchableOpacity onPress={() => router.replace("/login")} className="bg-buttonSecondary px-16 py-4  rounded-full">
-//               <Text className="text-white text-center text-xl">Get started</Text>
-//             </TouchableOpacity>
-
+        <TouchableOpacity
+          onPress={() => router.replace("/login")}
+          className="bg-buttonSecondary px-16 py-4  rounded-full"
+        >
+          <Text className="text-white text-center text-xl">Get started</Text>
+          {/* {" "} */}
+        </TouchableOpacity>
       </View>
     </View>
   );
