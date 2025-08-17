@@ -115,7 +115,24 @@ const AnimatedHeartButton: React.FC<AnimatedHeartButtonProps> = ({
             });
         } else {
             // When unsaved, ensure all animations are reset immediately
-            scaleAnim.setValue(1);
+                        // Main heart animation
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 0.8,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(scaleAnim, {
+                    toValue: 1.2,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(scaleAnim, {
+                    toValue: 1,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+            ]).start();
             ringScale.setValue(0);
             ringOpacity.setValue(0);
 

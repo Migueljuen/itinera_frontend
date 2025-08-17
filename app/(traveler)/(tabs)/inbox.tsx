@@ -1,19 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    AppState,
+    AppStateStatus,
     DeviceEventEmitter,
     RefreshControl,
-    SafeAreaView,
     ScrollView,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
 import { NotificationEvents } from '../../../utils/notificationEvents';
@@ -50,6 +53,7 @@ const InboxScreen = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [markingAsRead, setMarkingAsRead] = useState(false);
+    const [isScreenFocused, setIsScreenFocused] = useState(false);
 
     const filters = ['All', 'Itineraries', 'Activities', 'Updates'];
 
@@ -83,12 +87,65 @@ const InboxScreen = () => {
         }
     }, [activeFilter]);
 
-    // Fetch notifications on mount and when filter changes
-    useEffect(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
+    // Track screen focus state and fetch on focus
+    useFocusEffect(
+        useCallback(() => {
+            setIsScreenFocused(true);
+            console.log('Inbox screen focused, fetching notifications...');
+            fetchNotifications();
+            
+            return () => {
+                setIsScreenFocused(false);
+                console.log('Inbox screen unfocused');
+            };
+        }, [fetchNotifications])
+    );
 
-    // 🎯 NEW: Listen for notification events to auto-refresh
+    // Smart polling - only when screen is focused AND app is active
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        
+        const startPolling = () => {
+            if (interval) clearInterval(interval);
+            interval = setInterval(() => {
+                console.log('Polling for notifications (screen active)...');
+                fetchNotifications();
+            }, 15000); // 15 seconds when actively viewing inbox
+        };
+        
+        const stopPolling = () => {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+            }
+        };
+        
+        const handleAppStateChange = (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active' && isScreenFocused) {
+                console.log('App became active while inbox focused, refreshing...');
+                fetchNotifications(); // Immediate refresh
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        };
+        
+        // Start/stop polling based on screen focus
+        if (isScreenFocused && AppState.currentState === 'active') {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+        
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+        
+        return () => {
+            stopPolling();
+            subscription?.remove();
+        };
+    }, [isScreenFocused, fetchNotifications]);
+
+    // Listen for notification events to auto-refresh
     useEffect(() => {
         console.log('Setting up notification event listeners in inbox...');
 
@@ -196,7 +253,6 @@ const InboxScreen = () => {
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     const handleNotificationPress = async (notification: Notification) => {
-
         router.push(`/(traveler)/(notification)/${notification.id}`);
         // // Mark as read if unread
         // if (!notification.is_read) {
@@ -304,11 +360,9 @@ const InboxScreen = () => {
                             <TouchableOpacity
                                 key={filter}
                                 onPress={() => setActiveFilter(filter)}
-                                className={`px-6 py-2 rounded-full mr-3 ${isActive ? 'bg-gray-800' : 'bg-white'
-                                    }`}
+                                className={`px-6 py-2 rounded-full mr-3 ${isActive ? 'bg-gray-800' : 'bg-white'}`}
                             >
-                                <Text className={`font-onest-medium ${isActive ? 'text-white' : 'text-gray-400'
-                                    }`}>
+                                <Text className={`text-base font-onest-medium ${isActive ? 'text-white' : 'text-gray-400'}`}>
                                     {filter}
                                 </Text>
                             </TouchableOpacity>
@@ -357,8 +411,7 @@ const InboxScreen = () => {
 
                                     <TouchableOpacity
                                         onPress={() => handleNotificationPress(notification)}
-                                        className={`bg-white rounded-2xl p-4 mb-3 ${!notification.is_read ? 'border-l-4 border-primary' : ''
-                                            }`}
+                                        className={`bg-white rounded-2xl p-4 mb-3 ${!notification.is_read ? 'border-l-4 border-primary' : ''}`}
                                         style={{
                                             shadowColor: '#000',
                                             shadowOffset: { width: 0, height: 2 },
@@ -384,8 +437,7 @@ const InboxScreen = () => {
                                             {/* Content */}
                                             <View className="flex-1">
                                                 <View className="flex-row justify-between items-start mb-1">
-                                                    <Text className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read ? 'text-gray-800' : 'text-gray-600'
-                                                        }`}>
+                                                    <Text className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read ? 'text-gray-800' : 'text-gray-600'}`}>
                                                         {notification.title}
                                                     </Text>
                                                     <View className="flex-row items-center">

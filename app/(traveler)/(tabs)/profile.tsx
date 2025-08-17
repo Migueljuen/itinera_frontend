@@ -12,13 +12,13 @@ import {
   Image,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Switch,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../contexts/RefreshContext';
