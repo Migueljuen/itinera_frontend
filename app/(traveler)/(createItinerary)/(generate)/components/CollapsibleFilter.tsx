@@ -328,3 +328,6 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
         </View>
     );
 };
+
+// Add the default export
+export default CollapsibleFilter;

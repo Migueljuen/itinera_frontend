@@ -463,34 +463,31 @@ export default function TripScreen() {
                     {/* Tab Navigation with improved shadow */}
                     <View className="mx-6 mb-6">
                         <View
-                            className="flex-row bg-white rounded-2xl p-1"
-                            style={{
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: 0.06,
-                                shadowRadius: 8,
-                                elevation: 3,
-                            }}
+                            className="flex-row -mx-2"
+
                         >
                             {['upcoming', 'ongoing', 'completed'].map((tab) => (
                                 <TouchableOpacity
                                     key={tab}
                                     onPress={() => setActiveTab(tab as 'upcoming' | 'ongoing' | 'completed')}
-                                    className={`flex-1 py-3 px-3 rounded-xl ${activeTab === tab ? 'bg-gray-800' : 'bg-transparent'}`}
-                                    style={activeTab === tab ? {
-                                        shadowColor: '#000',
-                                        shadowOffset: { width: 0, height: 1 },
-                                        shadowOpacity: 0.1,
-                                        shadowRadius: 3,
-                                        elevation: 2,
-                                    } : {}}
+                                    className={`flex-1 py-2 px-6 mr-3 rounded-full ${activeTab === tab ? 'bg-gray-800' : 'bg-white'}`}
+
                                 >
                                     <Text
-                                        className={`text-center font-onest-medium capitalize text-sm ${activeTab === tab ? 'text-white' : 'text-gray-500'
+                                        className={`text-center font-onest-medium text-base capitalize ${activeTab === tab ? 'text-white' : 'text-gray-500'
                                             }`}
                                     >
                                         {tab}
                                     </Text>
+                                    {/* <TouchableOpacity
+                                                        key={index}
+                                                        onPress={() => setSelectedCategory(category)}
+                                                        className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
+                                                      >
+                                                        <Text className={`text-base font-onest-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                                          {category}
+                                                        </Text>
+                                                      </TouchableOpacity> */}
                                 </TouchableOpacity>
                             ))}
                         </View>
