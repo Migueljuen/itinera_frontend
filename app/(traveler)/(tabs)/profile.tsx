@@ -534,7 +534,7 @@ const ProfileScreen: React.FC = () => {
   const statsData = [
     { value: profileStats.totalItineraries, label: 'Itineraries Completed' },
     { value: profileStats.completedItineraries, label: 'Activities Finished' },
-    { value: loadingSavedExperiences ? '...' : profileStats.savedExperiences, label: 'Saved' },
+    { value: loadingSavedExperiences ? '...' : profileStats.savedExperiences, label: 'Saved Activities' },
     { value: profileStats.upcomingTrips, label: 'Upcoming' }
   ];
 
@@ -621,7 +621,7 @@ const ProfileScreen: React.FC = () => {
           </View>
 
           <TouchableOpacity
-            className="bg-gray-50 rounded-xl py-3 flex-row items-center justify-center"
+            className=" rounded-xl py-3 flex-row items-center justify-center"
             onPress={() => router.push('/(traveler)/(profile)/edit')}
           >
             <Ionicons name="create-outline" size={20} color="#1f2937" />
@@ -660,11 +660,11 @@ const ProfileScreen: React.FC = () => {
               {recentExperiences.map((item: SavedExperience) => (
                 <TouchableOpacity
                   key={item.id}
-                  className={`${cardStyle} mr-3 overflow-hidden w-48`}
+                  className={`${cardStyle} mr-3 overflow-hidden w-72  border border-gray-200 `}
                   style={shadowStyle}
                   onPress={() => router.push(`/(traveler)/(experience)/${item.experience_id}`)}
                 >
-                  <View className="w-full h-32 bg-gray-200">
+                  <View className="w-full h-32 ">
                     {item.images && item.images.length > 0 && item.images[0] ? (
                       <Image
                         source={{ uri: getFormattedImageUrl(item.images[0])! }}
@@ -678,21 +678,25 @@ const ProfileScreen: React.FC = () => {
                       </View>
                     )}
                   </View>
-                  <View className="p-3">
-                    <Text className="font-onest-medium text-sm text-gray-800" numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <Text className="text-xs text-gray-500 font-onest mt-1">
-                      {item.destination_name && item.city && `${item.destination_name}, ${item.city}`}
-                    </Text>
-                    <Text className="text-xs text-gray-400 font-onest mt-1">
-                      Saved {new Date(item.saved_at).toLocaleDateString()}
-                    </Text>
-                    {item.price && (
-                      <Text className="text-sm font-onest-semibold text-primary mt-1">
-                        ₱{item.price} {item.unit}
+                  <View className="p-3 flex justify-between h-28">
+                    <View>
+                      <Text className="font-onest-medium text-sm text-gray-800" numberOfLines={1}>
+                        {item.title}
                       </Text>
-                    )}
+                      <Text className="text-xs text-gray-500 font-onest mt-1">
+                        {item.destination_name && item.city && `${item.destination_name}, ${item.city}`}
+                      </Text>
+                    </View>
+                    <View className='flex-row justify-between'>
+                      <Text className="text-xs text-gray-400 font-onest mt-1">
+                        Saved {new Date(item.saved_at).toLocaleDateString()}
+                      </Text>
+                      {item.price && (
+                        <Text className="text-sm font-onest-semibold text-primary mt-1">
+                          ₱{item.price} {item.unit}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))}
