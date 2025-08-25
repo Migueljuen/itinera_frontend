@@ -475,7 +475,7 @@ export default function TripScreen() {
                                 >
                                     <Text
                                         className={`text-center font-onest-medium text-base capitalize ${activeTab === tab ? 'text-white' : 'text-gray-500'
-                                        className={`text-center font-onest-medium text-base capitalize ${activeTab === tab ? 'text-white' : 'text-gray-500'
+
                                             }`}
                                     >
                                         {tab}
