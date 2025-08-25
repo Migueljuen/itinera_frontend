@@ -145,7 +145,8 @@ export const AuthProvider = ({ children }) => {
   
       return { success: true, user };
 
-    } catch (error) {
+    } 
+    catch (error) {
       console.error('Login error:', error);
       const errorMessage =
         error?.response?.data?.error || 'Login failed. Please try again.';

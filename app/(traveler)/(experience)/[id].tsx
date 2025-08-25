@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AvailabilityCalendar from '../../../components/AvailablityCalendar';
 import AnimatedHeartButton from '../../../components/SaveButton'; // Adjust the import path as needed
@@ -54,6 +54,27 @@ export default function ExperienceDetail() {
     const [activeTab, setActiveTab] = useState('details');
     const [showAllReviews, setShowAllReviews] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const scrollY = useRef(new Animated.Value(0)).current;
+
+    const imageScale = scrollY.interpolate({
+        inputRange: [-200, 0], // Increased range for more responsive scaling
+        outputRange: [1.5, 1], // Slightly more dramatic zoom effect
+        extrapolate: 'clamp'
+    });
+
+    // 2. Improved opacity effect for better visual feedback
+    const imageOpacity = scrollY.interpolate({
+        inputRange: [-200, -50, 0],
+        outputRange: [0.7, 0.9, 1],
+        extrapolate: 'clamp'
+    });
+    const imageTranslateY = scrollY.interpolate({
+        inputRange: [-200, 0],
+        outputRange: [-50, 0], // Adjust this value to fine-tune the positioning
+        extrapolate: 'clamp'
+    });
+
+
 
     // Dummy reviews data
     const dummyReviews: Review[] = [
@@ -389,17 +410,40 @@ export default function ExperienceDetail() {
 
     return (
         <View className="flex-1 bg-gray-50">
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {/* Header Image with Back Button and Action Buttons */}
+            <ScrollView className="flex-1"
+
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16} // This is good for smooth animation
+                bounces={true} // Make sure this is enabled for pull-to-refresh effect
+                onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: false } // 
+                )}>
+
                 <View className="relative">
                     <View className="w-full h-80 overflow-hidden bg-gray-200">
                         {experience.images && experience.images.length > 0 && !imageError ? (
-                            <Image
-                                source={{ uri: getFormattedImageUrl(experience.images[0])! }}
-                                className="w-full h-full"
-                                resizeMode="cover"
-                                onError={() => setImageError(true)}
-                            />
+                            <Animated.View
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    transform: [
+                                        { scale: imageScale },
+                                        { translateY: imageTranslateY }
+                                    ],
+                                    opacity: imageOpacity,
+                                }}
+                            >
+                                <Image
+                                    source={{ uri: getFormattedImageUrl(experience.images[0])! }}
+                                    style={{ width: '100%', height: '100%' }}
+                                    resizeMode="cover"
+                                    onError={() => setImageError(true)}
+                                />
+                            </Animated.View>
                         ) : (
                             <View className="w-full h-full justify-center items-center bg-gray-100">
                                 <Ionicons name="image-outline" size={64} color="#9CA3AF" />
@@ -409,26 +453,7 @@ export default function ExperienceDetail() {
                             </View>
                         )}
                     </View>
-
-                    {/* Action buttons overlay - SHARE ONLY */}
-                    <View className="absolute top-12 right-4">
-                        <TouchableOpacity
-                            className="bg-white/90 backdrop-blur rounded-full p-3"
-                            onPress={handleShare}
-                            style={{
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 4,
-                                elevation: 3,
-                            }}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="share-outline" size={24} color="#1f2937" />
-                        </TouchableOpacity>
-                    </View>
                 </View>
-
                 {/* Content Card */}
                 <View className='px-6 pt-2 -mt-5 rounded-3xl bg-white'>
                     {/* Title and Location */}

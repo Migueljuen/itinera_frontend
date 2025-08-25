@@ -20,7 +20,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
 import { NotificationEvents } from '../../../utils/notificationEvents';
-
 type NotificationType = 'itinerary' | 'activity' | 'reminder' | 'update' | 'alert';
 
 interface Notification {
@@ -323,10 +322,10 @@ const InboxScreen = () => {
 
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
+            <View className="flex-1 justify-center items-center bg-gray-50">
                 <ActivityIndicator size="large" color="#1f2937" />
                 <Text className="mt-4 text-gray-600 font-onest">Loading notifications...</Text>
-            </SafeAreaView>
+            </View>
         );
     }
 
