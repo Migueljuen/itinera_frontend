@@ -72,19 +72,19 @@ const PreferenceButton: React.FC<{
 }> = ({ label, isSelected, onPress, icon }) => (
     <TouchableOpacity
         onPress={onPress}
-        className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+        className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? 'bg-indigo-50 border-gray-300' : 'bg-white border-gray-300'
             }`}
         activeOpacity={0.7}
     >
         <View className="flex-row items-center">
-            {icon && (
+            {/* {icon && (
                 <Ionicons
                     name={icon as any}
                     size={16}
                     color={isSelected ? '#FFFFFF' : '#6B7280'}
                 />
-            )}
-            <Text className={`${icon ? 'ml-1' : ''} text-sm font-onest ${isSelected ? 'text-white' : 'text-gray-700'
+            )} */}
+            <Text className={`${icon ? 'ml-1' : ''} text-sm font-onest ${isSelected ? 'text-black/80' : 'text-black/60'
                 }`}>
                 {label}
             </Text>

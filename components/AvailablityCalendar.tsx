@@ -228,16 +228,15 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     return (
         <View className=" mb-6">
             {/* Header */}
-            <View className="bg-white  rounded-2xl border border-gray-200 overflow-hidden"
+            <View className="bg-white  rounded-2xl  overflow-hidden"
                 style={{
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
+
                     shadowOpacity: 0.08,
                     shadowRadius: 12,
                     elevation: 4,
                 }}
             >
-                <View className="bg-primary py-5 px-6">
+                {/* <View className="bg-primary py-5 px-6">
                     <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center">
                             <Ionicons name="calendar" size={18} color="#E5E7EB" />
@@ -251,7 +250,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                     </View>
 
 
-                </View>
+                </View> */}
 
                 {/* Calendar Trip Dates View */}
                 <View className="bg-white">
@@ -276,15 +275,15 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                     className={`${index !== tripDates.length - 1 ? 'border-b border-gray-100' : ''} ${hasAvailability ? 'bg-white' : 'bg-gray-50'
                                         }`}
                                 >
-                                    <View className="flex-row items-center justify-between px-6 py-4">
+                                    <View className="flex-row items-center justify-between  py-6">
                                         <View className="flex-row items-center flex-1">
-                                            <View className={`w-16 rounded-2xl ${hasAvailability ? 'bg-indigo-50' : 'bg-gray-100'
+                                            {/* <View className={`w-16 rounded-2xl ${hasAvailability ? 'bg-indigo-50' : 'bg-gray-100'
                                                 } items-center justify-center mr-4`}>
                                                 <Text className={`font-onest-semibold text-lg ${hasAvailability ? 'text-primary' : 'text-gray-400'
                                                     }`}>
                                                     {date.getDate()}
                                                 </Text>
-                                            </View>
+                                            </View> */}
                                             <View className="flex-1">
                                                 <Text className={`font-onest-medium text-base ${hasAvailability ? 'text-gray-800' : 'text-gray-400'
                                                     }`}>
@@ -322,9 +321,9 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
                                     {/* Expanded view with all time slots */}
                                     {hasAvailability && isExpanded && (
-                                        <View className="px-6 pb-6 pt-2">
+                                        <View className=" pb-6 pt-2">
                                             <View className=" rounded-xl p-4">
-                                                <Text className="text-gray-700 font-onest-medium mb-3">
+                                                <Text className="text-gray-700 font-onest mb-3">
                                                     Available Time Slots
                                                 </Text>
                                                 <View className="space-y-2">
@@ -333,7 +332,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                                             <TouchableOpacity
                                                                 key={idx}
                                                                 onPress={() => handleTimeSlotPress(date, slot.start_time, slot.end_time)}
-                                                                className="rounded-xl p-4 mb-2 bg-indigo-50 "
+                                                                className="rounded-xl p-4 mb-2 bg-indigo-50 border border-gray-300"
                                                                 activeOpacity={0.7}
                                                             >
                                                                 <View className="flex-row items-center">
@@ -342,7 +341,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                                                         size={18}
                                                                         color="#1f2937"
                                                                     />
-                                                                    <Text className="font-onest-medium text-base ml-2 text-gray-800">
+                                                                    <Text className="font-onest-medium text-sm ml-3 text-black/80">
                                                                         {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                                                                     </Text>
                                                                 </View>

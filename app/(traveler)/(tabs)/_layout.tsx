@@ -1,9 +1,8 @@
 //(tabs)/_layout.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { DeviceEventEmitter, ImageBackground, Text, View } from 'react-native';
 import Trip from '../../../assets/icons/calendar1.svg';
 import Inbox from '../../../assets/icons/envelope.svg';
@@ -13,7 +12,7 @@ import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
 import { NotificationEvents } from '../../../utils/notificationEvents';
 
-const TabIcon = ({ focused, icon: Icon, title, badge }: any) => {
+const TabIcon = memo(({ focused, icon: Icon, title, badge }: any) => {
   if (focused) {
     return (
       <ImageBackground
@@ -66,15 +65,9 @@ const TabIcon = ({ focused, icon: Icon, title, badge }: any) => {
       <Text className='font-onest text-sm text-[#65676b] mt-2'>{title}</Text>
     </View>
   );
-};
+});
 
 const _layout = () => {
-  const [fontsLoaded] = useFonts({
-    "Onest-Medium": require('../../../assets/fonts/Onest-Medium.ttf'),
-    "Onest-ExtraBold": require('../../../assets/fonts/Onest-ExtraBold.ttf'),
-    "Onest-Regular": require('../../../assets/fonts/Onest-Regular.ttf'),
-    "Onest-Light": require('../../../assets/fonts/Onest-Light.ttf')
-  });
 
   const [unreadCount, setUnreadCount] = useState(0);
   const { profileUpdated } = useRefresh();
@@ -103,12 +96,10 @@ const _layout = () => {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Poll every 5 seconds for more responsive updates
-    const interval = setInterval(fetchUnreadCount, 5000);
-
+    // Reduce polling frequency to 30 seconds or use WebSocket/push notifications instead
+    const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
   }, []);
-
   // Also fetch when profileUpdated changes
   useEffect(() => {
     fetchUnreadCount();
@@ -136,7 +127,6 @@ const _layout = () => {
     };
   }, []);
 
-  if (!fontsLoaded) return null;
 
   return (
     <Tabs
@@ -156,21 +146,22 @@ const _layout = () => {
           borderWidth: 1,
           borderColor: '#cdcdcd',
           borderTopColor: '#cdcdcd',
-          elevation: 5,
+          // Simplify shadows - these can be expensive
+          elevation: 3, // Reduced from 5
           shadowColor: '#000',
-          shadowOpacity: 0.01,
-          shadowOffset: { width: 0, height: -2 },
-          shadowRadius: 5,
+          shadowOpacity: 0.05, // Reduced from 0.01 (this was barely visible anyway)
+          shadowOffset: { width: 0, height: -1 }, // Reduced
+          shadowRadius: 3, // Reduced from 5
           overflow: 'visible',
           paddingTop: 10
         },
       }}
-      screenListeners={{
-        state: (e) => {
-          // Refresh unread count whenever tab state changes
-          fetchUnreadCount();
-        }
-      }}
+    // screenListeners={{
+    //   state: (e) => {
+    //     // Refresh unread count whenever tab state changes
+    //     fetchUnreadCount();
+    //   }
+    // }}
     >
       <Tabs.Screen
         name='index'
