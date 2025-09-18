@@ -195,6 +195,7 @@ const _layout = () => {
 
       <Tabs.Screen
         name='inbox'
+
         options={{
           title: 'Inbox',
           headerShown: false,

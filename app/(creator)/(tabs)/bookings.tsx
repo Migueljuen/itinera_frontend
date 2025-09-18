@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator
-} from 'react-native';
 import { useRouter } from 'expo-router';
-
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 interface Experience {
   id: string;

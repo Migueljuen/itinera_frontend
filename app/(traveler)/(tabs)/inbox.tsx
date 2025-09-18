@@ -7,8 +7,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    AppState,
-    AppStateStatus,
     DeviceEventEmitter,
     RefreshControl,
     ScrollView,
@@ -20,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
 import { NotificationEvents } from '../../../utils/notificationEvents';
+
 type NotificationType = 'itinerary' | 'activity' | 'reminder' | 'update' | 'alert';
 
 interface Notification {
@@ -57,7 +56,7 @@ const InboxScreen = () => {
     const filters = ['All', 'Itineraries', 'Activities', 'Updates'];
 
     // Fetch notifications from API
-    const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async (filter?: string) => {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
@@ -70,7 +69,7 @@ const InboxScreen = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 params: {
-                    filter: activeFilter.toLowerCase(),
+                    filter: filter?.toLowerCase(),
                     limit: 50
                 }
             });
@@ -84,7 +83,8 @@ const InboxScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeFilter]);
+    }, []);
+
 
     // Track screen focus state and fetch on focus
     useFocusEffect(
@@ -92,7 +92,7 @@ const InboxScreen = () => {
             setIsScreenFocused(true);
             console.log('Inbox screen focused, fetching notifications...');
             fetchNotifications();
-            
+
             return () => {
                 setIsScreenFocused(false);
                 console.log('Inbox screen unfocused');
@@ -102,47 +102,19 @@ const InboxScreen = () => {
 
     // Smart polling - only when screen is focused AND app is active
     useEffect(() => {
-        let interval: NodeJS.Timeout | null = null;
-        
-        const startPolling = () => {
-            if (interval) clearInterval(interval);
-            interval = setInterval(() => {
-                console.log('Polling for notifications (screen active)...');
-                fetchNotifications();
-            }, 15000); // 15 seconds when actively viewing inbox
-        };
-        
-        const stopPolling = () => {
-            if (interval) {
-                clearInterval(interval);
-                interval = null;
-            }
-        };
-        
-        const handleAppStateChange = (nextAppState: AppStateStatus) => {
-            if (nextAppState === 'active' && isScreenFocused) {
-                console.log('App became active while inbox focused, refreshing...');
-                fetchNotifications(); // Immediate refresh
-                startPolling();
-            } else {
-                stopPolling();
-            }
-        };
-        
-        // Start/stop polling based on screen focus
-        if (isScreenFocused && AppState.currentState === 'active') {
-            startPolling();
-        } else {
-            stopPolling();
-        }
-        
-        const subscription = AppState.addEventListener('change', handleAppStateChange);
-        
-        return () => {
-            stopPolling();
-            subscription?.remove();
-        };
-    }, [isScreenFocused, fetchNotifications]);
+        if (!isScreenFocused) return;
+
+        // start polling
+        const interval = setInterval(() => {
+            console.log("Polling for notifications (screen active)...");
+            fetchNotifications(activeFilter);
+        }, 15000);
+
+        // fetch immediately on focus
+        fetchNotifications(activeFilter);
+
+        return () => clearInterval(interval);
+    }, [isScreenFocused, activeFilter, fetchNotifications]);
 
     // Listen for notification events to auto-refresh
     useEffect(() => {
@@ -322,10 +294,10 @@ const InboxScreen = () => {
 
     if (loading) {
         return (
-            <View className="flex-1 justify-center items-center bg-gray-50">
+            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
                 <ActivityIndicator size="large" color="#1f2937" />
                 <Text className="mt-4 text-gray-600 font-onest">Loading notifications...</Text>
-            </View>
+            </SafeAreaView>
         );
     }
 
@@ -358,13 +330,24 @@ const InboxScreen = () => {
                         return (
                             <TouchableOpacity
                                 key={filter}
-                                onPress={() => setActiveFilter(filter)}
-                                className={`px-6 py-2 rounded-full mr-3 ${isActive ? 'bg-gray-800' : 'bg-white'}`}
+                                onPress={() => {
+                                    setActiveFilter(filter);       // updates highlight instantly
+                                    fetchNotifications(filter);
+                                    setTimeout(() => fetchNotifications(filter), 0);
+                                    // fetch runs in background
+                                }}
+                                className={`px-6 py-2 rounded-full mr-3 ${activeFilter === filter ? "bg-gray-800" : "bg-white"
+                                    }`}
                             >
-                                <Text className={`text-base font-onest-medium ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                                <Text
+                                    className={`text-base font-onest-medium ${activeFilter === filter ? "text-white" : "text-gray-400"
+                                        }`}
+                                >
                                     {filter}
                                 </Text>
                             </TouchableOpacity>
+
+
                         );
                     })}
                 </ScrollView>
@@ -436,7 +419,10 @@ const InboxScreen = () => {
                                             {/* Content */}
                                             <View className="flex-1">
                                                 <View className="flex-row justify-between items-start mb-1">
-                                                    <Text className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read ? 'text-gray-800' : 'text-gray-600'}`}>
+                                                    <Text
+                                                        numberOfLines={1}
+                                                        ellipsizeMode="tail"
+                                                        className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read ? 'text-gray-800' : 'text-gray-600'}`}>
                                                         {notification.title}
                                                     </Text>
                                                     <View className="flex-row items-center">

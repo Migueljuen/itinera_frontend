@@ -9,13 +9,14 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
+
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
 import SafeViewAndroid from '../../globalStyle';

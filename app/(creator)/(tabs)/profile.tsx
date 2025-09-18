@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Image,
-  SafeAreaView,
+
   ScrollView,
   Switch,
   Text,
@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import Logout from '../../../assets/icons/logout.svg';
 import Pencil from '../../../assets/icons/pencil.svg';
 import Plus from '../../../assets/icons/plus.svg';

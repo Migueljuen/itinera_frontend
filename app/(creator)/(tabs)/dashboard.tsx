@@ -4,13 +4,13 @@ import React, { useEffect, useState } from 'react';
 import {
   Image,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import Booking from '../../../assets/icons/booking.svg';
 import Star from '../../../assets/icons/star.svg';
 import Star1 from '../../../assets/icons/star1.svg';
@@ -35,7 +35,7 @@ const CreatorDashboard: React.FC = () => {
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [selectedTab, setSelectedTab] = useState<string>('Active');
-    const [userID, setUserID] = useState<string | null>(null);
+  const [userID, setUserID] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     totalBookings: 85,
     avgRating: 4.8,
@@ -48,7 +48,7 @@ const CreatorDashboard: React.FC = () => {
     inactive: 3
   });
 
- const fetchUserData = async () => {
+  const fetchUserData = async () => {
     try {
       const user = await AsyncStorage.getItem('user');
 
@@ -80,7 +80,7 @@ const CreatorDashboard: React.FC = () => {
               <Text className="text-normal text-3xl font-onest-semibold">Creator Dashboard</Text>
               <Text className="text-gray-400 font-onest">Manage your account</Text>
             </View>
-          {profilePic ? (
+            {profilePic ? (
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
