@@ -262,6 +262,22 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({ formData, setFormData, o
     const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(null);
     const [isPreview, setIsPreview] = useState(true);
 
+
+    useEffect(() => {
+        console.log('=== User selections from STEP 2 ===');
+
+        console.log('Selected experiences:', formData.preferences?.experiences);
+        console.log('Selected companion:', formData.preferences?.travelCompanion);
+        console.log('Selected explore time:', formData.preferences?.exploreTime);
+        console.log('Selected budget:', formData.preferences?.budget);
+        console.log('Selected activity intensity:', formData.preferences?.activityIntensity);
+        console.log('Selected travel distance:', formData.preferences?.travelDistance);
+
+        console.log('==========================================');
+    }, [formData]);
+
+
+
     // Reference for expanding filter
     const expandFilterRef = React.useRef<any>(null);
 
