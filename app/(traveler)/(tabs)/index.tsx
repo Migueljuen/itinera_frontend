@@ -227,7 +227,7 @@ const App = () => {
                 Hello, {firstName}
               </Text>
               <Text className="text-gray-400 font-onest">
-                Welcome to Tara Gala!
+                Welcome to Itinera
               </Text>
             </View>
             {profilePic ? (
@@ -252,7 +252,7 @@ const App = () => {
             />
             <TextInput
               className="flex-1 text-base text-gray-800"
-              placeholder="Search experiences"
+              placeholder="Search activities"
               placeholderTextColor="#9CA3AF"
               value={searchText}
               onChangeText={setSearchText}
@@ -272,12 +272,14 @@ const App = () => {
                     key={category.tag_id}
                     onPress={() => setSelectedCategory(category.name)}
                     activeOpacity={1}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? "bg-black/80" : "bg-white"
-                      }`}
+                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${
+                      isSelected ? "bg-black/80" : "bg-white"
+                    }`}
                   >
                     <Text
-                      className={`text-base font-onest-medium ${isSelected ? "text-white" : "text-gray-400"
-                        }`}
+                      className={`text-base font-onest-medium ${
+                        isSelected ? "text-white" : "text-gray-400"
+                      }`}
                     >
                       {category.name}
                     </Text>
@@ -311,7 +313,6 @@ const App = () => {
                         shadowRadius: 8,
                         elevation: 3,
                       }}
-                      activeOpacity={0.7}
                     >
                       <View className="relative">
                         {/* Image */}
@@ -396,8 +397,9 @@ const App = () => {
                             setCurrentPage((prev) => Math.max(1, prev - 1))
                           }
                           disabled={currentPage === 1}
-                          className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                            }`}
+                          className={`px-3 py-2 mr-2 rounded-md ${
+                            currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+                          }`}
                         >
                           <Ionicons
                             name="chevron-back"
@@ -414,20 +416,22 @@ const App = () => {
                               typeof page === "number" && setCurrentPage(page)
                             }
                             disabled={page === "..."}
-                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                            className={`px-3 py-2 mx-1 rounded-md ${
+                              page === currentPage
                                 ? "bg-primary"
                                 : page === "..."
-                                  ? "bg-transparent"
-                                  : "bg-white border border-gray-300"
-                              }`}
+                                ? "bg-transparent"
+                                : "bg-white border border-gray-300"
+                            }`}
                           >
                             <Text
-                              className={`font-onest-medium ${page === currentPage
+                              className={`font-onest-medium ${
+                                page === currentPage
                                   ? "text-white"
                                   : page === "..."
-                                    ? "text-gray-400"
-                                    : "text-gray-700"
-                                }`}
+                                  ? "text-gray-400"
+                                  : "text-gray-700"
+                              }`}
                             >
                               {page}
                             </Text>
@@ -442,10 +446,11 @@ const App = () => {
                             )
                           }
                           disabled={currentPage === totalPages}
-                          className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
+                          className={`px-3 py-2 ml-2 rounded-md ${
+                            currentPage === totalPages
                               ? "bg-gray-200"
                               : "bg-gray-800"
-                            }`}
+                          }`}
                         >
                           <Ionicons
                             name="chevron-forward"

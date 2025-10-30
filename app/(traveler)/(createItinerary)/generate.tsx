@@ -9,6 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import Step2Preference from "./(generate)/Step2Preference";
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
 import Step1SelectLocation from "./(manual)/Step1SelectLocation"; // Reusing from manual
+
+import {
+  ActivityIntensity,
+  Budget,
+  Experience,
+  ExploreTime,
+  TravelCompanion,
+  TravelDistance,
+} from "@/types/experienceTypes";
 // Component prop interfaces to match your existing components
 interface Step1Props {
   formData: ItineraryFormData;
@@ -29,34 +38,6 @@ interface Step3Props {
   onNext: () => void;
   onBack: () => void;
 }
-
-// Types
-type Experience =
-  | "Visual Arts"
-  | "Crafts"
-  | "Performing Arts"
-  | "Creative Expression"
-  | "Mindfulness"
-  | "Physical Fitness"
-  | "Wellness Activities"
-  | "Relaxation"
-  | "Local Cuisine"
-  | "Beverages"
-  | "Culinary Experiences"
-  | "Sweets & Desserts"
-  | "Museums & Galleries"
-  | "Historical Sites"
-  | "Cultural Performances"
-  | "Traditional Arts"
-  | "Hiking & Trekking"
-  | "Water Activities"
-  | "Wildlife & Nature"
-  | "Camping & Outdoors";
-type TravelCompanion = "Solo" | "Partner" | "Friends" | "Family" | "Any";
-type ExploreTime = "Daytime" | "Nighttime" | "Both";
-type Budget = "Free" | "Budget-friendly" | "Mid-range" | "Premium";
-type ActivityIntensity = "Low" | "Moderate" | "High";
-type TravelDistance = "Nearby" | "Moderate" | "Far";
 
 const router = useRouter();
 

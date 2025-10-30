@@ -406,258 +406,272 @@ const Step1SelectLocation: React.FC<StepProps> = ({
           }
         }}
       >
-        <View className="flex-1 p-4">
-          <View className="text-center py-2">
-            <Text className="text-center text-xl font-onest-semibold mb-2">
-              Plan your perfect journey
-            </Text>
-            <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-              Give your itinerary a memorable title and choose your destination
-              and travel dates.
-            </Text>
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          <View className="flex-1 p-4">
+            <View className="text-center py-2">
+              <Text className="text-center text-xl font-onest-semibold mb-2">
+                Plan your perfect journey
+              </Text>
+              <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
+                Give your itinerary a memorable title and choose your
+                destination and travel dates.
+              </Text>
 
-            <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
-              {/* Title Input Field */}
-              <View className="bg-white pb-4 z-10">
-                <Text className="font-onest-medium py-2">Itinerary Title</Text>
-                <TextInput
-                  className={`px-3 py-3 border ${
-                    title.trim() ? "border-primary" : "border-gray-300"
-                  } rounded-md bg-white text-base font-onest`}
-                  placeholder="e.g., Summer Adventure in Bacolod"
-                  placeholderTextColor="#9CA3AF"
-                  value={title}
-                  onChangeText={setTitle}
-                  maxLength={100}
-                  returnKeyType="done"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                />
-                {title.length > 0 && (
-                  <Text className="text-xs text-gray-500 font-onest mt-1 text-right">
-                    {title.length}/100
+              <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
+                {/* Title Input Field */}
+                <View className="bg-white pb-4 z-10">
+                  <Text className="font-onest-medium py-2">
+                    Itinerary Title
                   </Text>
-                )}
-              </View>
-
-              {/* Custom Dropdown for City Selection */}
-              <View className="bg-white pb-4 z-10">
-                <Text className="font-onest-medium py-2">
-                  Select Available Destination
-                </Text>
-                {/* Dropdown Button */}
-                <TouchableOpacity
-                  className={`flex-row items-center justify-between px-3 py-3 border ${
-                    dropdownOpen ? "border-primary" : "border-gray-300"
-                  } rounded-md bg-white`}
-                  onPress={toggleDropdown}
-                  activeOpacity={0.7}
-                  disabled={loadingCities}
-                >
-                  {loadingCities ? (
-                    <View className="flex-row items-center">
-                      <ActivityIndicator size="small" color="#4F46E5" />
-                      <Text className="text-gray-500 ml-2">
-                        Loading destinations...
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text
-                      className={`text-base ${
-                        localCity ? "text-black font-onest" : "text-gray-500"
-                      }`}
-                    >
-                      {selectedLabel}
+                  <TextInput
+                    className={`px-3 py-3 border ${
+                      title.trim() ? "border-primary" : "border-gray-300"
+                    } rounded-md bg-white text-base font-onest`}
+                    placeholder="e.g., Summer Adventure in Bacolod"
+                    placeholderTextColor="#9CA3AF"
+                    value={title}
+                    onChangeText={setTitle}
+                    maxLength={100}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                  />
+                  {title.length > 0 && (
+                    <Text className="text-xs text-gray-500 font-onest mt-1 text-right">
+                      {title.length}/100
                     </Text>
                   )}
-                  <Ionicons
-                    name={dropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={20}
-                    color={dropdownOpen ? "#4F46E5" : "gray"}
-                  />
-                </TouchableOpacity>
-                {/* Error Message */}
-                {cityError && (
-                  <View className="mt-2 p-2 bg-red-50 rounded-md">
-                    <Text className="text-red-600 text-sm font-onest">
-                      {cityError}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={retryLoadCities}
-                      className="mt-1"
-                    >
-                      <Text className="text-red-600 text-sm font-onest-medium underline">
-                        Retry
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {/* Dropdown List */}
-                {dropdownOpen && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: 100,
-                      left: 0,
-                      right: 0,
-                      maxHeight: 300,
-                      borderWidth: 1,
-                      borderColor: "#E5E7EB",
-                      borderBottomLeftRadius: 6,
-                      borderBottomRightRadius: 6,
-                      backgroundColor: "white",
-                      zIndex: 9999,
-                      elevation: 10,
-                    }}
-                  >
-                    <ScrollView>
-                      {cities.length === 0 && !loadingCities ? (
-                        <View className="px-4 py-8 text-center">
-                          <Text className="text-gray-500 text-base font-onest">
-                            No destinations available
-                          </Text>
-                        </View>
-                      ) : (
-                        cities.map((city, index) => (
-                          <TouchableOpacity
-                            key={`${city.value}-${index}`}
-                            className={`px-4 py-3 ${
-                              index < cities.length - 1
-                                ? "border-b border-gray-200"
-                                : ""
-                            }`}
-                            onPress={() => selectCity(city)}
-                          >
-                            <View className="flex-row justify-between items-center">
-                              <Text className="text-base font-onest">
-                                {city.label}
-                              </Text>
-                              <Text className="text-xs text-gray-500 font-onest">
-                                {city.experienceCount}{" "}
-                                {city.experienceCount === 1
-                                  ? "Activity"
-                                  : "Activities"}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+                </View>
 
-              {/* Date Selection */}
-              <View className="bg-white pb-4 mt-4 z-9">
-                <Text className="font-onest-medium py-2">Travel Dates</Text>
-                <TouchableOpacity
-                  className={`flex-row items-center justify-between px-3 py-3 border ${
-                    showCalendar ? "border-primary" : "border-gray-300"
-                  } rounded-md bg-white`}
-                  onPress={toggleCalendar}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    className={`text-base ${
-                      startDate ? "text-black font-onest" : "text-gray-500"
-                    }`}
-                  >
-                    {startDate && endDate
-                      ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(
-                          endDate
-                        )}`
-                      : startDate
-                      ? `${formatDisplayDate(startDate)} - Select end date`
-                      : "Select travel dates"}
+                {/* Custom Dropdown for City Selection */}
+                <View className="bg-white pb-4 z-10">
+                  <Text className="font-onest-medium py-2">
+                    Select Available Destination
                   </Text>
-                  <Ionicons
-                    name={showCalendar ? "calendar" : "calendar-outline"}
-                    size={20}
-                    color={showCalendar ? "#4F46E5" : "gray"}
-                  />
-                </TouchableOpacity>
-
-                {/* Calendar popup */}
-                {showCalendar && (
-                  <View className="bg-white border border-gray-200 rounded-md mt-1 shadow-sm z-20">
-                    <Calendar
-                      onDayPress={handleDayPress}
-                      markedDates={markedDates}
-                      markingType={"period"}
-                      minDate={new Date().toISOString().split("T")[0]}
-                      theme={{
-                        calendarBackground: "#FFFFFF",
-                        selectedDayBackgroundColor: "#4F46E5",
-                        selectedDayTextColor: "#FFFFFF",
-                        todayTextColor: "#4F46E5",
-                        textSectionTitleColor: "#6B7280",
-                        arrowColor: "#4F46E5",
-                      }}
-                      style={{
-                        height: 350,
-                      }}
-                    />
-                    <View className="p-3 border-t border-gray-200">
-                      <Text className="text-center text-sm text-gray-500 font-onest mb-1">
-                        {selectingEndDate
-                          ? "Now select your end date"
-                          : "Select your travel dates"}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* Date selection indicator */}
-                {startDate && !showCalendar && (
-                  <View className="flex-row justify-between mt-2">
-                    <View className="flex-1">
-                      <Text className="text-xs text-gray-500 font-onest">
-                        Start Date
-                      </Text>
-                      <Text className="text-sm font-onest-medium">
-                        {formatDisplayDate(startDate)}
-                      </Text>
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-xs text-gray-500 font-onest">
-                        End Date
-                      </Text>
-                      <Text className="text-sm font-onest-medium">
-                        {endDate ? formatDisplayDate(endDate) : "Not selected"}
-                      </Text>
-                    </View>
-                    {startDate && endDate && (
-                      <View className="flex-1">
-                        <Text className="text-xs text-gray-500 font-onest">
-                          Duration
-                        </Text>
-                        <Text className="text-sm font-onest-medium">
-                          {differenceInDays(
-                            new Date(endDate),
-                            new Date(startDate)
-                          ) + 1}{" "}
-                          days
+                  {/* Dropdown Button */}
+                  <TouchableOpacity
+                    className={`flex-row items-center justify-between px-3 py-3 border ${
+                      dropdownOpen ? "border-primary" : "border-gray-300"
+                    } rounded-md bg-white`}
+                    onPress={toggleDropdown}
+                    activeOpacity={0.7}
+                    disabled={loadingCities}
+                  >
+                    {loadingCities ? (
+                      <View className="flex-row items-center">
+                        <ActivityIndicator size="small" color="#4F46E5" />
+                        <Text className="text-gray-500 ml-2">
+                          Loading destinations...
                         </Text>
                       </View>
+                    ) : (
+                      <Text
+                        className={`text-base ${
+                          localCity ? "text-black font-onest" : "text-gray-500"
+                        }`}
+                      >
+                        {selectedLabel}
+                      </Text>
                     )}
-                  </View>
-                )}
-              </View>
+                    <Ionicons
+                      name={dropdownOpen ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color={dropdownOpen ? "#4F46E5" : "gray"}
+                    />
+                  </TouchableOpacity>
+                  {/* Error Message */}
+                  {cityError && (
+                    <View className="mt-2 p-2 bg-red-50 rounded-md">
+                      <Text className="text-red-600 text-sm font-onest">
+                        {cityError}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={retryLoadCities}
+                        className="mt-1"
+                        activeOpacity={0.7}
+                      >
+                        <Text className="text-red-600 text-sm font-onest-medium underline">
+                          Retry
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {/* Dropdown List */}
+                  {dropdownOpen && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 100,
+                        left: 0,
+                        right: 0,
+                        maxHeight: 300,
+                        borderWidth: 1,
+                        borderColor: "#E5E7EB",
+                        borderBottomLeftRadius: 6,
+                        borderBottomRightRadius: 6,
+                        backgroundColor: "white",
+                        zIndex: 9999,
+                        elevation: 10,
+                      }}
+                    >
+                      <ScrollView nestedScrollEnabled={true}>
+                        {cities.length === 0 && !loadingCities ? (
+                          <View className="px-4 py-8 text-center">
+                            <Text className="text-gray-500 text-base font-onest">
+                              No destinations available
+                            </Text>
+                          </View>
+                        ) : (
+                          cities.map((city, index) => (
+                            <TouchableOpacity
+                              key={`${city.value}-${index}`}
+                              className={`px-4 py-3 ${
+                                index < cities.length - 1
+                                  ? "border-b border-gray-200"
+                                  : ""
+                              }`}
+                              onPress={() => selectCity(city)}
+                              activeOpacity={0.7}
+                            >
+                              <View className="flex-row justify-between items-center">
+                                <Text className="text-base font-onest">
+                                  {city.label}
+                                </Text>
+                                <Text className="text-xs text-gray-500 font-onest">
+                                  {city.experienceCount}{" "}
+                                  {city.experienceCount === 1
+                                    ? "Activity"
+                                    : "Activities"}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
 
-              {/* Submit Button */}
-              <TouchableOpacity
-                onPress={handleNext}
-                className={`mt-4 p-4 rounded-xl ${
-                  isValid() ? "bg-primary" : "bg-gray-200"
-                }`}
-                disabled={!isValid()}
-              >
-                <Text className="text-center font-onest-medium text-base text-white">
-                  Next step
-                </Text>
-              </TouchableOpacity>
+                {/* Date Selection */}
+                <View className="bg-white pb-4 mt-4 z-9">
+                  <Text className="font-onest-medium py-2">Travel Dates</Text>
+                  <TouchableOpacity
+                    className={`flex-row items-center justify-between px-3 py-3 border ${
+                      showCalendar ? "border-primary" : "border-gray-300"
+                    } rounded-md bg-white`}
+                    onPress={toggleCalendar}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      className={`text-base ${
+                        startDate ? "text-black font-onest" : "text-gray-500"
+                      }`}
+                    >
+                      {startDate && endDate
+                        ? `${formatDisplayDate(
+                            startDate
+                          )} - ${formatDisplayDate(endDate)}`
+                        : startDate
+                        ? `${formatDisplayDate(startDate)} - Select end date`
+                        : "Select travel dates"}
+                    </Text>
+                    <Ionicons
+                      name={showCalendar ? "calendar" : "calendar-outline"}
+                      size={20}
+                      color={showCalendar ? "#4F46E5" : "gray"}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Calendar popup */}
+                  {showCalendar && (
+                    <View className="bg-white border border-gray-200 rounded-md mt-1 shadow-sm z-20">
+                      <Calendar
+                        onDayPress={handleDayPress}
+                        markedDates={markedDates}
+                        markingType={"period"}
+                        minDate={new Date().toISOString().split("T")[0]}
+                        theme={{
+                          calendarBackground: "#FFFFFF",
+                          selectedDayBackgroundColor: "#4F46E5",
+                          selectedDayTextColor: "#FFFFFF",
+                          todayTextColor: "#4F46E5",
+                          textSectionTitleColor: "#6B7280",
+                          arrowColor: "#4F46E5",
+                        }}
+                        style={{
+                          height: 350,
+                        }}
+                      />
+                      <View className="p-3 border-t border-gray-200">
+                        <Text className="text-center text-sm text-gray-500 font-onest mb-1">
+                          {selectingEndDate
+                            ? "Now select your end date"
+                            : "Select your travel dates"}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Date selection indicator */}
+                  {startDate && !showCalendar && (
+                    <View className="flex-row justify-between mt-2">
+                      <View className="flex-1">
+                        <Text className="text-xs text-gray-500 font-onest">
+                          Start Date
+                        </Text>
+                        <Text className="text-sm font-onest-medium">
+                          {formatDisplayDate(startDate)}
+                        </Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs text-gray-500 font-onest">
+                          End Date
+                        </Text>
+                        <Text className="text-sm font-onest-medium">
+                          {endDate
+                            ? formatDisplayDate(endDate)
+                            : "Not selected"}
+                        </Text>
+                      </View>
+                      {startDate && endDate && (
+                        <View className="flex-1">
+                          <Text className="text-xs text-gray-500 font-onest">
+                            Duration
+                          </Text>
+                          <Text className="text-sm font-onest-medium">
+                            {differenceInDays(
+                              new Date(endDate),
+                              new Date(startDate)
+                            ) + 1}{" "}
+                            days
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Submit Button */}
+                <TouchableOpacity
+                  onPress={handleNext}
+                  className={`mt-4 p-4 rounded-xl ${
+                    isValid() ? "bg-primary" : "bg-gray-200"
+                  }`}
+                  disabled={!isValid()}
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-center font-onest-medium text-base text-white">
+                    Next step
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
