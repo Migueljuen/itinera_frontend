@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -272,14 +273,12 @@ const App = () => {
                     key={category.tag_id}
                     onPress={() => setSelectedCategory(category.name)}
                     activeOpacity={1}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${
-                      isSelected ? "bg-black/80" : "bg-white"
-                    }`}
+                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? "bg-black/80" : "bg-white"
+                      }`}
                   >
                     <Text
-                      className={`text-base font-onest-medium ${
-                        isSelected ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`text-base font-onest-medium ${isSelected ? "text-white" : "text-gray-400"
+                        }`}
                     >
                       {category.name}
                     </Text>
@@ -302,10 +301,10 @@ const App = () => {
                 <>
                   {/* Experience Items */}
                   {paginatedExperiences.map((item) => (
-                    <TouchableOpacity
+                    <TouchableWithoutFeedback
                       key={item.id}
                       onPress={() => router.push(`/(experience)/${item.id}`)}
-                      className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white"
+
                       style={{
                         shadowColor: "#000",
                         shadowOffset: { width: 0, height: 2 },
@@ -314,69 +313,71 @@ const App = () => {
                         elevation: 3,
                       }}
                     >
-                      <View className="relative">
-                        {/* Image */}
-                        {item.images && item.images.length > 0 ? (
-                          <Image
-                            source={{ uri: `${API_URL}/${item.images[0]}` }}
-                            className="w-full h-40"
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View className="w-full h-40 bg-gray-200 items-center justify-center">
-                            <Ionicons
-                              name="image-outline"
-                              size={40}
-                              color="#A0AEC0"
+                      <View className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white">
+                        <View className="relative">
+                          {/* Image */}
+                          {item.images && item.images.length > 0 ? (
+                            <Image
+                              source={{ uri: `${API_URL}/${item.images[0]}` }}
+                              className="w-full h-40"
+                              resizeMode="cover"
                             />
+                          ) : (
+                            <View className="w-full h-40 bg-gray-200 items-center justify-center">
+                              <Ionicons
+                                name="image-outline"
+                                size={40}
+                                color="#A0AEC0"
+                              />
+                            </View>
+                          )}
+
+                          {/* Price Badge */}
+                          <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
+                            <Text className="font-onest-medium">
+                              {item.price === "0" || !item.price
+                                ? "Free"
+                                : `${item.price} ${item.unit || "per person"}`}
+                            </Text>
                           </View>
-                        )}
-
-                        {/* Price Badge */}
-                        <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
-                          <Text className="font-onest-medium">
-                            {item.price === "0" || !item.price
-                              ? "Free"
-                              : `${item.price} ${item.unit || "per person"}`}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View className="p-3">
-                        {/* Title */}
-                        <Text className="text-lg font-onest-semibold mb-1">
-                          {item.title}
-                        </Text>
-
-                        {/* Location */}
-                        <View className="flex-row items-center mb-2">
-                          <Ionicons
-                            name="location-outline"
-                            size={16}
-                            color="#4F46E5"
-                          />
-                          <Text className="text-sm text-gray-600 ml-1">
-                            {item.location || item.destination_name}
-                          </Text>
                         </View>
 
-                        {/* Tags */}
-                        {item.tags && item.tags.length > 0 && (
-                          <View className="flex-row flex-wrap">
-                            {item.tags.slice(0, 3).map((tag, index) => (
-                              <View
-                                key={index}
-                                className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2"
-                              >
-                                <Text className="text-xs text-primary font-onest-medium">
-                                  {tag}
-                                </Text>
-                              </View>
-                            ))}
+                        <View className="p-3">
+                          {/* Title */}
+                          <Text className="text-lg font-onest-semibold mb-1">
+                            {item.title}
+                          </Text>
+
+                          {/* Location */}
+                          <View className="flex-row items-center mb-2">
+                            <Ionicons
+                              name="location-outline"
+                              size={16}
+                              color="#4F46E5"
+                            />
+                            <Text className="text-sm text-gray-600 ml-1">
+                              {item.location || item.destination_name}
+                            </Text>
                           </View>
-                        )}
+
+                          {/* Tags */}
+                          {item.tags && item.tags.length > 0 && (
+                            <View className="flex-row flex-wrap">
+                              {item.tags.slice(0, 3).map((tag, index) => (
+                                <View
+                                  key={index}
+                                  className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2"
+                                >
+                                  <Text className="text-xs text-primary font-onest-medium">
+                                    {tag}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
                       </View>
-                    </TouchableOpacity>
+                    </TouchableWithoutFeedback>
                   ))}
 
                   {/* Pagination Controls */}
@@ -397,9 +398,9 @@ const App = () => {
                             setCurrentPage((prev) => Math.max(1, prev - 1))
                           }
                           disabled={currentPage === 1}
-                          className={`px-3 py-2 mr-2 rounded-md ${
-                            currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                          }`}
+                          activeOpacity={1}
+                          className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+                            }`}
                         >
                           <Ionicons
                             name="chevron-back"
@@ -412,26 +413,25 @@ const App = () => {
                         {getPageNumbers().map((page, index) => (
                           <TouchableOpacity
                             key={index}
+                            activeOpacity={1}
                             onPress={() =>
                               typeof page === "number" && setCurrentPage(page)
                             }
                             disabled={page === "..."}
-                            className={`px-3 py-2 mx-1 rounded-md ${
-                              page === currentPage
-                                ? "bg-primary"
-                                : page === "..."
+                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                              ? "bg-primary"
+                              : page === "..."
                                 ? "bg-transparent"
                                 : "bg-white border border-gray-300"
-                            }`}
+                              }`}
                           >
                             <Text
-                              className={`font-onest-medium ${
-                                page === currentPage
-                                  ? "text-white"
-                                  : page === "..."
+                              className={`font-onest-medium ${page === currentPage
+                                ? "text-white"
+                                : page === "..."
                                   ? "text-gray-400"
                                   : "text-gray-700"
-                              }`}
+                                }`}
                             >
                               {page}
                             </Text>
@@ -445,12 +445,12 @@ const App = () => {
                               Math.min(totalPages, prev + 1)
                             )
                           }
+                          activeOpacity={1}
                           disabled={currentPage === totalPages}
-                          className={`px-3 py-2 ml-2 rounded-md ${
-                            currentPage === totalPages
-                              ? "bg-gray-200"
-                              : "bg-gray-800"
-                          }`}
+                          className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
+                            ? "bg-gray-200"
+                            : "bg-gray-800"
+                            }`}
                         >
                           <Ionicons
                             name="chevron-forward"
