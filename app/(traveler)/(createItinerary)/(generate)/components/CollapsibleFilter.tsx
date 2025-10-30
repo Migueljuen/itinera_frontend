@@ -10,7 +10,7 @@ import {
 } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Text, TouchableOpacity, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
 interface ItineraryFormData {
   traveler_id: number;
@@ -103,23 +103,23 @@ const PreferenceButton: React.FC<{
   onPress: () => void;
   icon?: string;
 }> = React.memo(({ label, isSelected, onPress, icon }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${
-      isSelected ? "bg-indigo-50 border-gray-300" : "bg-white border-gray-300"
-    }`}
-    activeOpacity={0.7}
+  <Pressable
+    onPress={(e) => {
+      e.stopPropagation();
+      onPress();
+    }}
+    className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? "bg-indigo-50 border-gray-300" : "bg-white border-gray-300"
+      }`}
   >
     <View className="flex-row items-center">
       <Text
-        className={`${icon ? "ml-1" : ""} text-sm font-onest ${
-          isSelected ? "text-black/80" : "text-black/60"
-        }`}
+        className={`${icon ? "ml-1" : ""} text-sm font-onest ${isSelected ? "text-black/80" : "text-black/60"
+          }`}
       >
         {label}
       </Text>
     </View>
-  </TouchableOpacity>
+  </Pressable>
 ));
 
 export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
@@ -130,12 +130,9 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
   onRegenerateWithNewFilters,
   expandFilter,
 }) => {
-  // Use regular state for expanded status - this is the key change
   const [isExpanded, setIsExpanded] = useState(false);
   const [maxHeight] = useState(new Animated.Value(0));
   const lastPreferencesRef = useRef<string>("");
-
-  // Track if we're currently animating to prevent state conflicts
   const isAnimatingRef = useRef(false);
 
   // Normalize preferences helper
@@ -149,8 +146,8 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
         travelCompanions: prefs.travelCompanions?.length
           ? prefs.travelCompanions
           : prefs.travelCompanion
-          ? [prefs.travelCompanion]
-          : DEFAULT_PREFERENCES.travelCompanions,
+            ? [prefs.travelCompanion]
+            : DEFAULT_PREFERENCES.travelCompanions,
       };
     },
     []
@@ -177,16 +174,11 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
   // Sync animation with expanded state
   useEffect(() => {
-    if (!isAnimatingRef.current) {
-      isAnimatingRef.current = true;
-      Animated.timing(maxHeight, {
-        toValue: isExpanded ? 2000 : 0,
-        duration: 300,
-        useNativeDriver: false,
-      }).start(() => {
-        isAnimatingRef.current = false;
-      });
-    }
+    Animated.timing(maxHeight, {
+      toValue: isExpanded ? 2000 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
   }, [isExpanded, maxHeight]);
 
   // Expose expand function
@@ -198,13 +190,10 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
     }
   }, [expandFilter]);
 
-  const toggleExpanded = useCallback(() => {
-    console.log("Toggle clicked, current state:", isExpanded);
-    setIsExpanded((prev) => {
-      console.log("Setting isExpanded from", prev, "to", !prev);
-      return !prev;
-    });
-  }, [isExpanded]);
+  const toggleExpanded = () => {
+    console.log("Toggling from", isExpanded, "to", !isExpanded);
+    setIsExpanded(prev => !prev);
+  };
 
   const updatePreference = useCallback(
     <K extends keyof NonNullable<ItineraryFormData["preferences"]>>(
@@ -281,10 +270,9 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
   return (
     <View className="mb-4">
-      <TouchableOpacity
+      <Pressable
         onPress={toggleExpanded}
         className="bg-white rounded-xl border border-gray-200 p-4"
-        activeOpacity={0.7}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center flex-1">
@@ -306,9 +294,9 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
             color="#6B7280"
           />
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
-      <Animated.View style={{ maxHeight, overflow: "hidden" }}>
+      {isExpanded && (
         <View className="bg-white rounded-xl border border-gray-200 border-t-0 rounded-t-none px-4 pb-4">
           {renderPreferenceSection(
             "Experience Types",
@@ -356,18 +344,20 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
           )}
 
           {hasUnsavedChanges && (
-            <TouchableOpacity
-              onPress={handleApplyChanges}
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                handleApplyChanges();
+              }}
               className="mt-4 bg-primary py-3 rounded-xl"
-              activeOpacity={0.7}
             >
               <Text className="text-center font-onest-semibold text-white">
                 Apply Changes & Regenerate
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
-      </Animated.View>
+      )}
     </View>
   );
 };
