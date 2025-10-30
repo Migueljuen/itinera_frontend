@@ -130,7 +130,7 @@ const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
 const INTENSITY_COLORS: Record<string, string> = {
   low: "text-green-600",
   moderate: "text-yellow-600",
-  high: "text-red-600",
+  high: "text-blue-600",
 };
 
 const DEFAULT_PREFERENCES: NonNullable<ItineraryFormData["preferences"]> = {

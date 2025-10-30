@@ -1,4 +1,4 @@
-// CollapsibleFilter.tsx - Updated Types and Experience Categories
+// CollapsibleFilter.tsx
 
 import {
   ActivityIntensity,
@@ -9,8 +9,9 @@ import {
   TravelDistance,
 } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Text, TouchableOpacity, View } from "react-native";
+
 interface ItineraryFormData {
   traveler_id: number;
   start_date: string;
@@ -30,7 +31,6 @@ interface ItineraryFormData {
   };
 }
 
-// Updated experience options array
 const ALL_EXPERIENCE_OPTIONS: readonly Experience[] = [
   "Visual Arts",
   "Crafts",
@@ -54,7 +54,6 @@ const ALL_EXPERIENCE_OPTIONS: readonly Experience[] = [
   "Camping & Outdoors",
 ] as const;
 
-// Updated experience icons to match new categories
 const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
   "Visual Arts": "brush",
   Crafts: "hand-left",
@@ -87,7 +86,6 @@ const DEFAULT_PREFERENCES: NonNullable<ItineraryFormData["preferences"]> = {
   travelDistance: "Moderate",
 };
 
-// Props interface
 interface CollapsibleFilterProps {
   preferences: ItineraryFormData["preferences"];
   city: string;
@@ -99,13 +97,12 @@ interface CollapsibleFilterProps {
   expandFilter?: () => void;
 }
 
-// Preference Button Component (unchanged)
 const PreferenceButton: React.FC<{
   label: string;
   isSelected: boolean;
   onPress: () => void;
   icon?: string;
-}> = ({ label, isSelected, onPress, icon }) => (
+}> = React.memo(({ label, isSelected, onPress, icon }) => (
   <TouchableOpacity
     onPress={onPress}
     className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${
@@ -123,9 +120,8 @@ const PreferenceButton: React.FC<{
       </Text>
     </View>
   </TouchableOpacity>
-);
+));
 
-// Main CollapsibleFilter Component
 export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
   preferences,
   city,
@@ -134,146 +130,153 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
   onRegenerateWithNewFilters,
   expandFilter,
 }) => {
+  // Use regular state for expanded status - this is the key change
   const [isExpanded, setIsExpanded] = useState(false);
   const [maxHeight] = useState(new Animated.Value(0));
+  const lastPreferencesRef = useRef<string>("");
 
-  // Initialize displayPreferences with proper defaults and handle both travelCompanion formats
+  // Track if we're currently animating to prevent state conflicts
+  const isAnimatingRef = useRef(false);
+
+  // Normalize preferences helper
+  const normalizePreferences = useCallback(
+    (prefs: ItineraryFormData["preferences"]) => {
+      if (!prefs) return DEFAULT_PREFERENCES;
+
+      return {
+        ...DEFAULT_PREFERENCES,
+        ...prefs,
+        travelCompanions: prefs.travelCompanions?.length
+          ? prefs.travelCompanions
+          : prefs.travelCompanion
+          ? [prefs.travelCompanion]
+          : DEFAULT_PREFERENCES.travelCompanions,
+      };
+    },
+    []
+  );
+
   const [displayPreferences, setDisplayPreferences] = useState<
     ItineraryFormData["preferences"]
-  >(() => {
-    if (!preferences) return DEFAULT_PREFERENCES;
-
-    const normalizedPreferences = {
-      ...DEFAULT_PREFERENCES,
-      ...preferences,
-      travelCompanions: preferences.travelCompanions?.length
-        ? preferences.travelCompanions
-        : preferences.travelCompanion
-        ? [preferences.travelCompanion]
-        : DEFAULT_PREFERENCES.travelCompanions,
-    };
-
-    return normalizedPreferences;
-  });
+  >(() => normalizePreferences(preferences));
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Update displayPreferences when preferences prop changes
+  // Only update when preferences actually change AND there are no unsaved changes
   useEffect(() => {
-    if (!hasUnsavedChanges && preferences) {
-      const normalizedPreferences = {
-        ...DEFAULT_PREFERENCES,
-        ...preferences,
-        travelCompanions: preferences.travelCompanions?.length
-          ? preferences.travelCompanions
-          : preferences.travelCompanion
-          ? [preferences.travelCompanion]
-          : DEFAULT_PREFERENCES.travelCompanions,
-      };
+    const currentPrefsString = JSON.stringify(preferences);
 
-      setDisplayPreferences(normalizedPreferences);
+    if (
+      currentPrefsString !== lastPreferencesRef.current &&
+      !hasUnsavedChanges
+    ) {
+      lastPreferencesRef.current = currentPrefsString;
+      setDisplayPreferences(normalizePreferences(preferences));
     }
-  }, [preferences, hasUnsavedChanges]);
+  }, [preferences, hasUnsavedChanges, normalizePreferences]);
+
+  // Sync animation with expanded state
+  useEffect(() => {
+    if (!isAnimatingRef.current) {
+      isAnimatingRef.current = true;
+      Animated.timing(maxHeight, {
+        toValue: isExpanded ? 2000 : 0,
+        duration: 300,
+        useNativeDriver: false,
+      }).start(() => {
+        isAnimatingRef.current = false;
+      });
+    }
+  }, [isExpanded, maxHeight]);
 
   // Expose expand function
   useEffect(() => {
     if (expandFilter) {
       (expandFilter as any).expand = () => {
         setIsExpanded(true);
-        Animated.timing(maxHeight, {
-          toValue: 2000, // Increased for more content
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
       };
     }
-  }, [expandFilter, maxHeight]);
+  }, [expandFilter]);
 
-  const toggleExpanded = () => {
-    Animated.timing(maxHeight, {
-      toValue: isExpanded ? 0 : 2000, // Increased for more content
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-    setIsExpanded(!isExpanded);
-  };
+  const toggleExpanded = useCallback(() => {
+    console.log("Toggle clicked, current state:", isExpanded);
+    setIsExpanded((prev) => {
+      console.log("Setting isExpanded from", prev, "to", !prev);
+      return !prev;
+    });
+  }, [isExpanded]);
 
-  const updatePreference = <
-    K extends keyof NonNullable<ItineraryFormData["preferences"]>
-  >(
-    key: K,
-    value: NonNullable<ItineraryFormData["preferences"]>[K]
-  ) => {
-    if (!displayPreferences) return;
+  const updatePreference = useCallback(
+    <K extends keyof NonNullable<ItineraryFormData["preferences"]>>(
+      key: K,
+      value: NonNullable<ItineraryFormData["preferences"]>[K]
+    ) => {
+      if (!displayPreferences) return;
 
-    const newPreferences = {
-      ...displayPreferences,
-      [key]: value,
-    } as NonNullable<ItineraryFormData["preferences"]>;
-    setDisplayPreferences(newPreferences);
+      const newPreferences = {
+        ...displayPreferences,
+        [key]: value,
+      } as NonNullable<ItineraryFormData["preferences"]>;
 
-    const originalNormalized = preferences
-      ? {
-          ...DEFAULT_PREFERENCES,
-          ...preferences,
-          travelCompanions: preferences.travelCompanions?.length
-            ? preferences.travelCompanions
-            : preferences.travelCompanion
-            ? [preferences.travelCompanion]
-            : DEFAULT_PREFERENCES.travelCompanions,
-        }
-      : DEFAULT_PREFERENCES;
+      setDisplayPreferences(newPreferences);
 
-    setHasUnsavedChanges(
-      JSON.stringify(newPreferences) !== JSON.stringify(originalNormalized)
-    );
-  };
+      const originalNormalized = normalizePreferences(preferences);
+      setHasUnsavedChanges(
+        JSON.stringify(newPreferences) !== JSON.stringify(originalNormalized)
+      );
+    },
+    [displayPreferences, preferences, normalizePreferences]
+  );
 
-  const handleApplyChanges = () => {
+  const handleApplyChanges = useCallback(() => {
     setHasUnsavedChanges(false);
+    lastPreferencesRef.current = JSON.stringify(displayPreferences);
     onRegenerateWithNewFilters(displayPreferences);
-  };
+  }, [displayPreferences, onRegenerateWithNewFilters]);
 
-  const renderPreferenceSection = (
-    title: string,
-    options: readonly string[],
-    value: any,
-    onUpdate: (val: any) => void,
-    multiSelect = false,
-    icons?: Record<string, string>
-  ) => (
-    <View className="mt-4">
-      <Text className="font-onest-medium text-sm text-gray-700 mb-2">
-        {title}
-      </Text>
-      <View className="flex-row flex-wrap">
-        {options.map((option) => {
-          const isSelected = multiSelect
-            ? (value as string[])?.includes(option)
-            : value === option;
+  const renderPreferenceSection = useCallback(
+    (
+      title: string,
+      options: readonly string[],
+      value: any,
+      onUpdate: (val: any) => void,
+      multiSelect = false,
+      icons?: Record<string, string>
+    ) => (
+      <View className="mt-4">
+        <Text className="font-onest-medium text-sm text-gray-700 mb-2">
+          {title}
+        </Text>
+        <View className="flex-row flex-wrap">
+          {options.map((option) => {
+            const isSelected = multiSelect
+              ? (value as string[])?.includes(option)
+              : value === option;
 
-          return (
-            <PreferenceButton
-              key={option}
-              label={option}
-              isSelected={isSelected}
-              icon={icons?.[option]}
-              onPress={() => {
-                if (multiSelect) {
-                  const currentValues = (value as string[]) || [];
-                  const newValues = isSelected
-                    ? currentValues.filter((v) => v !== option)
-                    : [...currentValues, option];
-                  onUpdate(newValues);
-                } else {
-                  onUpdate(option);
-                }
-              }}
-            />
-          );
-        })}
+            return (
+              <PreferenceButton
+                key={option}
+                label={option}
+                isSelected={isSelected}
+                icon={icons?.[option]}
+                onPress={() => {
+                  if (multiSelect) {
+                    const currentValues = (value as string[]) || [];
+                    const newValues = isSelected
+                      ? currentValues.filter((v) => v !== option)
+                      : [...currentValues, option];
+                    onUpdate(newValues);
+                  } else {
+                    onUpdate(option);
+                  }
+                }}
+              />
+            );
+          })}
+        </View>
       </View>
-    </View>
+    ),
+    []
   );
 
   return (
@@ -307,7 +310,6 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
       <Animated.View style={{ maxHeight, overflow: "hidden" }}>
         <View className="bg-white rounded-xl border border-gray-200 border-t-0 rounded-t-none px-4 pb-4">
-          {/* UPDATED: Use new experience options */}
           {renderPreferenceSection(
             "Experience Types",
             ALL_EXPERIENCE_OPTIONS,
