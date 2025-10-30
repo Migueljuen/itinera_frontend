@@ -1,11 +1,13 @@
+//types/itineraryTypes.tsx
+
 export interface ItineraryFormData {
     traveler_id: number;
     start_date: string;  // Format: 'YYYY-MM-DD'
     end_date: string;    // Format: 'YYYY-MM-DD'
     title: string;
     notes?: string;
-      accommodation_id?: number;
-  itinerary_id?: number;
+    accommodation_id?: number;
+    itinerary_id?: number;
     city: string;
     items: ItineraryItem[];
     exploreTime: string;

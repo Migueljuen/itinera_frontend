@@ -32,12 +32,26 @@ interface Step3Props {
 
 // Types
 type Experience =
-  | "Adventure"
-  | "Cultural"
-  | "Food"
-  | "Nature"
+  | "Visual Arts"
+  | "Crafts"
+  | "Performing Arts"
+  | "Creative Expression"
+  | "Mindfulness"
+  | "Physical Fitness"
+  | "Wellness Activities"
   | "Relaxation"
-  | "Nightlife";
+  | "Local Cuisine"
+  | "Beverages"
+  | "Culinary Experiences"
+  | "Sweets & Desserts"
+  | "Museums & Galleries"
+  | "Historical Sites"
+  | "Cultural Performances"
+  | "Traditional Arts"
+  | "Hiking & Trekking"
+  | "Water Activities"
+  | "Wildlife & Nature"
+  | "Camping & Outdoors";
 type TravelCompanion = "Solo" | "Partner" | "Friends" | "Family" | "Any";
 type ExploreTime = "Daytime" | "Nighttime" | "Both";
 type Budget = "Free" | "Budget-friendly" | "Mid-range" | "Premium";
@@ -85,10 +99,10 @@ interface ItineraryFormData {
     experiences: Experience[];
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
-    exploreTime: ExploreTime;
-    budget: Budget;
-    activityIntensity: ActivityIntensity;
-    travelDistance: TravelDistance;
+    exploreTime?: ExploreTime;
+    budget?: Budget;
+    activityIntensity?: ActivityIntensity;
+    travelDistance?: TravelDistance;
   };
 }
 
@@ -134,12 +148,11 @@ const GenerateItineraryForm: React.FC = () => {
     items: [] as ItineraryItem[],
     preferences: {
       experiences: [],
-      travelCompanion: "" as TravelCompanion,
-      travelCompanions: [], // or use a default like 'Any' if needed
-      exploreTime: "" as ExploreTime,
-      budget: "" as Budget,
-      activityIntensity: "" as ActivityIntensity,
-      travelDistance: "" as TravelDistance,
+      travelCompanions: [],
+      // exploreTime: "",
+      // budget: "",
+      // activityIntensity: " ",
+      // travelDistance: " ",
     },
   });
 

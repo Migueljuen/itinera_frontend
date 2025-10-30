@@ -67,8 +67,8 @@ const landingPage: React.FC = () => {
     <View className="flex-1  font-onest flex items-center justify-start bg-white">
       {/* Carousel */}
       <Image
-        source={require("../../assets/images/logo.png")}
-        style={{ width: 150, height: 150, marginTop: 36 }}
+        source={require("../../assets/images/gala.png")}
+        style={{ width: 100, height: 100, marginTop: 72 }}
       />
       <ScrollView
         ref={scrollViewRef}
@@ -108,11 +108,10 @@ const landingPage: React.FC = () => {
             <TouchableOpacity
               key={index}
               onPress={() => goToSlide(index)}
-              className={`h-3 rounded-full mx-1 ${
-                index === currentIndex
-                  ? "bg-buttonPrimary w-8"
-                  : "bg-gray-300 w-3"
-              }`}
+              className={`h-3 rounded-full mx-1 ${index === currentIndex
+                ? "bg-buttonPrimary w-8"
+                : "bg-gray-300 w-3"
+                }`}
             />
           ))}
         </View>

@@ -13,13 +13,33 @@ import API_URL from '../../../../constants/api';
 import { CollapsibleFilter } from './components/CollapsibleFilter';
 
 // Types
-type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
-type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
-type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
-type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
-type ActivityIntensity = 'Low' | 'Moderate' | 'High';
-type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+type Experience =
+    | "Visual Arts"
+    | "Crafts"
+    | "Performing Arts"
+    | "Creative Expression"
+    | "Mindfulness"
+    | "Physical Fitness"
+    | "Wellness Activities"
+    | "Relaxation"
+    | "Local Cuisine"
+    | "Beverages"
+    | "Culinary Experiences"
+    | "Sweets & Desserts"
+    | "Museums & Galleries"
+    | "Historical Sites"
+    | "Cultural Performances"
+    | "Traditional Arts"
+    | "Hiking & Trekking"
+    | "Water Activities"
+    | "Wildlife & Nature"
+    | "Camping & Outdoors";
 
+type TravelCompanion = "Solo" | "Partner" | "Friends" | "Family" | "Any";
+type ExploreTime = "Daytime" | "Nighttime" | "Both";
+type Budget = "Free" | "Budget-friendly" | "Mid-range" | "Premium";
+type ActivityIntensity = "Low" | "Moderate" | "High";
+type TravelDistance = "Nearby" | "Moderate" | "Far";
 export interface ItineraryFormData {
     traveler_id: number;
     start_date: string;
@@ -32,10 +52,10 @@ export interface ItineraryFormData {
         experiences: Experience[];
         travelCompanion?: TravelCompanion;
         travelCompanions?: TravelCompanion[];
-        exploreTime: ExploreTime;
-        budget: Budget;
-        activityIntensity: ActivityIntensity;
-        travelDistance: TravelDistance;
+        exploreTime?: ExploreTime;
+        budget?: Budget;
+        activityIntensity?: ActivityIntensity;
+        travelDistance?: TravelDistance;
     };
 }
 
@@ -103,13 +123,27 @@ interface StepProps {
 }
 
 // Constants
-const EXPERIENCE_ICONS: Record<Experience, string> = {
-    'Adventure': 'rocket',
-    'Cultural': 'school',
-    'Food': 'restaurant',
-    'Nature': 'leaf',
+const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
+    'Visual Arts': 'brush',
+    'Crafts': 'hand-left',
+    'Performing Arts': 'musical-notes',
+    'Creative Expression': 'color-palette',
+    'Mindfulness': 'flower',
+    'Physical Fitness': 'fitness',
+    'Wellness Activities': 'heart',
     'Relaxation': 'bed',
-    'Nightlife': 'moon'
+    'Local Cuisine': 'restaurant',
+    'Beverages': 'cafe',
+    'Culinary Experiences': 'pizza',
+    'Sweets & Desserts': 'ice-cream',
+    'Museums & Galleries': 'business',
+    'Historical Sites': 'map',
+    'Cultural Performances': 'musical-note',
+    'Traditional Arts': 'brush',
+    'Hiking & Trekking': 'walk',
+    'Water Activities': 'water',
+    'Wildlife & Nature': 'leaf',
+    'Camping & Outdoors': 'bonfire'
 };
 
 const INTENSITY_COLORS: Record<string, string> = {

@@ -1,3 +1,5 @@
+// CollapsibleFilter.tsx - Updated Types and Experience Categories
+
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -7,8 +9,29 @@ import {
     View
 } from 'react-native';
 
-// Types (you'll move these to a separate types file)
-type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
+// Updated Types to match Step2Preference
+type Experience =
+    | "Visual Arts"
+    | "Crafts"
+    | "Performing Arts"
+    | "Creative Expression"
+    | "Mindfulness"
+    | "Physical Fitness"
+    | "Wellness Activities"
+    | "Relaxation"
+    | "Local Cuisine"
+    | "Beverages"
+    | "Culinary Experiences"
+    | "Sweets & Desserts"
+    | "Museums & Galleries"
+    | "Historical Sites"
+    | "Cultural Performances"
+    | "Traditional Arts"
+    | "Hiking & Trekking"
+    | "Water Activities"
+    | "Wildlife & Nature"
+    | "Camping & Outdoors";
+
 type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
 type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
 type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
@@ -27,21 +50,59 @@ interface ItineraryFormData {
         experiences: Experience[];
         travelCompanion?: TravelCompanion;
         travelCompanions?: TravelCompanion[];
-        exploreTime: ExploreTime;
-        budget: Budget;
-        activityIntensity: ActivityIntensity;
-        travelDistance: TravelDistance;
+        exploreTime?: ExploreTime;
+        budget?: Budget;
+        activityIntensity?: ActivityIntensity;
+        travelDistance?: TravelDistance;
     };
 }
 
-// Constants (you'll move these to a constants file)
-const EXPERIENCE_ICONS: Record<Experience, string> = {
-    'Adventure': 'rocket',
-    'Cultural': 'school',
-    'Food': 'restaurant',
-    'Nature': 'leaf',
+// Updated experience options array
+const ALL_EXPERIENCE_OPTIONS: readonly Experience[] = [
+    "Visual Arts",
+    "Crafts",
+    "Performing Arts",
+    "Creative Expression",
+    "Mindfulness",
+    "Physical Fitness",
+    "Wellness Activities",
+    "Relaxation",
+    "Local Cuisine",
+    "Beverages",
+    "Culinary Experiences",
+    "Sweets & Desserts",
+    "Museums & Galleries",
+    "Historical Sites",
+    "Cultural Performances",
+    "Traditional Arts",
+    "Hiking & Trekking",
+    "Water Activities",
+    "Wildlife & Nature",
+    "Camping & Outdoors"
+] as const;
+
+// Updated experience icons to match new categories
+const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
+    'Visual Arts': 'brush',
+    'Crafts': 'hand-left',
+    'Performing Arts': 'musical-notes',
+    'Creative Expression': 'color-palette',
+    'Mindfulness': 'flower',
+    'Physical Fitness': 'fitness',
+    'Wellness Activities': 'heart',
     'Relaxation': 'bed',
-    'Nightlife': 'moon'
+    'Local Cuisine': 'restaurant',
+    'Beverages': 'cafe',
+    'Culinary Experiences': 'pizza',
+    'Sweets & Desserts': 'ice-cream',
+    'Museums & Galleries': 'business',
+    'Historical Sites': 'map',
+    'Cultural Performances': 'musical-note',
+    'Traditional Arts': 'brush',
+    'Hiking & Trekking': 'walk',
+    'Water Activities': 'water',
+    'Wildlife & Nature': 'leaf',
+    'Camping & Outdoors': 'bonfire'
 };
 
 const DEFAULT_PREFERENCES: NonNullable<ItineraryFormData['preferences']> = {
@@ -63,7 +124,7 @@ interface CollapsibleFilterProps {
     expandFilter?: () => void;
 }
 
-// Preference Button Component
+// Preference Button Component (unchanged)
 const PreferenceButton: React.FC<{
     label: string;
     isSelected: boolean;
@@ -77,13 +138,6 @@ const PreferenceButton: React.FC<{
         activeOpacity={0.7}
     >
         <View className="flex-row items-center">
-            {/* {icon && (
-                <Ionicons
-                    name={icon as any}
-                    size={16}
-                    color={isSelected ? '#FFFFFF' : '#6B7280'}
-                />
-            )} */}
             <Text className={`${icon ? 'ml-1' : ''} text-sm font-onest ${isSelected ? 'text-black/80' : 'text-black/60'
                 }`}>
                 {label}
@@ -108,11 +162,9 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
     const [displayPreferences, setDisplayPreferences] = useState<ItineraryFormData['preferences']>(() => {
         if (!preferences) return DEFAULT_PREFERENCES;
 
-        // Handle the inconsistency between travelCompanion (single) and travelCompanions (array)
         const normalizedPreferences = {
             ...DEFAULT_PREFERENCES,
             ...preferences,
-            // Ensure travelCompanions is always an array
             travelCompanions: preferences.travelCompanions?.length
                 ? preferences.travelCompanions
                 : preferences.travelCompanion
@@ -125,13 +177,12 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    // Update displayPreferences when preferences prop changes, but only if no unsaved changes
+    // Update displayPreferences when preferences prop changes
     useEffect(() => {
         if (!hasUnsavedChanges && preferences) {
             const normalizedPreferences = {
                 ...DEFAULT_PREFERENCES,
                 ...preferences,
-                // Ensure travelCompanions is always an array
                 travelCompanions: preferences.travelCompanions?.length
                     ? preferences.travelCompanions
                     : preferences.travelCompanion
@@ -143,15 +194,13 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
         }
     }, [preferences, hasUnsavedChanges]);
 
-    // Expose expand function to parent via expandFilter prop
+    // Expose expand function
     useEffect(() => {
         if (expandFilter) {
-            // This is a hacky way to expose the expand function
-            // In a real implementation, you'd use useImperativeHandle or similar
             (expandFilter as any).expand = () => {
                 setIsExpanded(true);
                 Animated.timing(maxHeight, {
-                    toValue: 1000,
+                    toValue: 2000, // Increased for more content
                     duration: 300,
                     useNativeDriver: false,
                 }).start();
@@ -161,7 +210,7 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
     const toggleExpanded = () => {
         Animated.timing(maxHeight, {
-            toValue: isExpanded ? 0 : 1000,
+            toValue: isExpanded ? 0 : 2000, // Increased for more content
             duration: 300,
             useNativeDriver: false,
         }).start();
@@ -177,7 +226,6 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
         const newPreferences = { ...displayPreferences, [key]: value } as NonNullable<ItineraryFormData['preferences']>;
         setDisplayPreferences(newPreferences);
 
-        // Compare with the original preferences to detect changes
         const originalNormalized = preferences ? {
             ...DEFAULT_PREFERENCES,
             ...preferences,
@@ -238,7 +286,6 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
     return (
         <View className="mb-4">
-            {/* Header */}
             <TouchableOpacity
                 onPress={toggleExpanded}
                 className="bg-white rounded-xl border border-gray-200 p-4"
@@ -264,12 +311,12 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
                 </View>
             </TouchableOpacity>
 
-            {/* Expandable Content */}
             <Animated.View style={{ maxHeight, overflow: 'hidden' }}>
                 <View className="bg-white rounded-xl border border-gray-200 border-t-0 rounded-t-none px-4 pb-4">
+                    {/* UPDATED: Use new experience options */}
                     {renderPreferenceSection(
                         'Experience Types',
-                        ['Adventure', 'Cultural', 'Food', 'Nature', 'Relaxation', 'Nightlife'] as const,
+                        ALL_EXPERIENCE_OPTIONS,
                         displayPreferences?.experiences,
                         (val) => updatePreference('experiences', val),
                         true,
@@ -279,7 +326,7 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
                     {renderPreferenceSection(
                         'Travel Companions',
                         ['Solo', 'Partner', 'Friends', 'Family', 'Any'] as const,
-                        displayPreferences?.travelCompanions, // Use travelCompanions (array) consistently
+                        displayPreferences?.travelCompanions,
                         (val) => updatePreference('travelCompanions', val),
                         true
                     )}
@@ -329,5 +376,4 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
     );
 };
 
-// Add the default export
 export default CollapsibleFilter;

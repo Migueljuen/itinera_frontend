@@ -1,3 +1,5 @@
+//types/types.tsx
+
 export interface ImageInfo {
     uri: string;
     name?: string;
