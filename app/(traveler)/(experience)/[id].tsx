@@ -6,11 +6,15 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
+  FlatList,
+  Image,
   Linking,
+  Modal,
   Platform,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AvailabilityCalendar from "../../../components/AvailablityCalendar";
@@ -54,7 +58,10 @@ export default function ExperienceDetail() {
     tripStartDate: paramTripStart,
     tripEndDate: paramTripEnd,
   } = useLocalSearchParams();
-
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const screenWidth = Dimensions.get("window").width;
+  const fullscreenFlatListRef = useRef<FlatList>(null);
   const experienceId = Number(id);
 
   const [experience, setExperience] = useState<Experience | null>(null);
@@ -331,32 +338,188 @@ export default function ExperienceDetail() {
           { useNativeDriver: true }
         )}
       >
-        {/* Hero Image */}
-        {experience.images &&
-          experience.images.length > 0 &&
-          !imageError ? (
-          <Animated.View
-            style={{
-              height: 320,
-              overflow: "hidden",
-            }}
-          >
-            <Animated.Image
-              source={{
-                uri: getFormattedImageUrl(experience.images[0].image_url)!,
-              }}
+        {/* Hero Image Carousel */}
+        {experience.images && experience.images.length > 0 && !imageError ? (
+          <>
+            <Animated.View
               style={{
-                width: "100%",
                 height: 320,
-                transform: [
-                  { translateY: imageTranslateY },
-                  { scale: imageScale },
-                ],
+                overflow: "hidden",
               }}
-              resizeMode="cover"
-              onError={() => setImageError(true)}
-            />
-          </Animated.View>
+            >
+              <FlatList
+                data={experience.images}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={(event) => {
+                  const { contentOffset, layoutMeasurement } =
+                    event.nativeEvent;
+                  const index = Math.round(
+                    contentOffset.x / layoutMeasurement.width
+                  );
+                  setActiveImageIndex(index);
+                }}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setIsFullscreen(true)}
+                  >
+                    <Animated.Image
+                      source={{
+                        uri: getFormattedImageUrl(item.image_url)!,
+                      }}
+                      style={{
+                        width: screenWidth,
+                        height: 320,
+                        transform: [
+                          { translateY: imageTranslateY },
+                          { scale: imageScale },
+                        ],
+                      }}
+                      resizeMode="cover"
+                      onError={() => setImageError(true)}
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+
+              {/* Image Indicators */}
+              {experience.images.length > 1 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: 32,
+                    left: 0,
+                    right: 0,
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {experience.images.map((_, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor:
+                          index === activeImageIndex
+                            ? "#FFFFFF"
+                            : "rgba(255, 255, 255, 0.5)",
+                      }}
+                    />
+                  ))}
+                </View>
+              )}
+            </Animated.View>
+
+            {/* Fullscreen Modal */}
+            <Modal
+              visible={isFullscreen}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setIsFullscreen(false)}
+            >
+              <View style={{ flex: 1, backgroundColor: "black" }}>
+                <TouchableOpacity
+                  style={{
+                    position: "absolute",
+                    top: 50,
+                    right: 20,
+                    zIndex: 10,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    borderRadius: 20,
+                    padding: 8,
+                  }}
+                  onPress={() => setIsFullscreen(false)}
+                >
+                  <Ionicons name="close" size={28} color="white" />
+                </TouchableOpacity>
+
+                <FlatList
+                  ref={fullscreenFlatListRef}
+                  data={experience.images}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onLayout={() => {
+                    // Scroll to the active image after layout is complete
+                    if (activeImageIndex > 0 && fullscreenFlatListRef.current) {
+                      setTimeout(() => {
+                        fullscreenFlatListRef.current?.scrollToOffset({
+                          offset: screenWidth * activeImageIndex,
+                          animated: false,
+                        });
+                      }, 50);
+                    }
+                  }}
+                  onScroll={(event) => {
+                    const index = Math.round(
+                      event.nativeEvent.contentOffset.x / screenWidth
+                    );
+                    setActiveImageIndex(index);
+                  }}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <View
+                      style={{
+                        width: screenWidth,
+                        height: "100%",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Image
+                        source={{
+                          uri: getFormattedImageUrl(item.image_url)!,
+                        }}
+                        style={{
+                          width: screenWidth,
+                          height: screenWidth,
+                        }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+                />
+
+                {/* Fullscreen Indicators */}
+                {experience.images.length > 1 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 40,
+                      left: 0,
+                      right: 0,
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {experience.images.map((_, index) => (
+                      <View
+                        key={index}
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor:
+                            index === activeImageIndex
+                              ? "#FFFFFF"
+                              : "rgba(255, 255, 255, 0.5)",
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            </Modal>
+          </>
         ) : (
           <View className="w-full h-80 justify-center items-center bg-gray-100">
             <Ionicons name="image-outline" size={64} color="#9CA3AF" />
@@ -389,27 +552,31 @@ export default function ExperienceDetail() {
           {/* Tab Navigation */}
           <View className="flex-row border-b border-gray-200 mt-4">
             <TouchableOpacity
-              className={`px-4 py-2 ${activeTab === "details" ? "border-b-2 border-primary" : ""
-                }`}
+              className={`px-4 py-2 ${
+                activeTab === "details" ? "border-b-2 border-primary" : ""
+              }`}
               onPress={() => setActiveTab("details")}
             >
               <Text
-                className={`font-onest-medium ${activeTab === "details" ? "text-primary" : "text-gray-600"
-                  }`}
+                className={`font-onest-medium ${
+                  activeTab === "details" ? "text-primary" : "text-gray-600"
+                }`}
               >
                 Details
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className={`px-4 py-2 ${activeTab === "availability" ? "border-b-2 border-primary" : ""
-                }`}
+              className={`px-4 py-2 ${
+                activeTab === "availability" ? "border-b-2 border-primary" : ""
+              }`}
               onPress={() => setActiveTab("availability")}
             >
               <Text
-                className={`font-onest-medium ${activeTab === "availability"
-                  ? "text-primary"
-                  : "text-gray-600"
-                  }`}
+                className={`font-onest-medium ${
+                  activeTab === "availability"
+                    ? "text-primary"
+                    : "text-gray-600"
+                }`}
               >
                 Availability
               </Text>
@@ -443,8 +610,8 @@ export default function ExperienceDetail() {
                 {expanded
                   ? experience.description
                   : experience.description?.length > 150
-                    ? `${experience.description.substring(0, 150)}...`
-                    : experience.description}
+                  ? `${experience.description.substring(0, 150)}...`
+                  : experience.description}
               </Text>
 
               {experience.description?.length > 150 && (
@@ -463,8 +630,8 @@ export default function ExperienceDetail() {
                 {expanded
                   ? experience.notes
                   : experience.notes?.length > 150
-                    ? `${experience.notes.substring(0, 150)}...`
-                    : experience.notes}
+                  ? `${experience.notes.substring(0, 150)}...`
+                  : experience.notes}
               </Text>
 
               {experience.description?.length > 150 && (
@@ -502,19 +669,20 @@ export default function ExperienceDetail() {
 
               {/* Location Button */}
               <TouchableOpacity
-                className={`mt-6 py-4 rounded-2xl items-center flex-row justify-center ${experience.destination ? "bg-primary" : "bg-gray-400"
-                  }`}
+                className={`mt-6 py-4 rounded-2xl items-center flex-row justify-center ${
+                  experience.destination ? "bg-primary" : "bg-gray-400"
+                }`}
                 onPress={handleOpenMap}
                 disabled={!experience.destination}
                 style={
                   experience.destination
                     ? {
-                      shadowColor: "#4F46E5",
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 8,
-                      elevation: 6,
-                    }
+                        shadowColor: "#4F46E5",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 8,
+                        elevation: 6,
+                      }
                     : {}
                 }
                 activeOpacity={0.8}
@@ -525,8 +693,9 @@ export default function ExperienceDetail() {
                   color={experience.destination ? "#E5E7EB" : "#9CA3AF"}
                 />
                 <Text
-                  className={`font-onest-semibold ml-3 ${experience.destination ? "text-gray-200" : "text-gray-500"
-                    }`}
+                  className={`font-onest-semibold ml-3 ${
+                    experience.destination ? "text-gray-200" : "text-gray-500"
+                  }`}
                 >
                   {experience.destination
                     ? "Open Location on Map"
