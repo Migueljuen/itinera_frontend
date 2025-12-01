@@ -231,7 +231,9 @@ const App = () => {
                 Welcome to Itinera
               </Text>
             </View>
+
             {profilePic ? (
+
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}

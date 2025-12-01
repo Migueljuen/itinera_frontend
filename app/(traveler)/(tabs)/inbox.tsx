@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -59,6 +60,9 @@ const InboxScreen = () => {
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
   const filters = ["All", "Itineraries", "Activities", "Updates"];
+
+
+
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async (filter?: string) => {
@@ -320,6 +324,7 @@ const InboxScreen = () => {
     );
   }
 
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
@@ -353,7 +358,7 @@ const InboxScreen = () => {
           {filters.map((filter) => {
             const isActive = activeFilter === filter;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={filter}
                 onPress={() => {
                   setActiveFilter(filter); // updates highlight instantly
@@ -361,18 +366,16 @@ const InboxScreen = () => {
                   setTimeout(() => fetchNotifications(filter), 0);
                   // fetch runs in background
                 }}
-                className={`px-6 py-2 rounded-full mr-3 ${
-                  activeFilter === filter ? "bg-gray-800" : "bg-white"
-                }`}
+                className={`px-6 py-2 rounded-full mr-3 ${activeFilter === filter ? "bg-gray-800" : "bg-white"
+                  }`}
               >
                 <Text
-                  className={`text-base font-onest-medium ${
-                    activeFilter === filter ? "text-white" : "text-gray-400"
-                  }`}
+                  className={`text-base font-onest-medium ${activeFilter === filter ? "text-white" : "text-gray-400"
+                    }`}
                 >
                   {filter}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -410,7 +413,7 @@ const InboxScreen = () => {
               const showDateHeader =
                 index === 0 ||
                 formatDate(notification.created_at) !==
-                  formatDate(filteredNotifications[index - 1].created_at);
+                formatDate(filteredNotifications[index - 1].created_at);
 
               return (
                 <View key={notification.id}>
@@ -422,9 +425,8 @@ const InboxScreen = () => {
 
                   <TouchableOpacity
                     onPress={() => handleNotificationPress(notification)}
-                    className={`bg-white rounded-2xl p-4 mb-3 ${
-                      !notification.is_read ? "border-l-4 border-primary" : ""
-                    }`}
+                    className={`bg-white rounded-2xl p-4 mb-3 ${!notification.is_read ? "border-l-4 border-primary" : ""
+                      }`}
                     style={{
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 2 },
@@ -443,10 +445,16 @@ const InboxScreen = () => {
                         }}
                       >
                         <Ionicons
-                          name={notification.icon as any}
+                          name={
+                            Ionicons.glyphMap[notification.icon as keyof typeof Ionicons.glyphMap]
+                              ? (notification.icon as keyof typeof Ionicons.glyphMap)
+                              : "close-circle"
+                          }
                           size={24}
                           color={notification.icon_color}
                         />
+
+
                       </View>
 
                       {/* Content */}
@@ -455,11 +463,10 @@ const InboxScreen = () => {
                           <Text
                             numberOfLines={1}
                             ellipsizeMode="tail"
-                            className={`font-onest-semibold text-base flex-1 mr-2 ${
-                              !notification.is_read
-                                ? "text-gray-800"
-                                : "text-gray-600"
-                            }`}
+                            className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read
+                              ? "text-gray-800"
+                              : "text-gray-600"
+                              }`}
                           >
                             {notification.title}
                           </Text>
