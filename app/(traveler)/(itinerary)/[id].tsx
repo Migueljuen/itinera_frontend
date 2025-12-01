@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Calendar from 'expo-calendar';
 import * as Location from 'expo-location';
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import API_URL from '../../../constants/api';
@@ -40,7 +42,7 @@ interface Itinerary {
     items: ItineraryItem[];
 }
 
-export default function ItineraryDetailScreen() {
+export default function ItineraryDetailScreen({ route }: any) {
     const router = useRouter();
     const { id } = useLocalSearchParams();
     const [loading, setLoading] = useState(true);
@@ -55,6 +57,8 @@ export default function ItineraryDetailScreen() {
         }
     }, [id]);
 
+
+    // PERMISSION REQUEST
     const requestLocationPermission = async () => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
@@ -66,6 +70,63 @@ export default function ItineraryDetailScreen() {
             console.log('Location permission denied');
         }
     };
+
+    // PERMISSION REQUEST
+    const requestCalendarPermission = async () => {
+        const { status } = await Calendar.requestCalendarPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission required', 'Calendar access is needed to add events.');
+            return false;
+        }
+        return true;
+    };
+    const getDefaultCalendarId = async (): Promise<string | null> => {
+        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+        const defaultCalendar = calendars.find(cal => cal.allowsModifications);
+        return defaultCalendar?.id || null;
+    };
+    const handleAddToCalendar = async () => {
+        if (!itinerary) return;
+
+        const hasPermission = await requestCalendarPermission();
+        if (!hasPermission) return;
+
+        const calendarId = await getDefaultCalendarId();
+        if (!calendarId) {
+            Alert.alert('No calendar', 'No editable calendar found.');
+            return;
+        }
+
+        try {
+            for (const item of itinerary.items) {
+                if (!item.start_time || !item.end_time) continue;
+
+                const startDate = new Date(`${itinerary.start_date}T${item.start_time}`);
+                const endDate = new Date(`${itinerary.start_date}T${item.end_time}`);
+
+                // Adjust date for multi-day itinerary
+                startDate.setDate(startDate.getDate() + (item.day_number - 1));
+                endDate.setDate(endDate.getDate() + (item.day_number - 1));
+
+                await Calendar.createEventAsync(calendarId, {
+                    title: item.experience_name,
+                    location: `${item.destination_name}, ${item.destination_city}`,
+                    notes: item.custom_note || item.experience_description,
+                    startDate,
+                    endDate,
+                    timeZone: 'GMT+8', // change to your timezone
+                    alarms: [{ relativeOffset: -15 }] // 15 min reminder
+                });
+            }
+
+            Alert.alert('Success', 'Itinerary added to your calendar!');
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to add itinerary to calendar');
+        }
+    };
+
+
 
     const fetchItineraryDetails = async () => {
         setLoading(true);
@@ -638,6 +699,12 @@ export default function ItineraryDetailScreen() {
                                     <Text className="text-sm text-gray-600 font-onest">{itinerary.notes}</Text>
                                 </View>
                             )}
+
+                            <Pressable className='flex flex-row mt-4 gap-1 ' onPress={handleAddToCalendar}>
+                                <Ionicons name="add-outline" size={16} color="#3b82f6" />
+                                <Text className='font-onest text-blue-500'> Add to Calendar</Text>
+                            </Pressable>
+
                         </View>
                     </View>
 
