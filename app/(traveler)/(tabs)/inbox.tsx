@@ -88,7 +88,7 @@ const InboxScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
-      Alert.alert("Error", "Failed to load notifications");
+      Alert.alert("Error", "Failed to load notifications sexsex");
     } finally {
       setLoading(false);
     }
@@ -434,7 +434,7 @@ const InboxScreen = () => {
                       shadowRadius: 8,
                       elevation: 3,
                     }}
-                    activeOpacity={0.7}
+                    activeOpacity={1}
                   >
                     <View className="flex-row">
                       {/* Icon */}

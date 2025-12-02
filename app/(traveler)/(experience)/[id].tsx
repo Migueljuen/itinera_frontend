@@ -63,6 +63,8 @@ export default function ExperienceDetail() {
   const screenWidth = Dimensions.get("window").width;
   const fullscreenFlatListRef = useRef<FlatList>(null);
   const experienceId = Number(id);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
 
   const [experience, setExperience] = useState<Experience | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,6 +133,42 @@ export default function ExperienceDetail() {
       helpful: 20,
     },
   ];
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/reviews/experience/${experienceId}`
+        );
+
+        const data = await response.json();
+
+        if (data.success && data.reviews.length > 0) {
+          const mapped = data.reviews.map((r: any) => ({
+            id: r.review_id,
+            userName: r.user_name,
+            userAvatar: r.profile_pic,
+            rating: r.rating,
+            comment: r.comment,
+            date: r.created_at,
+            helpful: r.helpful_count,
+          }));
+
+          setReviews(mapped);
+        } else {
+          // fallback to dummy data
+          setReviews(dummyReviews);
+        }
+      } catch (err) {
+        console.log("Error fetching reviews:", err);
+        setReviews(dummyReviews); // fallback
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [experienceId]);
 
   const getCurrentDateString = () => new Date().toISOString().split("T")[0];
   const getNextWeekDateString = () => {
@@ -552,31 +590,27 @@ export default function ExperienceDetail() {
           {/* Tab Navigation */}
           <View className="flex-row border-b border-gray-200 mt-4">
             <TouchableOpacity
-              className={`px-4 py-2 ${
-                activeTab === "details" ? "border-b-2 border-primary" : ""
-              }`}
+              className={`px-4 py-2 ${activeTab === "details" ? "border-b-2 border-primary" : ""
+                }`}
               onPress={() => setActiveTab("details")}
             >
               <Text
-                className={`font-onest-medium ${
-                  activeTab === "details" ? "text-primary" : "text-gray-600"
-                }`}
+                className={`font-onest-medium ${activeTab === "details" ? "text-primary" : "text-gray-600"
+                  }`}
               >
                 Details
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className={`px-4 py-2 ${
-                activeTab === "availability" ? "border-b-2 border-primary" : ""
-              }`}
+              className={`px-4 py-2 ${activeTab === "availability" ? "border-b-2 border-primary" : ""
+                }`}
               onPress={() => setActiveTab("availability")}
             >
               <Text
-                className={`font-onest-medium ${
-                  activeTab === "availability"
-                    ? "text-primary"
-                    : "text-gray-600"
-                }`}
+                className={`font-onest-medium ${activeTab === "availability"
+                  ? "text-primary"
+                  : "text-gray-600"
+                  }`}
               >
                 Availability
               </Text>
@@ -610,8 +644,8 @@ export default function ExperienceDetail() {
                 {expanded
                   ? experience.description
                   : experience.description?.length > 150
-                  ? `${experience.description.substring(0, 150)}...`
-                  : experience.description}
+                    ? `${experience.description.substring(0, 150)}...`
+                    : experience.description}
               </Text>
 
               {experience.description?.length > 150 && (
@@ -630,8 +664,8 @@ export default function ExperienceDetail() {
                 {expanded
                   ? experience.notes
                   : experience.notes?.length > 150
-                  ? `${experience.notes.substring(0, 150)}...`
-                  : experience.notes}
+                    ? `${experience.notes.substring(0, 150)}...`
+                    : experience.notes}
               </Text>
 
               {experience.description?.length > 150 && (
@@ -665,27 +699,30 @@ export default function ExperienceDetail() {
               )}
 
               {/* Reviews Section */}
-              <ReviewsSection reviews={dummyReviews} initialDisplayCount={2} />
+              {loading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <ReviewsSection reviews={reviews} initialDisplayCount={2} />
+              )}
 
               {/* Location Button */}
               <TouchableOpacity
-                className={`mt-6 py-4 rounded-2xl items-center flex-row justify-center ${
-                  experience.destination ? "bg-primary" : "bg-gray-400"
-                }`}
+                className={`my-6 py-4 rounded-2xl items-center flex-row justify-center ${experience.destination ? "bg-primary" : "bg-gray-400"
+                  }`}
                 onPress={handleOpenMap}
                 disabled={!experience.destination}
                 style={
                   experience.destination
                     ? {
-                        shadowColor: "#4F46E5",
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 8,
-                        elevation: 6,
-                      }
+                      shadowColor: "#4F46E5",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 8,
+                      elevation: 6,
+                    }
                     : {}
                 }
-                activeOpacity={0.8}
+                activeOpacity={1}
               >
                 <Ionicons
                   name="map-outline"
@@ -693,9 +730,8 @@ export default function ExperienceDetail() {
                   color={experience.destination ? "#E5E7EB" : "#9CA3AF"}
                 />
                 <Text
-                  className={`font-onest-semibold ml-3 ${
-                    experience.destination ? "text-gray-200" : "text-gray-500"
-                  }`}
+                  className={`font-onest-semibold ml-3 ${experience.destination ? "text-gray-200" : "text-gray-500"
+                    }`}
                 >
                   {experience.destination
                     ? "Open Location on Map"
