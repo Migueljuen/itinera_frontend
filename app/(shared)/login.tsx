@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
+import { toast } from "sonner-native";
+
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function Login() {
@@ -14,6 +17,9 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [showPassword, setShowPassword] = useState(false);
+
+
+
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -41,18 +47,16 @@ export default function Login() {
       const result = await login(email, password);
 
       if (result.success) {
-        if (result.user.role === "Traveler") {
-          router.replace("/(traveler)");
-        } else if (result.user.role === "Creator") {
-          router.replace("/(creator)");
-        } else {
-          Alert.alert("Login Failed", "Invalid user role.");
-        }
+        toast.success("Welcome back!");
+
+        if (result.user.role === "Traveler") router.replace("/(traveler)");
+        else if (result.user.role === "Creator") router.replace("/(creator)");
+        else toast.error("Invalid User Role - Unable to continue.");
       } else {
-        Alert.alert("Login Failed", result.error);
+        toast.error(result.error || "Invalid email or password");
       }
     } catch (error) {
-      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      toast.error("Error Occurred - Please try again.");
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -70,7 +74,6 @@ export default function Login() {
           {/* Email input */}
           <View>
             <View className="flex-row items-center border-[0.5px] border-gray-400 rounded-xl px-4 py-3" style={{ height: 50 }}>
-              {/* <Ionicons name="mail-outline" size={20} color="#9CA3AF" /> */}
               <TextInput
                 placeholder="Email"
                 placeholderTextColor="#9CA3AF"
@@ -90,7 +93,6 @@ export default function Login() {
           {/* Password input */}
           <View>
             <View className="flex-row items-center border-[0.5px] border-gray-400 rounded-xl px-4 py-3" style={{ height: 50 }}>
-              {/* <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" /> */}
               <TextInput
                 placeholder="Password"
                 placeholderTextColor="#9CA3AF"
@@ -117,14 +119,14 @@ export default function Login() {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity className="self-end">
+          <TouchableOpacity className="self-end" onPress={() => router.replace("/forgot")}>
             <Text className="text-blue-400 font-medium">
               Forgot Password?
             </Text>
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity
+          <Pressable
             onPress={handleLogin}
             disabled={isSubmitting}
             className="bg-primary py-4 rounded-xl mt-6"
@@ -136,14 +138,14 @@ export default function Login() {
                 Log in
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
 
           <Text className="text-gray-400 text-center text-lg my-1">
             Or
           </Text>
 
           <TouchableOpacity
-            className="bg-white border border-gray-300  shadow-zinc-200 py-4 rounded-xl"
+            className="bg-white border border-gray-300 shadow-zinc-200 py-4 rounded-xl"
           >
             <View className="flex flex-row items-center justify-center">
               <Image source={require('../../assets/images/google.png')} style={{ width: 20, height: 20 }} />

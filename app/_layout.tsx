@@ -4,6 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Toaster } from "sonner-native"; // ← NEW
+
 import { AuthProvider } from "../contexts/AuthContext";
 import { RefreshProvider } from "../contexts/RefreshContext";
 import "./global.css";
@@ -25,7 +27,6 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
-        // Simulate any other async setup tasks here
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (e) {
         console.warn("Error during app initialization:", e);
@@ -43,17 +44,22 @@ export default function RootLayout() {
   }, [appIsReady, fontsLoaded]);
 
   if (!appIsReady || !fontsLoaded) {
-    return null; // Keep splash screen until everything is ready
+    return null;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <RefreshProvider>
+
           <SafeAreaProvider>
+
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }} />
+            <Toaster position="top-center" />
+
           </SafeAreaProvider>
+
         </RefreshProvider>
       </AuthProvider>
     </GestureHandlerRootView>
