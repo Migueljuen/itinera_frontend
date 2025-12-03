@@ -22,7 +22,7 @@ export default function ForgotPassword() {
       setErrors({ email: "Email is required" });
       return;
     }
-
+    console.log("Sending OTP to:", email);
     try {
       const res = await axios.post(`${API_URL}/password-reset/request`, {
         email,
@@ -70,7 +70,7 @@ export default function ForgotPassword() {
               <TextInput
                 placeholder="Email"
                 placeholderTextColor="#9CA3AF"
-                className="flex-1 ml-3 text-lg"
+                className=" ml-2 flex-1 text-lg"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"

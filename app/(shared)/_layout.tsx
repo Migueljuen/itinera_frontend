@@ -5,7 +5,10 @@ export default function SharedLayout() {
     return (
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="landingPage" />
-            <Stack.Screen name="login" />
+            <Stack.Screen name="login" options={{
+                headerShown: false,
+                animation: "slide_from_left"
+            }} />
             <Stack.Screen name="signup" />
 
             <Stack.Screen name="forgot" />

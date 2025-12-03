@@ -111,92 +111,92 @@ export default function Signup() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+
           keyboardShouldPersistTaps="handled"
         >
 
 
           <View className="p-12">
-            <Text className="text-3xl font-onest-bold mb-12">Create Account</Text>
+            <View className="flex justify-center items-start gap-4">
+              {/* <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} /> */}
+              <TouchableOpacity onPress={() => router.push("/login")} className='flex flex-row items-center gap-4 pb-6'>
+                <Ionicons
+                  name={"arrow-back"}
+                  size={20}
+                  color="#9CA3AF"
+                />
+                <Text>Back</Text>
+              </TouchableOpacity>
+              <Text className='text-3xl'>Create an Account</Text>
+              <Text className='text-black/60 text-lg'>It only takes a few seconds to get started.</Text>
+            </View>
 
             {/* Personal Information Section */}
-            <View className="mb-6">
-              <View className="flex-row items-center mb-4">
-                <Ionicons name="person-outline" size={20} color="#6B7280" />
-                <Text className="text-lg font-semibold text-gray-700 ml-2">Personal Information</Text>
+
+            <View className="mt-8 gap-4">
+              {/* First Name */}
+              <View>
+                <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <TextInput
+                    placeholder="First Name"
+                    placeholderTextColor="#9CA3AF"
+                    className="flex-1 ml-3 text-lg font-onest"
+                    value={formData.first_name}
+                    onChangeText={(text) => handleChange("first_name", text)}
+                    multiline={false}
+                    textAlignVertical="center"
+                    style={{ height: '100%' }}
+                  />
+                </View>
+                {errors.first_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.first_name}</Text>}
               </View>
 
-              <View className="gap-4">
-                {/* First Name */}
-                <View>
-                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
-                    <TextInput
-                      placeholder="First Name"
-                      placeholderTextColor="#9CA3AF"
-                      className="flex-1 ml-3 text-lg"
-                      value={formData.first_name}
-                      onChangeText={(text) => handleChange("first_name", text)}
-                      multiline={false}
-                      textAlignVertical="center"
-                      style={{ height: '100%' }}
-                    />
-                  </View>
-                  {errors.first_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.first_name}</Text>}
+              {/* Last Name */}
+              <View>
+                <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <TextInput
+                    placeholder="Last Name"
+                    placeholderTextColor="#9CA3AF"
+                    className="flex-1 ml-3 text-lg font-onest"
+                    value={formData.last_name}
+                    onChangeText={(text) => handleChange("last_name", text)}
+                    multiline={false}
+                    textAlignVertical="center"
+                    style={{ height: '100%' }}
+                  />
                 </View>
-
-                {/* Last Name */}
-                <View>
-                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
-                    <TextInput
-                      placeholder="Last Name"
-                      placeholderTextColor="#9CA3AF"
-                      className="flex-1 ml-3 text-lg"
-                      value={formData.last_name}
-                      onChangeText={(text) => handleChange("last_name", text)}
-                      multiline={false}
-                      textAlignVertical="center"
-                      style={{ height: '100%' }}
-                    />
-                  </View>
-                  {errors.last_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.last_name}</Text>}
-                </View>
+                {errors.last_name && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.last_name}</Text>}
               </View>
+
+              {/* Email */}
+              <View>
+                <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
+                  <TextInput
+                    placeholder="Email"
+                    placeholderTextColor="#9CA3AF"
+                    className="flex-1 ml-3 text-lg font-onest "
+                    value={formData.email}
+                    onChangeText={(text) => handleChange("email", text)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    multiline={false}
+                    textAlignVertical="center"
+                    style={{ height: '100%' }}
+                  />
+                </View>
+                {errors.email && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.email}</Text>}
+              </View>
+
             </View>
 
-            {/* Account Details Section */}
-            <View className="mb-6">
-              <View className="flex-row items-center mb-4">
-                <Ionicons name="mail-outline" size={20} color="#6B7280" />
-                <Text className="text-lg font-semibold text-gray-700 ml-2">Account Details</Text>
-              </View>
 
-              <View className="space-y-3">
-                {/* Email */}
-                <View>
-                  <View className="flex-row items-center border border-gray-300 rounded-md px-4 py-3" style={{ height: 50 }}>
-                    <TextInput
-                      placeholder="Email"
-                      placeholderTextColor="#9CA3AF"
-                      className="flex-1 ml-3 text-lg"
-                      value={formData.email}
-                      onChangeText={(text) => handleChange("email", text)}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      multiline={false}
-                      textAlignVertical="center"
-                      style={{ height: '100%' }}
-                    />
-                  </View>
-                  {errors.email && <Text className="text-red-500 text-sm ml-1 mt-1">{errors.email}</Text>}
-                </View>
-              </View>
-            </View>
+
 
             {/* Security Section */}
-            <View className="mb-6">
+            <View className="mt-8">
               <View className="flex-row items-center mb-4">
-                <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
-                <Text className="text-lg font-semibold text-gray-700 ml-2">Security</Text>
+                {/* <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" /> */}
+                <Text className="text-lg font-onest-medium  text-black/90 ml-2">Security</Text>
               </View>
 
               <View className="gap-4">
@@ -206,7 +206,7 @@ export default function Signup() {
                     <TextInput
                       placeholder="Password"
                       placeholderTextColor="#9CA3AF"
-                      className="flex-1 ml-3 text-lg"
+                      className="flex-1 ml-3 text-lg font-onest"
                       value={formData.password}
                       onChangeText={(text) => handleChange("password", text)}
                       secureTextEntry={!showPassword}
@@ -234,7 +234,7 @@ export default function Signup() {
                     <TextInput
                       placeholder="Confirm Password"
                       placeholderTextColor="#9CA3AF"
-                      className="flex-1 ml-3 text-lg"
+                      className="flex-1 ml-3 text-lg font-onest"
                       value={formData.confirmPassword}
                       onChangeText={(text) => handleChange("confirmPassword", text)}
                       secureTextEntry={!showConfirmPassword}
@@ -259,8 +259,8 @@ export default function Signup() {
             </View>
 
             {/* Password Requirements */}
-            <View className=" bg-gray-100 rounded-md p-4 mb-6">
-              <Text className="text-sm font-medium text-gray-700 mb-2">Password Requirements:</Text>
+            <View className="  mt-8">
+              <Text className="text-sm font-medium text-black/90 mb-2">Password Requirements:</Text>
               <View className="space-y-1">
                 <View className="flex-row items-center">
                   <Ionicons
@@ -289,7 +289,7 @@ export default function Signup() {
             <TouchableOpacity
               onPress={handleSignup}
               disabled={isSubmitting}
-              className="bg-primary py-4 rounded-md mt-4"
+              className="bg-primary py-4 rounded-md mt-8"
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#fff" />

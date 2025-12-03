@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { toast } from "sonner-native";
 
 import React, { useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -66,8 +66,11 @@ export default function Login() {
   return (
     <SafeAreaView className="bg-white h-full">
       <ScrollView>
-        <View className="flex justify-center items-start pt-12">
-          <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} />
+        <View className="flex justify-center items-center mt-12 p-12 gap-4">
+          {/* <Image source={require('../../assets/images/logo.png')} style={{ width: 250, height: 150 }} /> */}
+          <Text className='font-onest-semibold'>Itinera</Text>
+          <Text className='text-3xl'>Let's get you logged in</Text>
+          <Text className='text-black/60 text-lg'>We're glad to have you back—let’s get started.</Text>
         </View>
 
         <View className="px-12 gap-4">
@@ -119,7 +122,7 @@ export default function Login() {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity className="self-end" onPress={() => router.replace("/forgot")}>
+          <TouchableOpacity className="self-end" onPress={() => router.push("/forgot")}>
             <Text className="text-blue-400 font-medium">
               Forgot Password?
             </Text>
@@ -140,7 +143,7 @@ export default function Login() {
             )}
           </Pressable>
 
-          <Text className="text-gray-400 text-center text-lg my-1">
+          {/* <Text className="text-gray-400 text-center text-lg my-1">
             Or
           </Text>
 
@@ -153,10 +156,10 @@ export default function Login() {
                 Continue with Google
               </Text>
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
-            onPress={() => router.replace("/signup")}
+            onPress={() => router.push("/signup")}
             className="flex justify-center items-center"
           >
             <Text className="my-4 font-medium">
