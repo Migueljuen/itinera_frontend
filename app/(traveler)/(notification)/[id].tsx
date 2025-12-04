@@ -18,6 +18,7 @@ import {
     View
 } from 'react-native';
 
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import API_URL from '../../../constants/api';
 import { useRefresh } from '../../../contexts/RefreshContext';
@@ -353,22 +354,22 @@ const NotificationDetailScreen = () => {
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={{ flex: 1 }}
         >
-            <View className="flex-1 ">
-                <StatusBar barStyle="light-content" backgroundColor="#4F7C7E" />
+            <View className="flex-1 bg">
+                <StatusBar />
 
                 {/* Header */}
-                <View className="bg-primary">
+                <View className="">
                     <SafeAreaView>
-                        <View className="px-4 pt-4 pb-6">
-                            <View className="flex-row justify-between items-center">
+                        <View className="px-4">
+                            <View className="flex-row justify-between items-center  mt-4">
                                 <TouchableOpacity
                                     onPress={() => router.back()}
                                     className="p-2"
                                 >
-                                    <Ionicons name="arrow-back" size={24} color="white" />
+                                    <Ionicons name="arrow-back" size={24} color="black" />
                                 </TouchableOpacity>
 
-                                <Text className="text-white text-lg font-onest-semibold">Inbox</Text>
+                                <Text className="text-black/90 text-lg font-onest-semibold">Inbox</Text>
 
                                 <TouchableOpacity
                                     onPress={handleDelete}
@@ -376,9 +377,9 @@ const NotificationDetailScreen = () => {
                                     className="p-2"
                                 >
                                     {deleting ? (
-                                        <ActivityIndicator size="small" color="white" />
+                                        <ActivityIndicator size="small" color="black" />
                                     ) : (
-                                        <Ionicons name="trash-outline" size={24} color="white" />
+                                        <Ionicons name="trash-outline" size={24} color="black" />
                                     )}
                                 </TouchableOpacity>
                             </View>
@@ -388,67 +389,63 @@ const NotificationDetailScreen = () => {
 
                 {/* Content */}
                 <ScrollView className="flex-1 rounded-2xl " showsVerticalScrollIndicator={false}>
-                    <View className="px-6 py-8">
-                        {/* Icon */}
-                        <View className="items-center mb-6">
-                            <View
-                                className="w-20 h-20 rounded-full items-center justify-center"
-                                style={{ backgroundColor: notification.icon_color }}
-                            >
-                                <Ionicons
-                                    name={notification.icon as any}
-                                    size={40}
-                                    color="white"
-                                />
-                            </View>
-                        </View>
+                    <View className="px-6 py-8 mt-4">
 
-                        {/* Date/Time */}
-                        <Text className="text-gray-400 font-onest text-center text-sm mb-4">
-                            {formatDateTime(notification.created_at)}
-                        </Text>
-
-                        {/* Title */}
-                        <Text className="text-2xl font-onest-bold text-center text-gray-800 mb-6">
-                            {notification.title}
-                        </Text>
-
-                        {/* Description */}
-                        <Text className="text-gray-600 font-onest text-base leading-6 text-center mb-8">
-                            {notification.description}
-                        </Text>
-
-                        {/* Additional Context */}
-                        {notification.itinerary_title && (
-                            <View className="rounded-xl p-4 mb-6">
-                                <View className="flex-row items-center">
-                                    <Ionicons name="map-outline" size={20} color="#6B7280" />
-                                    <Text className="text-gray-600 font-onest ml-2">
-                                        Related to: {notification.itinerary_title}
-                                    </Text>
+                        <View className="bg-white rounded-2xl p-6 mb-6 relative ">
+                            {/* Icon */}
+                            <View className="absolute -top-12 left-0 right-0 items-center">
+                                <View
+                                    className="w-20 h-20 rounded-full border-8 border-white items-center justify-center"
+                                    style={{ backgroundColor: notification.icon_color }}
+                                >
+                                    <Ionicons
+                                        name={notification.icon as any}
+                                        size={40}
+                                        color="white"
+                                    />
                                 </View>
                             </View>
-                        )}
 
-                        {/* Status */}
-                        {notification.is_read && notification.read_at && (
-                            <View className="flex-row items-center justify-center mb-6">
-                                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                                <Text className="text-gray-400 font-onest text-sm ml-1">
-                                    Read on {new Date(notification.read_at).toLocaleDateString()}
-                                </Text>
-                            </View>
-                        )}
+                            {/* Title */}
+                            <Text className="text-2xl font-onest-bold text-center text-black/90 my-6 border-b pb-4 border-gray-200">
+                                {notification.title}
+                            </Text>
+
+                            {/* Description */}
+                            <Text className="text-black/60 font-onest text-base leading-6 text-center mb-8">
+                                {notification.description}
+                            </Text>
+
+                            {/* Additional Context */}
+                            {notification.itinerary_title && (
+                                <View className="rounded-xl p-4 mb-6">
+                                    <View className="flex-row items-center">
+                                        <Ionicons name="map-outline" size={20} color="#6B7280" />
+                                        <Text className="text-black/60 font-onest ml-2">
+                                            Related to: {notification.itinerary_title}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Date/Time */}
+                            <Text className="text-gray-400 font-onest text-center text-sm mb-4">
+                                {formatDateTime(notification.created_at)}
+                            </Text>
+
+
+                        </View>
+
 
                         {/* Review Section */}
                         {showReviewSection && (
                             <View className="bg-white rounded-2xl p-6 mb-6 ">
                                 <View className="items-center mb-4">
                                     {/* <FontAwesome name="star" size={32} color="#FCD34D" /> */}
-                                    <Text className="text-xl font-onest-bold text-gray-800 mt-2">
+                                    <Text className="text-xl font-onest-semibold text-black/90 mt-2">
                                         {reviewSubmitted ? 'Your Review' : 'How was your experience?'}
                                     </Text>
-                                    <Text className="text-gray-500 font-onest text-sm text-center mt-1">
+                                    <Text className="text-black/60 font-onest text-sm text-center mt-1">
                                         {reviewSubmitted
                                             ? 'Thank you for your feedback!'
                                             : 'Help others by sharing your experience'}
@@ -462,8 +459,8 @@ const NotificationDetailScreen = () => {
                                 <View className="mb-4">
 
                                     <TextInput
-                                        className=" rounded-xl p-4 font-onest text-gray-800 min-h-[120px]"
-                                        placeholder="Share your thoughts about this experience..."
+                                        className=" rounded-xl p-4 font-onest text-black/90 min-h-[40px]"
+                                        placeholder="Type review..."
                                         placeholderTextColor="#9CA3AF"
                                         multiline
                                         numberOfLines={5}
@@ -473,7 +470,7 @@ const NotificationDetailScreen = () => {
                                         editable={!reviewSubmitted}
                                         style={{
                                             borderWidth: 1,
-                                            borderColor: '#E5E7EB'
+                                            borderColor: '#f0f0f0'
                                         }}
                                     />
                                     <Text className="text-gray-400 font-onest text-xs mt-2">

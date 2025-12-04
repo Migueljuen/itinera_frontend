@@ -107,17 +107,16 @@ const landingPage: React.FC = () => {
             <TouchableOpacity
               key={index}
               onPress={() => goToSlide(index)}
-              className={`h-3 rounded-full mx-1 ${
-                index === currentIndex
+              className={`h-3 rounded-full mx-1 ${index === currentIndex
                   ? "bg-buttonPrimary w-8"
                   : "bg-gray-300 w-3"
-              }`}
+                }`}
             />
           ))}
         </View>
 
         <TouchableOpacity
-          onPress={() => router.replace("/login")}
+          onPress={() => router.push("/login")}
           className="bg-buttonSecondary px-16 py-4  rounded-full"
         >
           <Text className="text-white text-center text-xl">Get started</Text>
