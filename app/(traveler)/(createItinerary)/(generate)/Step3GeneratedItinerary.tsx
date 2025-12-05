@@ -11,90 +11,10 @@ import {
 } from "react-native";
 import API_URL from "../../../../constants/api";
 import { CollapsibleFilter } from "./components/CollapsibleFilter";
+import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
 
-import {
-  ActivityIntensity,
-  Budget,
-  Experience,
-  ExploreTime,
-  TravelCompanion,
-  TravelDistance,
-} from "@/types/experienceTypes";
-
-export interface ItineraryFormData {
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes?: string;
-  city: string;
-  items: ItineraryItem[];
-  preferences?: {
-    experiences: Experience[];
-    travelCompanion?: TravelCompanion;
-    travelCompanions?: TravelCompanion[];
-    exploreTime?: ExploreTime;
-    budget?: Budget;
-    activityIntensity?: ActivityIntensity;
-    travelDistance?: TravelDistance;
-  };
-}
-
-export interface ItineraryItem {
-  experience_id: number;
-  day_number: number;
-  start_time: string;
-  end_time: string;
-  custom_note?: string;
-  experience_name?: string;
-  experience_description?: string;
-  destination_name?: string;
-  destination_city?: string;
-  images?: string[];
-  primary_image?: string;
-  price?: number;
-  unit?: string;
-}
-
-interface GeneratedItinerary {
-  itinerary_id: number;
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes: string;
-  created_at: string;
-  status: string;
-  travel_companions?: TravelCompanion[];
-  items: ItineraryItem[];
-}
-
-// Enhanced error interface
-interface EnhancedError {
-  error: string;
-  message: string;
-  details?: {
-    total_experiences_in_city: number;
-    filter_breakdown: {
-      after_travel_companion: number;
-      after_budget: number;
-      after_distance: number;
-      after_availability: number;
-    };
-    suggestions: string[];
-    conflicting_preferences: string[];
-    alternative_options: {
-      nearby_cities: Array<{ city: string; experience_count: number }>;
-      popular_experiences: Array<{
-        title: string;
-        price: number;
-        travel_companion: string;
-        travel_companions?: string[];
-        popularity: number;
-      }>;
-    };
-  };
-}
+import { GeneratedItinerary, ItineraryFormData, ItineraryItem } from "@/types/itineraryTypes";
+import { EnhancedError } from "@/types/types";
 
 interface StepProps {
   formData: ItineraryFormData;
@@ -103,43 +23,10 @@ interface StepProps {
   onBack: () => void;
 }
 
-// Constants
-const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
-  "Visual Arts": "brush",
-  Crafts: "hand-left",
-  "Performing Arts": "musical-notes",
-  "Creative Expression": "color-palette",
-  Mindfulness: "flower",
-  "Physical Fitness": "fitness",
-  "Wellness Activities": "heart",
-  Relaxation: "bed",
-  "Local Cuisine": "restaurant",
-  Beverages: "cafe",
-  "Culinary Experiences": "pizza",
-  "Sweets & Desserts": "ice-cream",
-  "Museums & Galleries": "business",
-  "Historical Sites": "map",
-  "Cultural Performances": "musical-note",
-  "Traditional Arts": "brush",
-  "Hiking & Trekking": "walk",
-  "Water Activities": "water",
-  "Wildlife & Nature": "leaf",
-  "Camping & Outdoors": "bonfire",
-};
-
 const INTENSITY_COLORS: Record<string, string> = {
   low: "text-green-600",
   moderate: "text-yellow-600",
   high: "text-blue-600",
-};
-
-const DEFAULT_PREFERENCES: NonNullable<ItineraryFormData["preferences"]> = {
-  experiences: [],
-  travelCompanions: [],
-  exploreTime: "Both",
-  budget: "Mid-range",
-  activityIntensity: "Moderate",
-  travelDistance: "Moderate",
 };
 
 // Utility functions
@@ -180,9 +67,8 @@ const PreferenceButton: React.FC<{
 }> = ({ label, isSelected, onPress, icon }) => (
   <TouchableOpacity
     onPress={onPress}
-    className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${
-      isSelected ? "bg-primary border-primary" : "bg-white border-gray-300"
-    }`}
+    className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? "bg-primary border-primary" : "bg-white border-gray-300"
+      }`}
     activeOpacity={0.7}
   >
     <View className="flex-row items-center">
@@ -194,9 +80,8 @@ const PreferenceButton: React.FC<{
         />
       )}
       <Text
-        className={`${icon ? "ml-1" : ""} text-sm font-onest ${
-          isSelected ? "text-white" : "text-gray-700"
-        }`}
+        className={`${icon ? "ml-1" : ""} text-sm font-onest ${isSelected ? "text-white" : "text-gray-700"
+          }`}
       >
         {label}
       </Text>
@@ -241,7 +126,7 @@ const ExperienceCard: React.FC<{
       </View>
 
       {item.experience_description && (
-        <Text className="text-gray-700 font-onest text-sm mb-2">
+        <Text numberOfLines={1} className="text-gray-700 font-onest text-sm mb-2">
           {item.experience_description}
         </Text>
       )}
@@ -282,32 +167,20 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const [generatedItinerary, setGeneratedItinerary] =
     useState<GeneratedItinerary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(
-    null
-  );
+  const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(null);
   const [isPreview, setIsPreview] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     console.log("=== User selections from STEP 2 ===");
-
     console.log("Selected experiences:", formData.preferences?.experiences);
     console.log("Selected companion:", formData.preferences?.travelCompanion);
     console.log("Selected explore time:", formData.preferences?.exploreTime);
     console.log("Selected budget:", formData.preferences?.budget);
-    console.log(
-      "Selected activity intensity:",
-      formData.preferences?.activityIntensity
-    );
-    console.log(
-      "Selected travel distance:",
-      formData.preferences?.travelDistance
-    );
-
+    console.log("Selected activity intensity:", formData.preferences?.activityIntensity);
+    console.log("Selected travel distance:", formData.preferences?.travelDistance);
     console.log("==========================================");
   }, [formData]);
-
-  // Reference for expanding filter
-  const expandFilterRef = React.useRef<any>(null);
 
   useEffect(() => {
     generateItinerary();
@@ -346,6 +219,8 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         requestBody.travel_companions = [currentPreferences.travelCompanion];
       }
 
+      console.log("🚀 Generating itinerary with:", requestBody);
+
       const response = await fetch(`${API_URL}/itinerary/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -355,27 +230,60 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle enhanced error with detailed breakdown
         if (data.error === "no_experiences_found" && data.details) {
+          console.log("📊 Enhanced error received:", data);
           setEnhancedError(data);
           return;
         }
-        throw new Error(data.message || "Failed to generate itinerary");
+
+        // Handle other API errors
+        throw new Error(data.message || data.error || "Failed to generate itinerary");
       }
 
-      if (data.itineraries?.[0]) {
-        setGeneratedItinerary(data.itineraries[0]);
+      // Validate response structure
+      if (!data.itineraries || !Array.isArray(data.itineraries)) {
+        throw new Error("Invalid response format from server");
+      }
+
+      if (data.itineraries.length === 0) {
+        throw new Error("No itinerary was generated. Please try different preferences.");
+      }
+
+      if (data.itineraries[0]) {
+        const itinerary = data.itineraries[0];
+
+        // Validate itinerary has items
+        if (!itinerary.items || itinerary.items.length === 0) {
+          throw new Error("Generated itinerary has no activities. Please adjust your filters.");
+        }
+
+        console.log("✅ Itinerary generated successfully:", {
+          totalItems: itinerary.items.length,
+          days: Object.keys(groupItemsByDay(itinerary.items)).length
+        });
+
+        setGeneratedItinerary(itinerary);
         setFormData({
           ...formData,
-          items: data.itineraries[0].items,
+          items: itinerary.items,
           ...(preferencesToUse && { preferences: preferencesToUse }),
         });
+        setRetryCount(0); // Reset retry count on success
       } else {
-        throw new Error("No itinerary generated");
+        throw new Error("No itinerary data in response");
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to generate itinerary"
-      );
+      console.error("❌ Error generating itinerary:", err);
+
+      // Handle network errors
+      if (err instanceof TypeError && err.message.includes("fetch")) {
+        setError("Network error. Please check your connection and try again.");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to generate itinerary");
+      }
+
+      setRetryCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -386,8 +294,19 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const handleRegenerateWithNewFilters = (
     newPreferences: ItineraryFormData["preferences"]
   ) => {
+    console.log("🔄 Regenerating with new filters:", newPreferences);
     setFormData({ ...formData, preferences: newPreferences });
     generateItineraryWithPreferences(newPreferences);
+  };
+
+  const handleModifyPreferences = () => {
+    // Go back to step 2 to modify preferences
+    onBack();
+  };
+
+  const handleRetry = () => {
+    console.log("🔄 Retrying itinerary generation (attempt:", retryCount + 1, ")");
+    generateItinerary();
   };
 
   const removeItem = (itemToRemove: ItineraryItem) => {
@@ -409,6 +328,17 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                     item.start_time === itemToRemove.start_time
                   )
               );
+
+              // Check if removing this item leaves us with no items
+              if (updatedItems.length === 0) {
+                Alert.alert(
+                  "Cannot Remove",
+                  "This is the only activity in your itinerary. Please regenerate with different filters instead.",
+                  [{ text: "OK" }]
+                );
+                return;
+              }
+
               setGeneratedItinerary({
                 ...generatedItinerary,
                 items: updatedItems,
@@ -423,6 +353,16 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
 
   const saveItinerary = async () => {
     if (!generatedItinerary || saving) return;
+
+    // Validate we have items to save
+    if (!generatedItinerary.items || generatedItinerary.items.length === 0) {
+      Alert.alert(
+        "Cannot Save",
+        "Your itinerary has no activities. Please regenerate or go back to adjust your preferences.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -442,8 +382,16 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       });
 
       const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.message || "Failed to save itinerary");
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Failed to save itinerary");
+      }
+
+      if (!data.itinerary_id) {
+        throw new Error("No itinerary ID returned from server");
+      }
+
+      console.log("✅ Itinerary saved successfully:", data.itinerary_id);
 
       setGeneratedItinerary({
         ...generatedItinerary,
@@ -453,6 +401,18 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       setIsPreview(false);
       setTimeout(onNext, 1000);
     } catch (err) {
+      console.error("❌ Error saving itinerary:", err);
+
+      // Show user-friendly error
+      Alert.alert(
+        "Save Failed",
+        err instanceof Error ? err.message : "Failed to save itinerary. Please try again.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Retry", onPress: saveItinerary }
+        ]
+      );
+
       setError(err instanceof Error ? err.message : "Failed to save itinerary");
     } finally {
       setSaving(false);
@@ -462,57 +422,131 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   // Loading state
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center p-4">
+      <View className="flex-1 justify-center items-center p-4 bg-gray-50">
         <ActivityIndicator size="large" color="#4F46E5" />
         <Text className="text-center text-lg font-onest-medium mt-4 mb-2">
           Generating your perfect itinerary...
         </Text>
-        <Text className="text-center text-sm text-gray-500 font-onest">
+        <Text className="text-center text-sm text-gray-500 font-onest px-6">
           This may take a few moments while we find the best activities for you.
         </Text>
+        {retryCount > 0 && (
+          <Text className="text-center text-xs text-gray-400 font-onest mt-2">
+            Attempt {retryCount + 1}
+          </Text>
+        )}
       </View>
     );
   }
 
-  // Error states
+  // Enhanced error state with detailed breakdown
   if (enhancedError?.details) {
-    // Enhanced error UI - keeping as is for brevity
-    return <View />; // Your existing enhanced error UI
+    return (
+      <EnhancedErrorDisplay
+        error={enhancedError}
+        city={formData.city}
+        onTryAgain={handleRetry}
+        onModifyPreferences={handleModifyPreferences}
+      />
+    );
   }
 
+  // Simple error state
   if (error) {
     return (
-      <View className="flex-1 justify-center items-center p-4">
-        <Ionicons name="alert-circle" size={64} color="#EF4444" />
-        <Text className="text-center text-lg font-onest-medium mt-4 mb-2">
-          Oops! Something went wrong
-        </Text>
-        <Text className="text-center text-sm text-gray-500 font-onest mb-6">
-          {error}
-        </Text>
-        <TouchableOpacity
-          onPress={generateItinerary}
-          className="bg-primary py-3 px-6 rounded-xl"
-          activeOpacity={0.7}
-        >
-          <Text className="text-white font-onest-medium">Try Again</Text>
-        </TouchableOpacity>
+      <View className="flex-1 justify-center items-center p-6 bg-gray-50">
+        <View className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-200">
+          <View className="items-center mb-4">
+            <View className="bg-red-100 rounded-full p-4 mb-3">
+              <Ionicons name="alert-circle" size={32} color="#EF4444" />
+            </View>
+            <Text className="text-center text-lg font-onest-semibold text-gray-900 mb-2">
+              Oops! Something went wrong
+            </Text>
+            <Text className="text-center text-sm text-gray-600 font-onest">
+              {error}
+            </Text>
+          </View>
+
+          {retryCount >= 2 && (
+            <View className="bg-yellow-50 rounded-lg p-3 mb-4">
+              <Text className="text-xs text-yellow-800 font-onest text-center">
+                Multiple attempts failed. Try adjusting your preferences.
+              </Text>
+            </View>
+          )}
+
+          <View className="space-y-3">
+            <TouchableOpacity
+              onPress={handleRetry}
+              className="bg-primary py-3 px-6 rounded-xl"
+              activeOpacity={0.7}
+            >
+              <Text className="text-white font-onest-medium text-center">
+                Try Again
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleModifyPreferences}
+              className="bg-white border border-gray-300 py-3 px-6 rounded-xl"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 font-onest-medium text-center">
+                Modify Preferences
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={onBack}
+              className="py-2"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-500 font-onest text-sm text-center">
+                Go Back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   }
 
+  // No itinerary generated state
   if (!generatedItinerary) {
     return (
-      <View className="flex-1 justify-center items-center p-4">
-        <Text className="text-center text-lg font-onest-medium">
-          No itinerary available
-        </Text>
+      <View className="flex-1 justify-center items-center p-4 bg-gray-50">
+        <View className="bg-white rounded-xl p-6 border border-gray-200">
+          <View className="items-center mb-4">
+            <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
+            <Text className="text-center text-lg font-onest-medium mt-3">
+              No itinerary available
+            </Text>
+            <Text className="text-center text-sm text-gray-500 font-onest mt-2">
+              Unable to generate an itinerary with current settings
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={handleRetry}
+            className="bg-primary py-3 px-6 rounded-xl"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white font-onest-medium text-center">
+              Try Again
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   const groupedItems = groupItemsByDay(generatedItinerary.items);
   const totalDays = Object.keys(groupedItems).length;
+
+  const totalCost: number = generatedItinerary?.items?.reduce(
+    (sum, item) => sum + Number(item.price || 0),
+    0
+  ) || 0;
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -529,6 +563,20 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         <View className="p-4">
+          {/* Total Cost Card */}
+          <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+            <Text className="text-gray-700 font-onest-medium text-sm mb-1">
+              Estimated Total Cost
+            </Text>
+            <Text className="text-2xl font-onest-bold text-primary">
+              ₱{totalCost.toLocaleString()}
+            </Text>
+            <Text className="text-gray-500 font-onest text-xs mt-1">
+              This is an estimate. Final total will be calculated after saving.
+            </Text>
+          </View>
+
+          {/* Collapsible Filter */}
           <CollapsibleFilter
             preferences={formData.preferences}
             city={formData.city}
@@ -538,20 +586,18 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
           />
 
           {/* Stats */}
-          <View className="bg-white rounded-xl p-4 mb-6 border border-gray-200">
+          <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
             <View className="flex-row justify-between items-center">
               {[
                 { value: totalDays, label: "Days" },
                 { value: generatedItinerary.items.length, label: "Activities" },
                 {
-                  value: formData.preferences?.activityIntensity || "",
+                  value: formData.preferences?.activityIntensity || "N/A",
                   label: "Intensity",
-                  className: `text-sm font-onest-medium capitalize ${
-                    INTENSITY_COLORS[
-                      formData.preferences?.activityIntensity?.toLowerCase() ||
-                        ""
+                  className: `text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
+                    formData.preferences?.activityIntensity?.toLowerCase() || ""
                     ] || "text-gray-600"
-                  }`,
+                    }`,
                 },
               ].map((stat, index) => (
                 <View key={index} className="items-center">

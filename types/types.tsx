@@ -43,3 +43,29 @@ export interface ExperienceFormData {
     images: (string | ImageInfo)[];// This will store local URIs initially, then server URLs after upload
     status?: string;
 }
+// Enhanced error interface
+export interface EnhancedError {
+    error: string;
+    message: string;
+    details?: {
+        total_experiences_in_city: number;
+        filter_breakdown: {
+            after_travel_companion: number;
+            after_budget: number;
+            after_distance: number;
+            after_availability: number;
+        };
+        suggestions: string[];
+        conflicting_preferences: string[];
+        alternative_options: {
+            nearby_cities: Array<{ city: string; experience_count: number }>;
+            popular_experiences: Array<{
+                title: string;
+                price: number;
+                travel_companion: string;
+                travel_companions?: string[];
+                popularity: number;
+            }>;
+        };
+    };
+}

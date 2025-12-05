@@ -132,55 +132,55 @@ const NearbyCitiesSection: React.FC<{
 );
 
 // Popular Experiences Component
-const PopularExperiencesSection: React.FC<{
-  experiences: Array<{
-    title: string;
-    price: number;
-    travel_companion: string;
-    travel_companions?: string[];
-    popularity: number;
-  }>;
-  city: string;
-}> = ({ experiences, city }) => (
-  <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-    <Text className="font-onest-semibold text-base text-gray-900 mb-3">
-      🔥 Popular in {city}
-    </Text>
-    <Text className="text-sm text-gray-600 mb-3">
-      These activities are available but don't match your current filters:
-    </Text>
-    <View className="space-y-3">
-      {experiences.slice(0, 3).map((exp, index) => (
-        <View key={index} className="bg-gray-50 rounded-lg p-3">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-sm font-onest-medium text-gray-900 flex-1">
-              {exp.title}
-            </Text>
-            <Text className="text-sm text-green-600 font-onest-medium">
-              ${exp.price}
-            </Text>
-          </View>
-          <View className="flex-row items-center">
-            <Text className="text-xs text-gray-500">
-              {exp.travel_companions || exp.travel_companion}
-            </Text>
-            <Text className="text-xs text-gray-400 mx-2">•</Text>
-            <Text className="text-xs text-gray-500">
-              {Math.round(exp.popularity * 100)}% popularity
-            </Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  </View>
-);
+// const PopularExperiencesSection: React.FC<{
+//   experiences: Array<{
+//     title: string;
+//     price: number;
+//     travel_companion: string;
+//     travel_companions?: string[];
+//     popularity: number;
+//   }>;
+//   city: string;
+// }> = ({ experiences, city }) => (
+//   <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+//     <Text className="font-onest-semibold text-base text-gray-900 mb-3">
+//       🔥 Popular in {city}
+//     </Text>
+//     <Text className="text-sm text-gray-600 mb-3">
+//       These activities are available but don't match your current filters:
+//     </Text>
+//     <View className="space-y-3">
+//       {experiences.slice(0, 3).map((exp, index) => (
+//         <View key={index} className="bg-gray-50 rounded-lg p-3">
+//           <View className="flex-row justify-between items-start mb-1">
+//             <Text className="text-sm font-onest-medium text-gray-900 flex-1">
+//               {exp.title}
+//             </Text>
+//             <Text className="text-sm text-green-600 font-onest-medium">
+//               ${exp.price}
+//             </Text>
+//           </View>
+//           <View className="flex-row items-center">
+//             <Text className="text-xs text-gray-500">
+//               {exp.travel_companions || exp.travel_companion}
+//             </Text>
+//             <Text className="text-xs text-gray-400 mx-2">•</Text>
+//             <Text className="text-xs text-gray-500">
+//               {Math.round(exp.popularity * 100)}% popularity
+//             </Text>
+//           </View>
+//         </View>
+//       ))}
+//     </View>
+//   </View>
+// );
 
 // Action Buttons Component
 const ActionButtons: React.FC<{
   onModifyPreferences: () => void;
   onTryAgain: () => void;
 }> = ({ onModifyPreferences, onTryAgain }) => (
-  <View className="space-y-3 mt-6">
+  <View className="gap-4 mt-6">
     <TouchableOpacity
       onPress={onModifyPreferences}
       className="bg-primary py-4 rounded-xl"
@@ -288,12 +288,12 @@ export const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
             )}
 
             {/* Popular Experiences */}
-            {details.alternative_options.popular_experiences?.length > 0 && (
+            {/* {details.alternative_options.popular_experiences?.length > 0 && (
               <PopularExperiencesSection
                 experiences={details.alternative_options.popular_experiences}
                 city={city}
               />
-            )}
+            )} */}
           </>
         )}
 

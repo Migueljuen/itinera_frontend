@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -471,7 +472,7 @@ const App = () => {
           </View>
         </ScrollView>
 
-        <TouchableOpacity
+        <Pressable
           className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
           onPress={() => router.push("/(createItinerary)/selectionScreen")}
         >
@@ -479,7 +480,7 @@ const App = () => {
             <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
             <Text className="text-gray-300 font-onest ml-2">Build My Trip</Text>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </SafeAreaView>
   );

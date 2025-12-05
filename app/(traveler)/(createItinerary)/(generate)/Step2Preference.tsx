@@ -1,7 +1,17 @@
 //generate
+import API_URL from "@/constants/api";
+import {
+  ActivityIntensity,
+  Budget,
+  Experience,
+  ExploreTime,
+  TravelCompanion,
+  TravelDistance,
+} from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -12,18 +22,20 @@ import {
   View,
 } from "react-native";
 
-import {
-  ActivityIntensity,
-  Budget,
-  Experience,
-  ExploreTime,
-  TravelCompanion,
-  TravelDistance,
-} from "@/types/experienceTypes";
+// API response interfaces
+interface Tag {
+  tag_id: number;
+  tag_name: string;
+}
 
-interface ExperienceCategory {
-  category: string;
-  tags: Experience[];
+interface Category {
+  category_id: number;
+  category_name: string;
+  tags: Tag[];
+}
+
+interface ApiResponse {
+  categories: Category[];
 }
 
 // Itinerary interfaces
@@ -37,20 +49,21 @@ interface ItineraryFormData {
   items: ItineraryItem[];
   preferences?: {
     experiences: Experience[];
+    experienceIds?: number[]; // Store both names and IDs
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
     exploreTime?: ExploreTime;
     budget?: Budget;
-    activityIntensity?: ActivityIntensity; // Remove the ? to make it required
+    activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
   };
 }
 
 export interface ItineraryItem {
   experience_id: number;
-  day_number: number; // Must be between 1 and total number of days in the itinerary
-  start_time: string; // Format: 'HH:mm'
-  end_time: string; // Format: 'HH:mm'
+  day_number: number;
+  start_time: string;
+  end_time: string;
   custom_note?: string;
 }
 
@@ -68,10 +81,15 @@ const Step2Preference: React.FC<StepProps> = ({
   onBack,
 }) => {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selectedExperiences, setSelectedExperiences] = useState<Experience[]>(
-    formData.preferences?.experiences || []
-  );
+  // Store selected tags as objects with both ID and name
+  const [selectedTags, setSelectedTags] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+
   const [selectedCompanion, setSelectedCompanion] =
     useState<TravelCompanion | null>(
       formData.preferences?.travelCompanion || null
@@ -90,72 +108,76 @@ const Step2Preference: React.FC<StepProps> = ({
       formData.preferences?.travelDistance || null
     );
 
-  // check user input in console
+  // Fetch categories and tags from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_URL}/tags/preference`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch categories");
+        }
+
+        const data: ApiResponse = await response.json();
+        setCategories(data.categories);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+        setError("Failed to load categories. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Initialize selected tags from formData when categories are loaded
+  useEffect(() => {
+    if (
+      categories.length > 0 &&
+      formData.preferences?.experiences &&
+      formData.preferences.experiences.length > 0
+    ) {
+      // Map experience names to tag objects
+      const initialTags: Array<{ id: number; name: string }> = [];
+      categories.forEach((category) => {
+        category.tags.forEach((tag) => {
+          if (
+            formData.preferences?.experiences.includes(
+              tag.tag_name as Experience
+            )
+          ) {
+            initialTags.push({ id: tag.tag_id, name: tag.tag_name });
+          }
+        });
+      });
+      setSelectedTags(initialTags);
+    }
+  }, [categories]);
+
+  // Check user input in console
   useEffect(() => {
     console.log("=== User selections from STEP 1 ===");
     console.log("Selected city:", formData.city);
     console.log("Start date:", formData.start_date);
     console.log("End date:", formData.end_date);
-
     console.log("==========================================");
   }, []);
 
-  const experienceCategories: ExperienceCategory[] = [
-    {
-      category: "Arts & Creativity",
-      tags: ["Visual Arts", "Crafts", "Performing Arts", "Creative Expression"],
-    },
-    {
-      category: "Health & Wellness",
-      tags: [
-        "Mindfulness",
-        "Physical Fitness",
-        "Wellness Activities",
-        "Relaxation",
-      ],
-    },
-    {
-      category: "Food & Drinks",
-      tags: [
-        "Local Cuisine",
-        "Beverages",
-        "Culinary Experiences",
-        "Sweets & Desserts",
-      ],
-    },
-    {
-      category: "Heritage & Culture",
-      tags: [
-        "Museums & Galleries",
-        "Historical Sites",
-        "Cultural Performances",
-        "Traditional Arts",
-      ],
-    },
-    {
-      category: "Nature & Adventure",
-      tags: [
-        "Hiking & Trekking",
-        "Water Activities",
-        "Wildlife & Nature",
-        "Camping & Outdoors",
-      ],
-    },
-  ];
-  type CategoryName =
-    | "Arts & Creativity"
-    | "Health & Wellness"
-    | "Food & Drinks"
-    | "Heritage & Culture"
-    | "Nature & Adventure";
-
-  // Map each category to its Ionicon name
-  const categoryIcons: Record<CategoryName, keyof typeof Ionicons.glyphMap> = {
-    "Arts & Creativity": "color-palette",
-    "Health & Wellness": "fitness",
-    "Food & Drinks": "restaurant",
-    "Heritage & Culture": "book",
-    "Nature & Adventure": "leaf",
+  // Map category names to icons
+  const getCategoryIcon = (
+    categoryName: string
+  ): keyof typeof Ionicons.glyphMap => {
+    const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+      "Arts & Creativity": "color-palette",
+      "Health & Wellness": "fitness",
+      "Food & Drinks": "restaurant",
+      "Heritage & Culture": "book",
+      "Nature & Adventure": "leaf",
+    };
+    return iconMap[categoryName] || "pricetag";
   };
 
   const companionOptions: TravelCompanion[] = [
@@ -182,34 +204,39 @@ const Step2Preference: React.FC<StepProps> = ({
     label: string;
     description: string;
   }[] = [
-    { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
-    {
-      value: "Moderate",
-      label: "A moderate distance is fine",
-      description: "Within 20 km",
-    },
-    {
-      value: "Far",
-      label: "Willing to travel far",
-      description: "20 km or more",
-    },
-  ];
+      { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
+      {
+        value: "Moderate",
+        label: "A moderate distance is fine",
+        description: "Within 20 km",
+      },
+      {
+        value: "Far",
+        label: "Willing to travel far",
+        description: "20 km or more",
+      },
+    ];
 
-  // Toggle experience selection (multiple selection)
-  const toggleExperience = (experience: Experience) => {
-    if (selectedExperiences.includes(experience)) {
-      setSelectedExperiences(
-        selectedExperiences.filter((item) => item !== experience)
-      );
+  // Toggle tag selection (multiple selection)
+  const toggleTag = (tagId: number, tagName: string) => {
+    const isSelected = selectedTags.some((tag) => tag.id === tagId);
+
+    if (isSelected) {
+      setSelectedTags(selectedTags.filter((tag) => tag.id !== tagId));
     } else {
-      setSelectedExperiences([...selectedExperiences, experience]);
+      setSelectedTags([...selectedTags, { id: tagId, name: tagName }]);
     }
+  };
+
+  // Check if a tag is selected
+  const isTagSelected = (tagId: number) => {
+    return selectedTags.some((tag) => tag.id === tagId);
   };
 
   // Check if form is valid to enable the Next button
   const isValid = () => {
     return (
-      selectedExperiences.length > 0 &&
+      selectedTags.length > 0 &&
       selectedCompanion !== null &&
       selectedExploreTime !== null &&
       selectedBudget !== null &&
@@ -221,11 +248,18 @@ const Step2Preference: React.FC<StepProps> = ({
   // Handle submission
   const handleNext = () => {
     if (isValid()) {
+      // Extract tag names and IDs
+      const experienceNames = selectedTags.map(
+        (tag) => tag.name as Experience
+      );
+      const experienceIds = selectedTags.map((tag) => tag.id);
+
       // Update the formData with preferences
       setFormData({
         ...formData,
         preferences: {
-          experiences: selectedExperiences,
+          experiences: experienceNames, // Store tag names for type compatibility
+          experienceIds: experienceIds, // Store IDs for API calls
           travelCompanion: selectedCompanion!,
           exploreTime: selectedExploreTime!,
           budget: selectedBudget!,
@@ -233,6 +267,18 @@ const Step2Preference: React.FC<StepProps> = ({
           travelDistance: selectedTravelDistance!,
         },
       });
+
+      // Log selections for debugging
+      console.log("=== User selections from STEP 2 ===");
+      console.log("Selected experiences (names):", experienceNames);
+      console.log("Selected experiences (IDs):", experienceIds);
+      console.log("Travel companion:", selectedCompanion);
+      console.log("Explore time:", selectedExploreTime);
+      console.log("Budget:", selectedBudget);
+      console.log("Activity intensity:", selectedActivityIntensity);
+      console.log("Travel distance:", selectedTravelDistance);
+      console.log("==========================================");
+
       onNext();
     }
   };
@@ -247,9 +293,8 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
-          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-        }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+          }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -258,16 +303,15 @@ const Step2Preference: React.FC<StepProps> = ({
             <Ionicons
               name={icon as any}
               size={16}
-              color={isSelected ? "#4F46E5" : "#6B7280"}
-              className="mr-2"
+              color={isSelected ? "#4F46E5" : "#1a1a1a"}
+              className="mr-3"
             />
           )}
           <Text
-            className={`text-base ${
-              isSelected
-                ? "font-onest-medium text-primary" // Keep the medium weight
-                : "font-onest text-gray-700"
-            }`}
+            className={`text-base font-onest ${isSelected
+              ? " text-black/90"
+              : "text-black/80"
+              }`}
           >
             {option}
           </Text>
@@ -288,9 +332,8 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option.value}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
-          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-        }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+          }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -300,20 +343,19 @@ const Step2Preference: React.FC<StepProps> = ({
               option.value === "Nearby"
                 ? "location"
                 : option.value === "Moderate"
-                ? "car"
-                : "airplane"
+                  ? "car"
+                  : "airplane"
             }
             size={16}
-            color={isSelected ? "#4F46E5" : "#6B7280"}
+            color={isSelected ? "#4F46E5" : "#1a1a1a"}
             className="mr-3"
           />
           <View className="flex-1">
             <Text
-              className={`text-base ${
-                isSelected
-                  ? "font-onest-medium text-primary"
-                  : "font-onest text-gray-700"
-              }`}
+              className={`text-base font-onest ${isSelected
+                ? " text-black/90"
+                : " text-black/80"
+                }`}
             >
               {option.label}
             </Text>
@@ -328,6 +370,48 @@ const Step2Preference: React.FC<StepProps> = ({
       </TouchableOpacity>
     );
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text className="mt-4 text-gray-600 font-onest">
+          Loading preferences...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1 justify-center items-center p-4">
+        <Ionicons name="alert-circle" size={48} color="#EF4444" />
+        <Text className="mt-4 text-red-600 font-onest-medium text-center">
+          {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            // Retry fetch
+            fetch("http://localhost:3000/tags/preference")
+              .then((res) => res.json())
+              .then((data) => {
+                setCategories(data.categories);
+                setError(null);
+              })
+              .catch(() => setError("Failed to load categories"))
+              .finally(() => setLoading(false));
+          }}
+          className="mt-4 py-3 px-6 bg-primary rounded-lg"
+        >
+          <Text className="text-white font-onest-medium">Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -361,49 +445,45 @@ const Step2Preference: React.FC<StepProps> = ({
                       Select all that interest you
                     </Text>
 
-                    {experienceCategories.map((category) => {
-                      const isOpen = openCategory === category.category;
+                    {categories.map((category) => {
+                      const isOpen = openCategory === category.category_name;
                       const hasSelectedTag = category.tags.some((tag) =>
-                        selectedExperiences.includes(tag)
+                        isTagSelected(tag.tag_id)
                       );
 
                       return (
-                        <View key={category.category} className="mt-2">
+                        <View key={category.category_id} className="mt-2">
                           {/* Category button */}
                           <TouchableOpacity
                             activeOpacity={1}
                             onPress={() =>
-                              setOpenCategory(isOpen ? null : category.category)
+                              setOpenCategory(
+                                isOpen ? null : category.category_name
+                              )
                             }
-                            className={`p-4 border rounded-lg flex-row justify-between items-center ${
-                              isOpen || hasSelectedTag
-                                ? "border-primary bg-indigo-50"
-                                : "border-gray-300"
-                            }`}
+                            className={`p-4 border rounded-lg flex-row justify-between items-center ${isOpen || hasSelectedTag
+                              ? "border-primary bg-indigo-50"
+                              : "border-gray-300"
+                              }`}
                           >
                             <View className="flex-row items-center">
                               <Ionicons
-                                name={
-                                  categoryIcons[
-                                    category.category as CategoryName
-                                  ]
-                                }
+                                name={getCategoryIcon(category.category_name)}
                                 size={16}
                                 color={
                                   isOpen || hasSelectedTag
                                     ? "#4F46E5"
-                                    : "#6B7280"
+                                    : "#1a1a1a"
                                 }
                                 className="mr-3"
                               />
                               <Text
-                                className={`text-base font-onest-medium ${
-                                  isOpen || hasSelectedTag
-                                    ? "text-primary"
-                                    : "text-gray-700"
-                                }`}
+                                className={`text-base font-onest ${isOpen || hasSelectedTag
+                                  ? "text-black/90"
+                                  : "text-black/80"
+                                  }`}
                               >
-                                {category.category}
+                                {category.category_name}
                               </Text>
                             </View>
                             <Ionicons
@@ -418,23 +498,23 @@ const Step2Preference: React.FC<StepProps> = ({
                             <View className="flex-row flex-wrap justify-between mt-2">
                               {category.tags.map((tag) => (
                                 <TouchableOpacity
-                                  key={tag}
-                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${
-                                    selectedExperiences.includes(tag)
-                                      ? "border-primary bg-indigo-50"
-                                      : "border-gray-300"
-                                  }`}
-                                  onPress={() => toggleExperience(tag)}
+                                  key={tag.tag_id}
+                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${isTagSelected(tag.tag_id)
+                                    ? "border-primary bg-indigo-50"
+                                    : "border-gray-300"
+                                    }`}
+                                  onPress={() =>
+                                    toggleTag(tag.tag_id, tag.tag_name)
+                                  }
                                   activeOpacity={1}
                                 >
                                   <Text
-                                    className={`text-base ${
-                                      selectedExperiences.includes(tag)
-                                        ? "font-onest-medium text-primary"
-                                        : "font-onest text-gray-700"
-                                    }`}
+                                    className={`text-base font-onest ${isTagSelected(tag.tag_id)
+                                      ? "text-black/90"
+                                      : "text-black/80"
+                                      }`}
                                   >
-                                    {tag}
+                                    {tag.tag_name}
                                   </Text>
                                 </TouchableOpacity>
                               ))}
@@ -444,7 +524,7 @@ const Step2Preference: React.FC<StepProps> = ({
                       );
                     })}
 
-                    {selectedExperiences.length === 0 && (
+                    {selectedTags.length === 0 && (
                       <Text className="text-xs text-red-500 font-onest mt-1">
                         Please select at least one experience
                       </Text>
@@ -464,12 +544,12 @@ const Step2Preference: React.FC<StepProps> = ({
                         companion === "Solo"
                           ? "person"
                           : companion === "Partner"
-                          ? "heart"
-                          : companion === "Friends"
-                          ? "people"
-                          : companion === "Family"
-                          ? "home"
-                          : "person"
+                            ? "heart"
+                            : companion === "Friends"
+                              ? "people"
+                              : companion === "Family"
+                                ? "home"
+                                : "person"
                       )
                     )}
                   </View>
@@ -487,8 +567,8 @@ const Step2Preference: React.FC<StepProps> = ({
                         time === "Daytime"
                           ? "sunny"
                           : time === "Nighttime"
-                          ? "moon"
-                          : "time"
+                            ? "moon"
+                            : "time"
                       )
                     )}
                   </View>
@@ -524,8 +604,8 @@ const Step2Preference: React.FC<StepProps> = ({
                         intensity === "Low"
                           ? "leaf"
                           : intensity === "Moderate"
-                          ? "walk"
-                          : "flash"
+                            ? "walk"
+                            : "flash"
                       )
                     )}
                     {selectedActivityIntensity && (
@@ -573,9 +653,8 @@ const Step2Preference: React.FC<StepProps> = ({
 
                 <TouchableOpacity
                   onPress={handleNext}
-                  className={`py-4 px-8 rounded-xl ${
-                    isValid() ? "bg-primary" : "bg-gray-200"
-                  }`}
+                  className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
+                    }`}
                   disabled={!isValid()}
                   activeOpacity={1}
                 >
