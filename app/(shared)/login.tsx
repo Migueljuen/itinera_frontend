@@ -47,7 +47,8 @@ export default function Login() {
       const result = await login(email, password);
 
       if (result.success) {
-        toast.success("Welcome back!");
+        const firstName = result.user.first_name;
+        toast.success("Welcome back, " + firstName + "!");
 
         if (result.user.role === "Traveler") router.replace("/(traveler)");
         else if (result.user.role === "Creator") router.replace("/(creator)");

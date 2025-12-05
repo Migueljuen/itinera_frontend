@@ -50,14 +50,11 @@ export default function ForgotPassword() {
     <SafeAreaView className="bg-white h-full flex justify-between p-12">
       <ScrollView>
         <View className=" gap-4">
-          <TouchableOpacity onPress={() => router.push("/login")} className='flex flex-row items-center gap-4 pb-6'>
-            <Ionicons
-              name={"arrow-back"}
-              size={20}
-              color="#9CA3AF"
-            />
+          <TouchableOpacity className='flex flex-row items-center gap-4 pb-6' onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={20} color="#9CA3AF" />
             <Text>Back</Text>
           </TouchableOpacity>
+
           <Text className="font-onest-semibold text-3xl">Reset Your Password</Text>
           <Text className="font-onest text-black/60">Enter the email associated with your account and we'll send an OTP to reset your password</Text>
 
