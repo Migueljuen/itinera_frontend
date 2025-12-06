@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 // Step components
@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import Step2Preference from "./(generate)/Step2Preference";
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
+import Step4PaymentConfirmation from "./(generate)/step4PaymentConfirmation";
 import Step1SelectLocation from "./(manual)/Step1SelectLocation"; // Reusing from manual
 
 import {
@@ -18,7 +19,8 @@ import {
   TravelCompanion,
   TravelDistance,
 } from "@/types/experienceTypes";
-// Component prop interfaces to match your existing components
+
+// Component prop interfaces
 interface Step1Props {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
@@ -35,6 +37,14 @@ interface Step2Props {
 interface Step3Props {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+interface Step4Props {
+  formData: ItineraryFormData;
+  itineraryId: number;
+  totalCost: number;
   onNext: () => void;
   onBack: () => void;
 }
@@ -56,6 +66,7 @@ interface ItineraryItem {
   price?: number;
   unit?: string;
 }
+
 interface Accommodation {
   name: string;
   address: string;
@@ -67,6 +78,7 @@ interface Accommodation {
   check_in_time?: string;
   check_out_time?: string;
 }
+
 interface ItineraryFormData {
   traveler_id: number;
   start_date: string;
@@ -110,13 +122,10 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(
 );
 
 const GenerateItineraryForm: React.FC = () => {
-  // Get the logged-in user from AuthContext
   const { user, token, loading: authLoading } = useAuth();
-  const [subStep, setSubStep] = useState<number>(0);
-  // Step state management - only 3 steps for generate flow
   const [step, setStep] = useState<number>(1);
-  const stepCount = 3;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const stepCount = 4; // Updated to 4 steps
+  const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
 
   // Form data state with default values
   const [formData, setFormData] = useState<ItineraryFormData>({
@@ -130,17 +139,12 @@ const GenerateItineraryForm: React.FC = () => {
     preferences: {
       experiences: [],
       travelCompanions: [],
-      // exploreTime: "",
-      // budget: "",
-      // activityIntensity: " ",
-      // travelDistance: " ",
     },
   });
 
   // Update traveler_id when user is available
   useEffect(() => {
     if (user?.user_id && formData.traveler_id !== user.user_id) {
-      // console.log('Setting traveler_id to:', user.user_id);
       setFormData((prev) => ({
         ...prev,
         traveler_id: user.user_id,
@@ -152,90 +156,27 @@ const GenerateItineraryForm: React.FC = () => {
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // Skip accommodation step
-  const handleSkipAccommodation = () => {
-    setStep(2);
-    setSubStep(0);
+  // Handler for when itinerary is saved (called from Step 3)
+  const handleItinerarySaved = (itineraryId: number) => {
+    console.log("Itinerary saved with ID:", itineraryId);
+    setSavedItineraryId(itineraryId);
+    handleNext(); // Move to payment confirmation step
   };
 
-  // Validate form data for generate flow
-  const validateFormData = () => {
-    const { traveler_id, city, start_date, end_date, preferences } = formData;
-
-    console.log("Validating form data:", {
-      traveler_id,
-      city,
-      start_date,
-      end_date,
-      preferences,
-    });
-
-    // Check if user is logged in
-    if (!traveler_id) {
-      console.log("Validation failed: No traveler_id");
-      return false;
-    }
-
-    // Check if city is selected (Step 1)
-    if (!city || city.trim() === "") {
-      console.log("Validation failed: No city selected");
-      return false;
-    }
-
-    // Check if dates are provided (Step 1)
-    if (!start_date || !end_date) {
-      console.log("Validation failed: Missing dates");
-      return false;
-    }
-
-    // Check date validity
-    const start = new Date(start_date);
-    const end = new Date(end_date);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
-      console.log("Validation failed: Invalid dates");
-      return false;
-    }
-
-    // Check if preferences are set (Step 2)
-    if (!preferences) {
-      console.log("Validation failed: No preferences");
-      return false;
-    }
-
-    // Check if at least one experience type is selected
-    if (!preferences.experiences || preferences.experiences.length === 0) {
-      console.log("Validation failed: No experience types selected");
-      return false;
-    }
-
-    // For step 3, check if itinerary has been generated
-    if (step === 3 && (!formData.items || formData.items.length === 0)) {
-      console.log("Validation failed: No generated itinerary items");
-      return false;
-    }
-
-    console.log("Validation passed");
-    return true;
+  // Handler for final completion (after payment step)
+  const handleFinalCompletion = () => {
+    console.log("Itinerary process fully completed");
+    router.replace("/");
   };
 
-  const handleFinalStep = () => {
-    // Since Step3GeneratedItinerary handles its own saving,
-    // we just need to handle what happens after the itinerary is saved
-    console.log("Itinerary process completed");
-
-    Alert.alert(
-      "Success",
-      "Your generated itinerary has been saved successfully!",
-      [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace("/");
-          },
-        },
-      ]
+  // Calculate total cost
+  const calculateTotalCost = (): number => {
+    return (
+      formData.items?.reduce((sum, item) => sum + Number(item.price || 0), 0) ||
+      0
     );
   };
+
   // Show loading spinner while auth is loading
   if (authLoading) {
     return (
@@ -262,18 +203,6 @@ const GenerateItineraryForm: React.FC = () => {
 
   // Render current step component
   const renderStep = () => {
-    // if (step === 1 && subStep === 0) {
-    //     return <Step1SelectLocation formData={formData} setFormData={setFormData} onNext={handleNext} />;
-    // } else if (step === 1 && subStep === 1) {
-    //     return <Step1_1Accommodation
-    //         formData={formData}
-    //         setFormData={setFormData}
-    //         onNext={handleNext}
-    //         onBack={handleBack}
-    //         onSkip={handleSkipAccommodation}
-    //     />;
-    // }
-
     switch (step) {
       case 1:
         return (
@@ -297,7 +226,17 @@ const GenerateItineraryForm: React.FC = () => {
           <Step3GeneratedItinerary
             formData={formData}
             setFormData={setFormData}
-            onNext={handleFinalStep}
+            onNext={handleItinerarySaved}
+            onBack={handleBack}
+          />
+        );
+      case 4:
+        return (
+          <Step4PaymentConfirmation
+            formData={formData}
+            itineraryId={savedItineraryId}
+            totalCost={calculateTotalCost()}
+            onNext={handleFinalCompletion}
             onBack={handleBack}
           />
         );
@@ -316,7 +255,7 @@ const GenerateItineraryForm: React.FC = () => {
   );
 };
 
-// Progress bar styles - consistent with manual form
+// Progress bar styles
 const loadingBarStyles = {
   stepIndicatorSize: 0,
   currentStepIndicatorSize: 0,

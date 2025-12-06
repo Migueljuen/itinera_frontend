@@ -13,13 +13,17 @@ import API_URL from "../../../../constants/api";
 import { CollapsibleFilter } from "./components/CollapsibleFilter";
 import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
 
-import { GeneratedItinerary, ItineraryFormData, ItineraryItem } from "@/types/itineraryTypes";
+import {
+  GeneratedItinerary,
+  ItineraryFormData,
+  ItineraryItem,
+} from "@/types/itineraryTypes";
 import { EnhancedError } from "@/types/types";
 
 interface StepProps {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: () => void;
+  onNext: (itineraryId: number) => void; // Changed: now accepts itinerary ID
   onBack: () => void;
 }
 
@@ -67,8 +71,9 @@ const PreferenceButton: React.FC<{
 }> = ({ label, isSelected, onPress, icon }) => (
   <TouchableOpacity
     onPress={onPress}
-    className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? "bg-primary border-primary" : "bg-white border-gray-300"
-      }`}
+    className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${
+      isSelected ? "bg-primary border-primary" : "bg-white border-gray-300"
+    }`}
     activeOpacity={0.7}
   >
     <View className="flex-row items-center">
@@ -80,8 +85,9 @@ const PreferenceButton: React.FC<{
         />
       )}
       <Text
-        className={`${icon ? "ml-1" : ""} text-sm font-onest ${isSelected ? "text-white" : "text-gray-700"
-          }`}
+        className={`${icon ? "ml-1" : ""} text-sm font-onest ${
+          isSelected ? "text-white" : "text-gray-700"
+        }`}
       >
         {label}
       </Text>
@@ -126,7 +132,10 @@ const ExperienceCard: React.FC<{
       </View>
 
       {item.experience_description && (
-        <Text numberOfLines={1} className="text-gray-700 font-onest text-sm mb-2">
+        <Text
+          numberOfLines={1}
+          className="text-gray-700 font-onest text-sm mb-2"
+        >
           {item.experience_description}
         </Text>
       )}
@@ -167,7 +176,9 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const [generatedItinerary, setGeneratedItinerary] =
     useState<GeneratedItinerary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(null);
+  const [enhancedError, setEnhancedError] = useState<EnhancedError | null>(
+    null
+  );
   const [isPreview, setIsPreview] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -177,8 +188,14 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     console.log("Selected companion:", formData.preferences?.travelCompanion);
     console.log("Selected explore time:", formData.preferences?.exploreTime);
     console.log("Selected budget:", formData.preferences?.budget);
-    console.log("Selected activity intensity:", formData.preferences?.activityIntensity);
-    console.log("Selected travel distance:", formData.preferences?.travelDistance);
+    console.log(
+      "Selected activity intensity:",
+      formData.preferences?.activityIntensity
+    );
+    console.log(
+      "Selected travel distance:",
+      formData.preferences?.travelDistance
+    );
     console.log("==========================================");
   }, [formData]);
 
@@ -238,7 +255,9 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         }
 
         // Handle other API errors
-        throw new Error(data.message || data.error || "Failed to generate itinerary");
+        throw new Error(
+          data.message || data.error || "Failed to generate itinerary"
+        );
       }
 
       // Validate response structure
@@ -247,7 +266,9 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       }
 
       if (data.itineraries.length === 0) {
-        throw new Error("No itinerary was generated. Please try different preferences.");
+        throw new Error(
+          "No itinerary was generated. Please try different preferences."
+        );
       }
 
       if (data.itineraries[0]) {
@@ -255,12 +276,14 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
 
         // Validate itinerary has items
         if (!itinerary.items || itinerary.items.length === 0) {
-          throw new Error("Generated itinerary has no activities. Please adjust your filters.");
+          throw new Error(
+            "Generated itinerary has no activities. Please adjust your filters."
+          );
         }
 
         console.log("✅ Itinerary generated successfully:", {
           totalItems: itinerary.items.length,
-          days: Object.keys(groupItemsByDay(itinerary.items)).length
+          days: Object.keys(groupItemsByDay(itinerary.items)).length,
         });
 
         setGeneratedItinerary(itinerary);
@@ -280,10 +303,12 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       if (err instanceof TypeError && err.message.includes("fetch")) {
         setError("Network error. Please check your connection and try again.");
       } else {
-        setError(err instanceof Error ? err.message : "Failed to generate itinerary");
+        setError(
+          err instanceof Error ? err.message : "Failed to generate itinerary"
+        );
       }
 
-      setRetryCount(prev => prev + 1);
+      setRetryCount((prev) => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -305,7 +330,11 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   };
 
   const handleRetry = () => {
-    console.log("🔄 Retrying itinerary generation (attempt:", retryCount + 1, ")");
+    console.log(
+      "🔄 Retrying itinerary generation (attempt:",
+      retryCount + 1,
+      ")"
+    );
     generateItinerary();
   };
 
@@ -384,7 +413,9 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || "Failed to save itinerary");
+        throw new Error(
+          data.message || data.error || "Failed to save itinerary"
+        );
       }
 
       if (!data.itinerary_id) {
@@ -399,17 +430,20 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         status: "upcoming",
       });
       setIsPreview(false);
-      setTimeout(onNext, 1000);
+
+      // Pass the itinerary ID to the parent component
+      setTimeout(() => onNext(data.itinerary_id), 500);
     } catch (err) {
       console.error("❌ Error saving itinerary:", err);
 
-      // Show user-friendly error
       Alert.alert(
         "Save Failed",
-        err instanceof Error ? err.message : "Failed to save itinerary. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Failed to save itinerary. Please try again.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Retry", onPress: saveItinerary }
+          { text: "Retry", onPress: saveItinerary },
         ]
       );
 
@@ -543,10 +577,11 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const groupedItems = groupItemsByDay(generatedItinerary.items);
   const totalDays = Object.keys(groupedItems).length;
 
-  const totalCost: number = generatedItinerary?.items?.reduce(
-    (sum, item) => sum + Number(item.price || 0),
-    0
-  ) || 0;
+  const totalCost: number =
+    generatedItinerary?.items?.reduce(
+      (sum, item) => sum + Number(item.price || 0),
+      0
+    ) || 0;
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -562,7 +597,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       )}
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        <View className="p-4">
+        <View className="px-2 py-4">
           {/* Total Cost Card */}
           <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
             <Text className="text-gray-700 font-onest-medium text-sm mb-1">
@@ -594,10 +629,12 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                 {
                   value: formData.preferences?.activityIntensity || "N/A",
                   label: "Intensity",
-                  className: `text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
-                    formData.preferences?.activityIntensity?.toLowerCase() || ""
+                  className: `text-sm font-onest-medium capitalize ${
+                    INTENSITY_COLORS[
+                      formData.preferences?.activityIntensity?.toLowerCase() ||
+                        ""
                     ] || "text-gray-600"
-                    }`,
+                  }`,
                 },
               ].map((stat, index) => (
                 <View key={index} className="items-center">
