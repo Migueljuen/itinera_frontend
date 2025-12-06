@@ -4,6 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner-native";
+
 import {
   ActivityIndicator,
   Alert,
@@ -61,9 +63,6 @@ const InboxScreen = () => {
 
   const filters = ["All", "Itineraries", "Activities", "Updates"];
 
-
-
-
   // Fetch notifications from API
   const fetchNotifications = useCallback(async (filter?: string) => {
     try {
@@ -88,7 +87,7 @@ const InboxScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
-      Alert.alert("Error", "Failed to load notifications sexsex");
+      Alert.alert("Error", "Failed to load notifications");
     } finally {
       setLoading(false);
     }
@@ -214,10 +213,10 @@ const InboxScreen = () => {
       // Trigger badge refresh
       triggerProfileUpdate();
 
-      Alert.alert("Success", "All notifications marked as read");
+      toast.success("All notifications marked as read");
     } catch (error) {
       console.error("Error marking all as read:", error);
-      Alert.alert("Error", "Failed to mark notifications as read");
+      toast.error("Failed to mark notifications as read");
     } finally {
       setMarkingAsRead(false);
     }
@@ -324,7 +323,6 @@ const InboxScreen = () => {
     );
   }
 
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
@@ -366,12 +364,14 @@ const InboxScreen = () => {
                   setTimeout(() => fetchNotifications(filter), 0);
                   // fetch runs in background
                 }}
-                className={`px-6 py-2 rounded-full mr-3 ${activeFilter === filter ? "bg-gray-800" : "bg-white"
-                  }`}
+                className={`px-6 py-2 rounded-full mr-3 ${
+                  activeFilter === filter ? "bg-gray-800" : "bg-white"
+                }`}
               >
                 <Text
-                  className={`text-base font-onest-medium ${activeFilter === filter ? "text-white" : "text-gray-400"
-                    }`}
+                  className={`text-base font-onest-medium ${
+                    activeFilter === filter ? "text-white" : "text-gray-400"
+                  }`}
                 >
                   {filter}
                 </Text>
@@ -413,7 +413,7 @@ const InboxScreen = () => {
               const showDateHeader =
                 index === 0 ||
                 formatDate(notification.created_at) !==
-                formatDate(filteredNotifications[index - 1].created_at);
+                  formatDate(filteredNotifications[index - 1].created_at);
 
               return (
                 <View key={notification.id}>
@@ -425,8 +425,9 @@ const InboxScreen = () => {
 
                   <TouchableOpacity
                     onPress={() => handleNotificationPress(notification)}
-                    className={`bg-white rounded-2xl p-4 mb-3 ${!notification.is_read ? "border-l-4 border-primary" : ""
-                      }`}
+                    className={`bg-white rounded-2xl p-4 mb-3 ${
+                      !notification.is_read ? "border-l-4 border-primary" : ""
+                    }`}
                     style={{
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 2 },
@@ -446,15 +447,15 @@ const InboxScreen = () => {
                       >
                         <Ionicons
                           name={
-                            Ionicons.glyphMap[notification.icon as keyof typeof Ionicons.glyphMap]
+                            Ionicons.glyphMap[
+                              notification.icon as keyof typeof Ionicons.glyphMap
+                            ]
                               ? (notification.icon as keyof typeof Ionicons.glyphMap)
                               : "close-circle"
                           }
                           size={24}
                           color={notification.icon_color}
                         />
-
-
                       </View>
 
                       {/* Content */}
@@ -463,10 +464,11 @@ const InboxScreen = () => {
                           <Text
                             numberOfLines={1}
                             ellipsizeMode="tail"
-                            className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read
-                              ? "text-gray-800"
-                              : "text-gray-600"
-                              }`}
+                            className={`font-onest-semibold text-base flex-1 mr-2 ${
+                              !notification.is_read
+                                ? "text-gray-800"
+                                : "text-gray-600"
+                            }`}
                           >
                             {notification.title}
                           </Text>

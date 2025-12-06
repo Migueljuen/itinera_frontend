@@ -525,12 +525,14 @@ export default function TripScreen() {
                   onPress={() =>
                     setActiveTab(tab as "upcoming" | "ongoing" | "completed")
                   }
-                  className={`flex-1 py-2 px-6 mr-3 rounded-full ${activeTab === tab ? "bg-gray-800" : "bg-white"
-                    }`}
+                  className={`flex-1 py-2 px-6 mr-3 rounded-full ${
+                    activeTab === tab ? "bg-gray-800" : "bg-white"
+                  }`}
                 >
                   <Text
-                    className={`text-center font-onest-medium text-base capitalize ${activeTab === tab ? "text-white" : "text-gray-500"
-                      }`}
+                    className={`text-center font-onest-medium text-base capitalize ${
+                      activeTab === tab ? "text-white" : "text-gray-500"
+                    }`}
                   >
                     {tab}
                   </Text>
@@ -648,8 +650,9 @@ export default function TripScreen() {
                           setCurrentPage((prev) => Math.max(1, prev - 1))
                         }
                         disabled={currentPage === 1}
-                        className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                          }`}
+                        className={`px-3 py-2 mr-2 rounded-md ${
+                          currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+                        }`}
                       >
                         <Ionicons
                           name="chevron-back"
@@ -666,20 +669,22 @@ export default function TripScreen() {
                             typeof page === "number" && setCurrentPage(page)
                           }
                           disabled={page === "..."}
-                          className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                          className={`px-3 py-2 mx-1 rounded-md ${
+                            page === currentPage
                               ? "bg-primary"
                               : page === "..."
-                                ? "bg-transparent"
-                                : "bg-white border border-gray-300"
-                            }`}
+                              ? "bg-transparent"
+                              : "bg-white border border-gray-300"
+                          }`}
                         >
                           <Text
-                            className={`font-onest-medium ${page === currentPage
+                            className={`font-onest-medium ${
+                              page === currentPage
                                 ? "text-white"
                                 : page === "..."
-                                  ? "text-gray-400"
-                                  : "text-gray-700"
-                              }`}
+                                ? "text-gray-400"
+                                : "text-gray-700"
+                            }`}
                           >
                             {page}
                           </Text>
@@ -694,10 +699,11 @@ export default function TripScreen() {
                           )
                         }
                         disabled={currentPage === totalPages}
-                        className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
+                        className={`px-3 py-2 ml-2 rounded-md ${
+                          currentPage === totalPages
                             ? "bg-gray-200"
                             : "bg-gray-800"
-                          }`}
+                        }`}
                       >
                         <Ionicons
                           name="chevron-forward"

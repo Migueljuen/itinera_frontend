@@ -800,7 +800,7 @@ export default function ItineraryDetailScreen({ route }: any) {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 142 }}
         >
-          <View className="mx-4 mb-6 rounded-lg overflow-hidden border border-gray-200">
+          <View className="mx-6 mb-6 rounded-lg overflow-hidden border border-gray-200">
             <View className="p-6 bg-white">
               <View className="flex-row justify-between items-start mb-4">
                 <View className="flex-1 mr-4">
@@ -840,18 +840,33 @@ export default function ItineraryDetailScreen({ route }: any) {
               {/* ==================== PAYMENT SECTION START ==================== */}
               {itinerary.payments && itinerary.payments.length > 0 ? (
                 <View className="mt-4 pt-4 border-t border-gray-200">
-                  {/* Payment Header */}
-                  <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-base font-onest-semibold text-gray-800">
-                      Payment Details
-                    </Text>
+                  {/* Collapsible Header */}
+                  <Pressable
+                    onPress={() => setIsPaymentExpanded(!isPaymentExpanded)}
+                    className="flex-row items-center justify-between "
+                  >
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons
+                        name={
+                          isPaymentExpanded ? "chevron-down" : "chevron-forward"
+                        }
+                        size={20}
+                        color="#374151"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text className="text-base font-onest-semibold text-gray-800">
+                        Payment Details
+                      </Text>
+                    </View>
+
+                    {/* Payment Status Badge - Always Visible */}
                     <View
                       className={`px-3 py-1.5 rounded-full flex-row items-center ${
                         itinerary.payments[0].payment_status === "Paid"
                           ? "bg-green-100"
                           : itinerary.payments[0].payment_status === "Partial"
-                          ? "bg-yellow-100"
-                          : "bg-red-100"
+                          ? "bg-yellow-50"
+                          : "bg-yellow-50 "
                       }`}
                     >
                       <Ionicons
@@ -868,7 +883,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                             ? "#059669"
                             : itinerary.payments[0].payment_status === "Partial"
                             ? "#D97706"
-                            : "#DC2626"
+                            : "#D97706"
                         }
                       />
                       <Text
@@ -876,139 +891,171 @@ export default function ItineraryDetailScreen({ route }: any) {
                           itinerary.payments[0].payment_status === "Paid"
                             ? "text-green-700"
                             : itinerary.payments[0].payment_status === "Partial"
-                            ? "text-yellow-700"
-                            : "text-red-700"
+                            ? "text-yellow-600"
+                            : "text-yellow-600"
                         }`}
                       >
                         {itinerary.payments[0].payment_status}
                       </Text>
                     </View>
-                  </View>
+                  </Pressable>
 
-                  {/* Progress Bar (for Partial payments) */}
-                  {itinerary.payments[0].payment_status === "Partial" && (
-                    <View className="mb-3">
-                      <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <View
-                          className="h-full bg-yellow-500 rounded-full"
-                          style={{
-                            width: `${
+                  {/* Expandable Content */}
+                  {isPaymentExpanded && (
+                    <View>
+                      {/* Progress Bar (for Partial payments) */}
+                      {itinerary.payments[0].payment_status === "Partial" && (
+                        <View className="mb-3">
+                          <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <View
+                              className="h-full bg-yellow-500 rounded-full"
+                              style={{
+                                width: `${
+                                  (Number(itinerary.payments[0].amount_paid) /
+                                    Number(
+                                      itinerary.payments[0].total_amount
+                                    )) *
+                                  100
+                                }%`,
+                              }}
+                            />
+                          </View>
+                          <Text className="text-xs text-gray-500 font-onest mt-1">
+                            {(
                               (Number(itinerary.payments[0].amount_paid) /
                                 Number(itinerary.payments[0].total_amount)) *
                               100
-                            }%`,
-                          }}
-                        />
+                            ).toFixed(0)}
+                            % paid
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Payment Amount Details */}
+                      <View className="bg-gray-50 rounded-lg p-3 mb-3">
+                        <View className="flex-row items-center justify-between mb-2">
+                          <Text className="text-sm text-gray-600 font-onest">
+                            Total Amount
+                          </Text>
+                          <Text className="text-sm font-onest-medium text-gray-800">
+                            ₱
+                            {Number(
+                              itinerary.payments[0].total_amount
+                            ).toLocaleString()}
+                          </Text>
+                        </View>
+
+                        {Number(itinerary.payments[0].amount_paid) > 0 && (
+                          <View className="flex-row items-center justify-between mb-2">
+                            <Text className="text-sm text-gray-600 font-onest">
+                              Amount Paid
+                            </Text>
+                            <Text className="text-sm font-onest-medium text-green-600">
+                              ₱
+                              {Number(
+                                itinerary.payments[0].amount_paid
+                              ).toLocaleString()}
+                            </Text>
+                          </View>
+                        )}
+
+                        {Number(itinerary.payments[0].total_amount) -
+                          Number(itinerary.payments[0].amount_paid) >
+                          0 && (
+                          <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
+                            <Text className="text-sm font-onest-semibold text-gray-800">
+                              {itinerary.payments[0].payment_status ===
+                              "Partial"
+                                ? "Remaining"
+                                : "Amount Due"}
+                            </Text>
+                            <Text className="text-base font-onest-bold text-yellow-600">
+                              ₱
+                              {(
+                                Number(itinerary.payments[0].total_amount) -
+                                Number(itinerary.payments[0].amount_paid)
+                              ).toLocaleString()}
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      <Text className="text-xs text-gray-500 font-onest mt-1">
-                        {(
-                          (Number(itinerary.payments[0].amount_paid) /
-                            Number(itinerary.payments[0].total_amount)) *
-                          100
-                        ).toFixed(0)}
-                        % paid
-                      </Text>
-                    </View>
-                  )}
 
-                  {/* Payment Amount Details */}
-                  <View className="bg-gray-50 rounded-lg p-3 mb-3">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-sm text-gray-600 font-onest">
-                        Total Amount
-                      </Text>
-                      <Text className="text-sm font-onest-medium text-gray-800">
-                        ₱
-                        {Number(
-                          itinerary.payments[0].total_amount
-                        ).toLocaleString()}
-                      </Text>
-                    </View>
-
-                    {Number(itinerary.payments[0].amount_paid) > 0 && (
-                      <View className="flex-row items-center justify-between mb-2">
-                        <Text className="text-sm text-gray-600 font-onest">
-                          Amount Paid
-                        </Text>
-                        <Text className="text-sm font-onest-medium text-green-600">
-                          ₱
-                          {Number(
-                            itinerary.payments[0].amount_paid
-                          ).toLocaleString()}
-                        </Text>
-                      </View>
-                    )}
-
-                    {Number(itinerary.payments[0].total_amount) -
-                      Number(itinerary.payments[0].amount_paid) >
-                      0 && (
-                      <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
-                        <Text className="text-sm font-onest-semibold text-gray-800">
-                          {itinerary.payments[0].payment_status === "Partial"
-                            ? "Remaining"
-                            : "Amount Due"}
-                        </Text>
-                        <Text className="text-base font-onest-bold text-red-600">
-                          ₱
-                          {(
-                            Number(itinerary.payments[0].total_amount) -
-                            Number(itinerary.payments[0].amount_paid)
-                          ).toLocaleString()}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Action Buttons or Success Message */}
-                  {itinerary.payments[0].payment_status !== "Paid" ? (
-                    <TouchableOpacity
-                      className="bg-primary py-3 px-4 rounded-lg flex-row items-center justify-center"
-                      activeOpacity={0.7}
-                      onPress={handlePayNow}
-                    >
-                      <Ionicons name="card-outline" size={18} color="white" />
-                      <Text className="text-white font-onest-semibold text-sm ml-2">
-                        {itinerary.payments[0].payment_status === "Partial"
-                          ? `Pay Remaining ₱${(
-                              Number(itinerary.payments[0].total_amount) -
-                              Number(itinerary.payments[0].amount_paid)
-                            ).toLocaleString()}`
-                          : "Pay Now"}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View className="bg-green-50 rounded-lg p-3 flex-row items-center">
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color="#059669"
-                      />
-                      <Text className="text-green-700 font-onest-medium text-sm ml-2 flex-1">
-                        Payment completed. Your booking is confirmed!
-                      </Text>
+                      {/* Action Buttons or Success Message */}
+                      {itinerary.payments[0].payment_status !== "Paid" ? (
+                        <TouchableOpacity
+                          className="bg-primary py-3 px-4 rounded-lg flex-row items-center justify-center"
+                          activeOpacity={0.7}
+                          onPress={handlePayNow}
+                        >
+                          <Ionicons
+                            name="card-outline"
+                            size={18}
+                            color="white"
+                          />
+                          <Text className="text-white font-onest-semibold text-sm ml-2">
+                            {itinerary.payments[0].payment_status === "Partial"
+                              ? `Pay Remaining ₱${(
+                                  Number(itinerary.payments[0].total_amount) -
+                                  Number(itinerary.payments[0].amount_paid)
+                                ).toLocaleString()}`
+                              : "Pay Now"}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View className="bg-green-50 rounded-lg p-3 flex-row items-center">
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color="#059669"
+                          />
+                          <Text className="text-green-700 font-onest-medium text-sm ml-2 flex-1">
+                            Payment completed. Your booking is confirmed!
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
               ) : (
                 // No payment information available
                 <View className="mt-4 pt-4 border-t border-gray-200">
-                  <View className="bg-blue-50 rounded-lg p-3 flex-row items-start">
+                  <TouchableOpacity
+                    onPress={() => setIsPaymentExpanded(!isPaymentExpanded)}
+                    activeOpacity={0.7}
+                    className="flex-row items-center mb-3"
+                  >
                     <Ionicons
-                      name="information-circle-outline"
-                      size={18}
-                      color="#3B82F6"
+                      name={
+                        isPaymentExpanded ? "chevron-down" : "chevron-forward"
+                      }
+                      size={20}
+                      color="#374151"
+                      style={{ marginRight: 8 }}
                     />
-                    <Text className="text-xs text-blue-700 font-onest ml-2 flex-1">
-                      Payment information will be available once confirmed with
-                      your creator.
+                    <Text className="text-base font-onest-semibold text-gray-800">
+                      Payment Details
                     </Text>
-                  </View>
+                  </TouchableOpacity>
+
+                  {isPaymentExpanded && (
+                    <View className="bg-blue-50 rounded-lg p-3 flex-row items-start">
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={18}
+                        color="#3B82F6"
+                      />
+                      <Text className="text-xs text-blue-700 font-onest ml-2 flex-1">
+                        Payment information will be available once confirmed
+                        with your creator.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
               {/* ==================== PAYMENT SECTION END ==================== */}
 
               {/* Notes */}
-              {itinerary.notes && (
+              {/* {itinerary.notes && (
                 <View className="bg-indigo-50 rounded-md p-3 mt-4">
                   <Text className="text-sm font-onest-medium text-primary mb-1">
                     Notes
@@ -1017,11 +1064,18 @@ export default function ItineraryDetailScreen({ route }: any) {
                     {itinerary.notes}
                   </Text>
                 </View>
-              )}
-
+              )} */}
+            </View>
+          </View>
+          {/* Daily Itinerary Section */}
+          <View className="px-6">
+            <View className="flex flex-row items-center justify-between mb-4">
+              <Text className="text-normal text-xl font-onest-medium ">
+                Daily Itinerary
+              </Text>
               {/* Add to Calendar */}
               <Pressable
-                className="flex flex-row mt-4 gap-1"
+                className="flex  flex-row gap-1"
                 onPress={handleAddToCalendar}
               >
                 <Ionicons name="add-outline" size={16} color="#3b82f6" />
@@ -1031,12 +1085,6 @@ export default function ItineraryDetailScreen({ route }: any) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-          {/* Daily Itinerary Section */}
-          <View className="px-6">
-            <Text className="text-normal text-xl font-onest-medium mb-4">
-              Daily Itinerary
-            </Text>
 
             {Object.entries(groupedItems)
               .sort(([a], [b]) => parseInt(a) - parseInt(b))
