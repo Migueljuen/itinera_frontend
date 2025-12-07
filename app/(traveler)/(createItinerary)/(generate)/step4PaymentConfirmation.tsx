@@ -45,46 +45,8 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
     });
   };
 
-  const handlePayNow = async () => {
-    setIsProcessing(true);
-
-    try {
-      // Here you would integrate with your payment gateway
-      // For now, we'll simulate the payment process
-
-      Alert.alert("Payment Processing", "Redirecting to payment gateway...", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Navigate to payment screen or external payment gateway
-            // router.push(`/payment/${itineraryId}`);
-
-            // For demo purposes, showing success
-            setTimeout(() => {
-              Alert.alert(
-                "Payment Successful",
-                "Your booking has been confirmed! Your creator will be notified shortly.",
-                [
-                  {
-                    text: "View Itinerary",
-                    onPress: () => router.replace("/"),
-                  },
-                ]
-              );
-            }, 1500);
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error("Payment error:", error);
-      Alert.alert(
-        "Payment Failed",
-        "Unable to process payment. Please try again.",
-        [{ text: "OK" }]
-      );
-    } finally {
-      setIsProcessing(false);
-    }
+  const handlePayNow = () => {
+    router.replace(`/(traveler)/(payment)/${itineraryId}`);
   };
 
   const handlePayLater = () => {
@@ -154,8 +116,8 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
                 </Text>
               </View>
               <Text className="font-onest text-sm text-black/60 leading-5">
-                Payment is required to confirm your booking. Once paid, your
-                creator will be notified and your itinerary will be confirmed.
+                Payment is required to confirm your booking. Once paid, our
+                partners will be notified and your itinerary will be confirmed.
               </Text>
             </View>
           </View>

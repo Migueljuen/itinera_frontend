@@ -424,11 +424,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
 
       console.log("✅ Itinerary saved successfully:", data.itinerary_id);
 
-      setGeneratedItinerary({
-        ...generatedItinerary,
-        itinerary_id: data.itinerary_id,
-        status: "upcoming",
-      });
+      setGeneratedItinerary(data.itinerary);
       setIsPreview(false);
 
       // Pass the itinerary ID to the parent component

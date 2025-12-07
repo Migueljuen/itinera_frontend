@@ -182,13 +182,11 @@ export default function ItineraryDetailScreen({ route }: any) {
         paymentsCount: data.payments?.length || 0,
       });
 
-      // ✅ CRITICAL FIX: Merge payments from root level into itinerary object
       const itineraryWithPayments = {
         ...(data.itinerary || data),
-        payments: data.payments || [], // This merges payments into the itinerary object
+        payments: data.payments || [],
       };
 
-      console.log("💰 Payments merged:", itineraryWithPayments.payments);
       setItinerary(itineraryWithPayments);
     } catch (error) {
       console.error("Error fetching itinerary details:", error);
@@ -199,40 +197,7 @@ export default function ItineraryDetailScreen({ route }: any) {
   };
 
   const handlePayNow = () => {
-    if (!itinerary?.payments || itinerary.payments.length === 0) {
-      Alert.alert("Error", "Payment information not available");
-      return;
-    }
-
-    const payment = itinerary.payments[0];
-    const remainingAmount =
-      Number(payment.total_amount) - Number(payment.amount_paid);
-
-    Alert.alert(
-      "Proceed to Payment",
-      `Payment Amount: ₱${remainingAmount.toLocaleString()}\n\nThis will confirm your booking and notify your creator.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Pay Now",
-          onPress: () => {
-            // TODO: Implement actual payment flow
-            // Option 1: Navigate to payment screen
-            // router.push(`/(payment)/${payment.payment_id}`);
-
-            // Option 2: Open payment gateway URL
-            // Linking.openURL(paymentGatewayUrl);
-
-            // For now, show placeholder
-            Alert.alert(
-              "Payment Gateway",
-              "Payment integration coming soon. Your itinerary is saved and you can pay later from your itineraries page.",
-              [{ text: "OK" }]
-            );
-          },
-        },
-      ]
-    );
+    router.push(`/(traveler)/(payment)/${itinerary?.itinerary_id}`);
   };
 
   // Toggle collapse state for a day
@@ -832,7 +797,6 @@ export default function ItineraryDetailScreen({ route }: any) {
                     </Text>
                   </View>
                 </View>
-
                 {/* Status Indicator */}
                 {getStatusIndicatorWithHint(itinerary.status)}
               </View>

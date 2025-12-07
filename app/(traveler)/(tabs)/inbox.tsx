@@ -97,7 +97,7 @@ const InboxScreen = () => {
   useFocusEffect(
     useCallback(() => {
       setIsScreenFocused(true);
-      console.log("Inbox screen focused, fetching notifications...");
+      // console.log("Inbox screen focused, fetching notifications...");
       fetchNotifications();
 
       return () => {
@@ -125,7 +125,7 @@ const InboxScreen = () => {
 
   // Listen for notification events to auto-refresh
   useEffect(() => {
-    console.log("Setting up notification event listeners in inbox...");
+    // console.log("Setting up notification event listeners in inbox...");
 
     const notificationListener = DeviceEventEmitter.addListener(
       NotificationEvents.NOTIFICATIONS_UPDATED,
@@ -148,7 +148,7 @@ const InboxScreen = () => {
     );
 
     return () => {
-      console.log("Cleaning up notification event listeners in inbox...");
+      // console.log("Cleaning up notification event listeners in inbox...");
       notificationListener.remove();
       refreshListener.remove();
     };

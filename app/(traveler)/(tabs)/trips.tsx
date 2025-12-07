@@ -43,7 +43,7 @@ interface Itinerary {
   title: string;
   notes: string;
   created_at: string;
-  status: "upcoming" | "ongoing" | "completed";
+  status: "upcoming" | "ongoing" | "completed" | "pending";
   items: ItineraryItem[];
 }
 
@@ -60,10 +60,12 @@ export default function TripScreen() {
   const [loading, setLoading] = useState(true);
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [activeTab, setActiveTab] = useState<
-    "upcoming" | "ongoing" | "completed"
+    "upcoming" | "ongoing" | "completed" | "pending"
   >("upcoming");
   const [userName, setUserName] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const filters = ["Upcoming", "Ongoing", "Completed", "Pending"];
 
   useEffect(() => {
     fetchItineraries();
@@ -209,8 +211,10 @@ export default function TripScreen() {
     }
   };
 
-  // 🆕 Enhanced status display with emojis and better descriptions
-  const getStatusDisplay = (status: "upcoming" | "ongoing" | "completed") => {
+  // Enhanced status display with emojis and better descriptions
+  const getStatusDisplay = (
+    status: "upcoming" | "ongoing" | "completed" | "pending"
+  ) => {
     const statusConfig = {
       upcoming: {
         emoji: "📅",
@@ -230,6 +234,12 @@ export default function TripScreen() {
         bgColor: "bg-gray-50",
         textColor: "text-gray-600",
       },
+      pending: {
+        emoji: "⏳",
+        text: "Pending",
+        bgColor: "bg-yellow-50",
+        textColor: "text-yellow-600",
+      },
     };
 
     const config = statusConfig[status];
@@ -245,7 +255,7 @@ export default function TripScreen() {
     );
   };
 
-  // 🆕 Smart preview text based on status and current time
+  // Smart preview text based on status and current time
   const getSmartPreviewText = (itinerary: Itinerary) => {
     if (!itinerary.items || itinerary.items.length === 0) {
       return { title: "No activities planned", subtitle: "" };
@@ -349,6 +359,16 @@ export default function TripScreen() {
           )}`,
         };
 
+      case "pending":
+        const pendingActivity = sortedItems[0];
+        return {
+          title: `Planning: ${pendingActivity.experience_name}`,
+          subtitle: `Day ${pendingActivity.day_number} • ${formatTimeRange(
+            pendingActivity.start_time,
+            pendingActivity.end_time
+          )}`,
+        };
+
       default:
         return {
           title: `Next: ${sortedItems[0].experience_name}`,
@@ -360,7 +380,7 @@ export default function TripScreen() {
     }
   };
 
-  // 🆕 Enhanced time formatting function
+  // Enhanced time formatting function
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
@@ -445,6 +465,11 @@ export default function TripScreen() {
         subtitle: "Your adventure history will appear here",
         showCreateButton: false,
       },
+      pending: {
+        title: "No pending trips",
+        subtitle: "Trips awaiting confirmation will appear here",
+        showCreateButton: false,
+      },
     };
 
     const config = emptyMessages[activeTab];
@@ -516,38 +541,44 @@ export default function TripScreen() {
               Manage your travel itineraries
             </Text>
           </View>
-          {/* Tab Navigation with improved shadow */}
-          <View className="mx-6 mb-6">
-            <View className="flex-row -mx-2">
-              {["upcoming", "ongoing", "completed"].map((tab) => (
-                <Pressable
-                  key={tab}
-                  onPress={() =>
-                    setActiveTab(tab as "upcoming" | "ongoing" | "completed")
-                  }
-                  className={`flex-1 py-2 px-6 mr-3 rounded-full ${
-                    activeTab === tab ? "bg-gray-800" : "bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-center font-onest-medium text-base capitalize ${
-                      activeTab === tab ? "text-white" : "text-gray-500"
+
+          {/* Scrollable Horizontal Filters */}
+          <View className="mb-6">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="flex-row px-6"
+            >
+              {filters.map((filter) => {
+                const filterValue = filter.toLowerCase() as
+                  | "upcoming"
+                  | "ongoing"
+                  | "completed"
+                  | "pending";
+                return (
+                  <Pressable
+                    key={filter}
+                    onPress={() => {
+                      setActiveTab(filterValue);
+                      setTimeout(() => fetchItineraries(), 0);
+                    }}
+                    className={`px-6 py-2 rounded-full mr-3 ${
+                      activeTab === filterValue ? "bg-gray-800" : "bg-white"
                     }`}
                   >
-                    {tab}
-                  </Text>
-                  {/* <TouchableOpacity
-                                                        key={index}
-                                                        onPress={() => setSelectedCategory(category)}
-                                                        className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? 'bg-gray-800' : 'bg-white'}`}
-                                                      >
-                                                        <Text className={`text-base font-onest-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                                                          {category}
-                                                        </Text>
-                                                      </TouchableOpacity> */}
-                </Pressable>
-              ))}
-            </View>
+                    <Text
+                      className={`text-base font-onest-medium ${
+                        activeTab === filterValue
+                          ? "text-white"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {filter}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* Itineraries List */}
@@ -603,7 +634,7 @@ export default function TripScreen() {
                           {getStatusDisplay(itinerary.status)}
                         </View>
 
-                        {/* 🆕 Enhanced smart preview section */}
+                        {/* Enhanced smart preview section */}
                         {itinerary.items && itinerary.items.length > 0 && (
                           <View className="pt-4 border-t border-gray-100">
                             <Text className="text-sm text-gray-700 font-onest-medium mb-1">
