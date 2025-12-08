@@ -25,7 +25,7 @@ interface PaymentInfo {
   payment_id: number;
   total_amount: number;
   amount_paid: number;
-  payment_status: "Unpaid" | "Partial" | "Paid";
+  payment_status: "Unpaid" | "Partial" | "Paid" | "Pending";
   created_at: string;
   updated_at: string;
 }
@@ -912,9 +912,20 @@ export default function ItineraryDetailScreen({ route }: any) {
                         {Number(itinerary.payments[0].amount_paid) > 0 && (
                           <View className="flex-row items-center justify-between mb-2">
                             <Text className="text-sm text-gray-600 font-onest">
-                              Amount Paid
+                              {itinerary.payments[0].payment_status ===
+                              "Pending"
+                                ? "Payment Submitted"
+                                : "Amount Paid"}
                             </Text>
-                            <Text className="text-sm font-onest-medium text-green-600">
+
+                            <Text
+                              className={`text-sm font-onest-medium ${
+                                itinerary.payments[0].payment_status ===
+                                "Pending"
+                                  ? "text-yellow-600"
+                                  : "text-green-600"
+                              }`}
+                            >
                               ₱
                               {Number(
                                 itinerary.payments[0].amount_paid
@@ -924,7 +935,9 @@ export default function ItineraryDetailScreen({ route }: any) {
                         )}
 
                         {Number(itinerary.payments[0].total_amount) -
-                          Number(itinerary.payments[0].amount_paid) >
+                          (itinerary.payments[0].payment_status === "Pending"
+                            ? 0
+                            : Number(itinerary.payments[0].amount_paid)) >
                           0 && (
                           <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
                             <Text className="text-sm font-onest-semibold text-gray-800">
@@ -937,7 +950,10 @@ export default function ItineraryDetailScreen({ route }: any) {
                               ₱
                               {(
                                 Number(itinerary.payments[0].total_amount) -
-                                Number(itinerary.payments[0].amount_paid)
+                                (itinerary.payments[0].payment_status ===
+                                "Pending"
+                                  ? 0
+                                  : Number(itinerary.payments[0].amount_paid))
                               ).toLocaleString()}
                             </Text>
                           </View>

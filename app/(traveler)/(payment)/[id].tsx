@@ -108,7 +108,7 @@ const PaymentScreen = () => {
               );
               formData.append("amount_paid", amountToPay.toString());
 
-              const res = await fetch(`${API_URL}/payment-proof/upload`, {
+              const res = await fetch(`${API_URL}/payment/upload`, {
                 method: "POST",
                 body: formData,
                 headers: {
@@ -122,9 +122,7 @@ const PaymentScreen = () => {
               if (data.success) {
                 toast.success(
                   isPartialPayment
-                    ? `Down payment submitted! Remaining: ₱${remainingAmount.toFixed(
-                        2
-                      )}`
+                    ? `Down payment submitted! Please wait for us to verify it.`
                     : "Payment submitted successfully!"
                 );
 

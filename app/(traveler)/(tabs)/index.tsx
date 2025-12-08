@@ -234,7 +234,6 @@ const App = () => {
             </View>
 
             {profilePic ? (
-
               <Image
                 source={{ uri: `${API_URL}/${profilePic}` }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
@@ -276,12 +275,14 @@ const App = () => {
                     key={category.tag_id}
                     onPress={() => setSelectedCategory(category.name)}
                     activeOpacity={1}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? "bg-black/80" : "bg-white"
-                      }`}
+                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${
+                      isSelected ? "bg-black/80" : "bg-white"
+                    }`}
                   >
                     <Text
-                      className={`text-base font-onest-medium ${isSelected ? "text-white" : "text-gray-400"
-                        }`}
+                      className={`text-base font-onest-medium ${
+                        isSelected ? "text-white" : "text-gray-400"
+                      }`}
                     >
                       {category.name}
                     </Text>
@@ -307,7 +308,6 @@ const App = () => {
                     <TouchableWithoutFeedback
                       key={item.id}
                       onPress={() => router.push(`/(experience)/${item.id}`)}
-
                       style={{
                         shadowColor: "#000",
                         shadowOffset: { width: 0, height: 2 },
@@ -402,8 +402,9 @@ const App = () => {
                           }
                           disabled={currentPage === 1}
                           activeOpacity={1}
-                          className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                            }`}
+                          className={`px-3 py-2 mr-2 rounded-md ${
+                            currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+                          }`}
                         >
                           <Ionicons
                             name="chevron-back"
@@ -421,20 +422,22 @@ const App = () => {
                               typeof page === "number" && setCurrentPage(page)
                             }
                             disabled={page === "..."}
-                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                              ? "bg-primary"
-                              : page === "..."
+                            className={`px-3 py-2 mx-1 rounded-md ${
+                              page === currentPage
+                                ? "bg-primary"
+                                : page === "..."
                                 ? "bg-transparent"
                                 : "bg-white border border-gray-300"
-                              }`}
+                            }`}
                           >
                             <Text
-                              className={`font-onest-medium ${page === currentPage
-                                ? "text-white"
-                                : page === "..."
+                              className={`font-onest-medium ${
+                                page === currentPage
+                                  ? "text-white"
+                                  : page === "..."
                                   ? "text-gray-400"
                                   : "text-gray-700"
-                                }`}
+                              }`}
                             >
                               {page}
                             </Text>
@@ -450,10 +453,11 @@ const App = () => {
                           }
                           activeOpacity={1}
                           disabled={currentPage === totalPages}
-                          className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
-                            ? "bg-gray-200"
-                            : "bg-gray-800"
-                            }`}
+                          className={`px-3 py-2 ml-2 rounded-md ${
+                            currentPage === totalPages
+                              ? "bg-gray-200"
+                              : "bg-gray-800"
+                          }`}
                         >
                           <Ionicons
                             name="chevron-forward"
