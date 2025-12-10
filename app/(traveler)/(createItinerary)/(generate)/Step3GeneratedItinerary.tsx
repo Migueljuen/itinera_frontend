@@ -1,4 +1,11 @@
+import {
+  GeneratedItinerary,
+  ItineraryFormData,
+  ItineraryItem,
+} from "@/types/itineraryTypes";
+import { EnhancedError } from "@/types/types";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,13 +19,6 @@ import {
 import API_URL from "../../../../constants/api";
 import { CollapsibleFilter } from "./components/CollapsibleFilter";
 import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
-
-import {
-  GeneratedItinerary,
-  ItineraryFormData,
-  ItineraryItem,
-} from "@/types/itineraryTypes";
-import { EnhancedError } from "@/types/types";
 
 interface StepProps {
   formData: ItineraryFormData;
@@ -112,30 +112,87 @@ const ExperienceCard: React.FC<{
       : item.price || 0;
 
   return (
-    <View className="bg-white rounded-xl  border border-gray-200 overflow-hidden">
-      {item.primary_image && (
-        <Image
-          source={{ uri: `${API_URL}/${item.primary_image}` }}
-          className="w-full h-48"
-          resizeMode="cover"
-        />
-      )}
-      <View className="p-4">
-        <View className="flex-row justify-between items-baseline mb-2">
-          <View className="flex-1 mr-3">
-            <Text className="font-onest-semibold text-base mb-1 text-black/80">
-              {item.experience_name || "Not Available"}
+    <View
+      className="bg-[#fff] rounded-2xl  "
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 2, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 5,
+      }}
+    >
+      {/* Image with overlay text or fallback */}
+      <View className="relative h-72 overflow-hidden ">
+        {item.primary_image ? (
+          <Image
+            source={{ uri: `${API_URL}/${item.primary_image}` }}
+            className="w-full h-72 absolute rounded-2xl"
+            resizeMode="cover"
+          />
+        ) : (
+          // Fallback when no image
+          <View className="w-full h-72 bg-gradient-to-br from-indigo-100 to-indigo-200 items-center justify-center absolute">
+            <Ionicons name="image-outline" size={64} color="#9CA3AF" />
+            <Text className="text-gray-400 font-onest text-sm mt-2">
+              No image available
             </Text>
-            <Text className="text-black/40 font-onest text-sm">
+          </View>
+        )}
+        {/* Gradient overlay for better text readability */}
+        <LinearGradient
+          colors={[
+            "rgba(0, 0, 0, 0.0)",
+            "rgba(0, 0, 0, 0.3)",
+            "rgba(0, 0, 0, 0.7)",
+          ]}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+          pointerEvents="none"
+        />
+        <View className="absolute bottom-0 left-0 right-0 p-4 ">
+          <Text className="font-onest-semibold text-lg text-[#fff]/90 mb-1">
+            {item.experience_name || "Not Available"}
+          </Text>
+          <View className="flex-row items-center">
+            <Ionicons name="location-outline" size={14} color="#fff" />
+            <Text className="text-[#fff]/90 font-onest text-sm ml-1">
               {item.destination_name}
             </Text>
           </View>
-          <View className="items-end">
+        </View>
+        {isPreview && (
+          <View className="absolute top-4 right-4 flex-row justify-end  ">
+            <TouchableOpacity
+              onPress={onRemove}
+              className="flex-row items-center  p-1.5 rounded-full  bg-[#fff]/80"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={16} color="#1a1a1a" />
+
+              {/* <Text className=" text-black/90 font-onest-medium text-xs">
+                Remove
+              </Text> */}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      <View className="p-4 pb-6">
+        <View className="flex-row justify-between items-baseline my-2">
+          <View className="flex-1 ">
             <Text className="font-onest-bold text-black/80">
               {formatTime(item.start_time)} - {formatTime(item.end_time)}
             </Text>
+          </View>
+          <View className="items-end ">
             {item.price && item.price > 0 && (
-              <View className="items-end mt-1">
+              <View className="items-end">
                 <Text className="font-onest-bold text-gray-900">
                   ₱{displayPrice.toLocaleString()}
                 </Text>
@@ -158,7 +215,7 @@ const ExperienceCard: React.FC<{
 
         {item.experience_description && (
           <Text
-            numberOfLines={1}
+            numberOfLines={2}
             className="text-black/60 font-onest text-sm mb-2"
           >
             {item.experience_description}
@@ -170,21 +227,6 @@ const ExperienceCard: React.FC<{
             <Text className="text-blue-800 font-onest text-xs">
               {item.experience_notes}
             </Text>
-          </View>
-        )}
-
-        {isPreview && (
-          <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
-            <TouchableOpacity
-              onPress={onRemove}
-              className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={16} color="#DC2626" />
-              <Text className="ml-2 text-red-600 font-onest text-sm">
-                Remove
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -717,7 +759,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
             dayDate.setDate(dayDate.getDate() + parseInt(dayNumber) - 1);
 
             return (
-              <View key={dayNumber} className="mb-6">
+              <View key={dayNumber} className="my-6">
                 {/* Day Header */}
                 <View className="flex-row items-center mb-3">
                   <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3">

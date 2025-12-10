@@ -27,7 +27,7 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (e) {
         console.warn("Error during app initialization:", e);
       } finally {
@@ -51,15 +51,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <RefreshProvider>
-
           <SafeAreaProvider>
-
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }} />
             <Toaster position="top-center" />
-
           </SafeAreaProvider>
-
         </RefreshProvider>
       </AuthProvider>
     </GestureHandlerRootView>

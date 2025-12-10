@@ -264,7 +264,7 @@ const GenerateItineraryForm: React.FC = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-white">
       {/* <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <ProgressBar currentStep={step} totalSteps={stepCount} />
       </View> */}
