@@ -108,28 +108,28 @@ const ConflictingPreferencesSection: React.FC<{
 );
 
 // Nearby Cities Component
-const NearbyCitiesSection: React.FC<{
-  cities: Array<{ city: string; experience_count: number }>;
-}> = ({ cities }) => (
-  <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-    <Text className="font-onest-semibold text-base text-gray-900 mb-3">
-      🏙️ Try Nearby Cities
-    </Text>
-    <View className="space-y-2">
-      {cities.map((cityOption, index) => (
-        <View
-          key={index}
-          className="flex-row justify-between items-center py-2"
-        >
-          <Text className="text-sm text-gray-700">{cityOption.city}</Text>
-          <Text className="text-sm font-onest-medium text-green-600">
-            {cityOption.experience_count} activities
-          </Text>
-        </View>
-      ))}
-    </View>
-  </View>
-);
+// const NearbyCitiesSection: React.FC<{
+//   cities: Array<{ city: string; experience_count: number }>;
+// }> = ({ cities }) => (
+//   <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+//     <Text className="font-onest-semibold text-base text-gray-900 mb-3">
+//       🏙️ Try Nearby Cities
+//     </Text>
+//     <View className="space-y-2">
+//       {cities.map((cityOption, index) => (
+//         <View
+//           key={index}
+//           className="flex-row justify-between items-center py-2"
+//         >
+//           <Text className="text-sm text-gray-700">{cityOption.city}</Text>
+//           <Text className="text-sm font-onest-medium text-green-600">
+//             {cityOption.experience_count} activities
+//           </Text>
+//         </View>
+//       ))}
+//     </View>
+//   </View>
+// );
 
 // Popular Experiences Component
 // const PopularExperiencesSection: React.FC<{
@@ -281,11 +281,11 @@ export const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
         {details.alternative_options && (
           <>
             {/* Nearby Cities */}
-            {details.alternative_options.nearby_cities?.length > 0 && (
+            {/* {details.alternative_options.nearby_cities?.length > 0 && (
               <NearbyCitiesSection
                 cities={details.alternative_options.nearby_cities}
               />
-            )}
+            )} */}
 
             {/* Popular Experiences */}
             {/* {details.alternative_options.popular_experiences?.length > 0 && (

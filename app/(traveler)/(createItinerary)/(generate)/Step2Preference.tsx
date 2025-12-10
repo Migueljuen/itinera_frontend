@@ -15,6 +15,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -50,6 +51,7 @@ interface ItineraryFormData {
   preferences?: {
     experiences: Experience[];
     experienceIds?: number[]; // Store both names and IDs
+    travelerCount: number;
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
     exploreTime?: ExploreTime;
@@ -84,7 +86,9 @@ const Step2Preference: React.FC<StepProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [travelerCount, setTravelerCount] = useState<number>(
+    formData.preferences?.travelerCount || 1
+  );
   // Store selected tags as objects with both ID and name
   const [selectedTags, setSelectedTags] = useState<
     Array<{ id: number; name: string }>
@@ -99,6 +103,24 @@ const Step2Preference: React.FC<StepProps> = ({
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(
     formData.preferences?.budget || null
   );
+  useEffect(() => {
+    if (formData.preferences?.travelerCount) {
+      return;
+    }
+
+    if (selectedCompanion === "Solo") {
+      setTravelerCount(1);
+    } else if (selectedCompanion === "Partner") {
+      setTravelerCount(2);
+    } else if (
+      selectedCompanion === "Friends" ||
+      selectedCompanion === "Family"
+    ) {
+      setTravelerCount(4);
+    } else if (selectedCompanion === "Any") {
+      setTravelerCount(1);
+    }
+  }, [selectedCompanion, formData.preferences?.travelerCount]);
   const [selectedActivityIntensity, setSelectedActivityIntensity] =
     useState<ActivityIntensity | null>(
       formData.preferences?.activityIntensity || null
@@ -194,6 +216,13 @@ const Step2Preference: React.FC<StepProps> = ({
     "Mid-range",
     "Premium",
   ];
+  const budgetIconMap: Record<Budget, string> = {
+    Free: "gift",
+    "Budget-friendly": "wallet",
+    "Mid-range": "cash-outline",
+    Premium: "diamond",
+  };
+
   const activityIntensityOptions: ActivityIntensity[] = [
     "Low",
     "Moderate",
@@ -204,18 +233,18 @@ const Step2Preference: React.FC<StepProps> = ({
     label: string;
     description: string;
   }[] = [
-      { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
-      {
-        value: "Moderate",
-        label: "A moderate distance is fine",
-        description: "Within 20 km",
-      },
-      {
-        value: "Far",
-        label: "Willing to travel far",
-        description: "20 km or more",
-      },
-    ];
+    { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
+    {
+      value: "Moderate",
+      label: "A moderate distance is fine",
+      description: "Within 20 km",
+    },
+    {
+      value: "Far",
+      label: "Willing to travel far",
+      description: "20 km or more",
+    },
+  ];
 
   // Toggle tag selection (multiple selection)
   const toggleTag = (tagId: number, tagName: string) => {
@@ -249,9 +278,7 @@ const Step2Preference: React.FC<StepProps> = ({
   const handleNext = () => {
     if (isValid()) {
       // Extract tag names and IDs
-      const experienceNames = selectedTags.map(
-        (tag) => tag.name as Experience
-      );
+      const experienceNames = selectedTags.map((tag) => tag.name as Experience);
       const experienceIds = selectedTags.map((tag) => tag.id);
 
       // Update the formData with preferences
@@ -260,6 +287,7 @@ const Step2Preference: React.FC<StepProps> = ({
         preferences: {
           experiences: experienceNames, // Store tag names for type compatibility
           experienceIds: experienceIds, // Store IDs for API calls
+          travelerCount: travelerCount,
           travelCompanion: selectedCompanion!,
           exploreTime: selectedExploreTime!,
           budget: selectedBudget!,
@@ -293,8 +321,9 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-          }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
+          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+        }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -308,10 +337,9 @@ const Step2Preference: React.FC<StepProps> = ({
             />
           )}
           <Text
-            className={`text-base font-onest ${isSelected
-              ? " text-black/90"
-              : "text-black/80"
-              }`}
+            className={`text-base font-onest ${
+              isSelected ? " text-black/90" : "text-black/80"
+            }`}
           >
             {option}
           </Text>
@@ -332,8 +360,9 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option.value}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-          }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
+          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+        }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -343,8 +372,8 @@ const Step2Preference: React.FC<StepProps> = ({
               option.value === "Nearby"
                 ? "location"
                 : option.value === "Moderate"
-                  ? "car"
-                  : "airplane"
+                ? "car"
+                : "airplane"
             }
             size={16}
             color={isSelected ? "#4F46E5" : "#1a1a1a"}
@@ -352,10 +381,9 @@ const Step2Preference: React.FC<StepProps> = ({
           />
           <View className="flex-1">
             <Text
-              className={`text-base font-onest ${isSelected
-                ? " text-black/90"
-                : " text-black/80"
-                }`}
+              className={`text-base font-onest ${
+                isSelected ? " text-black/90" : " text-black/80"
+              }`}
             >
               {option.label}
             </Text>
@@ -461,10 +489,11 @@ const Step2Preference: React.FC<StepProps> = ({
                                 isOpen ? null : category.category_name
                               )
                             }
-                            className={`p-4 border rounded-lg flex-row justify-between items-center ${isOpen || hasSelectedTag
-                              ? "border-primary bg-indigo-50"
-                              : "border-gray-300"
-                              }`}
+                            className={`p-4 border rounded-lg flex-row justify-between items-center ${
+                              isOpen || hasSelectedTag
+                                ? "border-primary bg-indigo-50"
+                                : "border-gray-300"
+                            }`}
                           >
                             <View className="flex-row items-center">
                               <Ionicons
@@ -478,10 +507,11 @@ const Step2Preference: React.FC<StepProps> = ({
                                 className="mr-3"
                               />
                               <Text
-                                className={`text-base font-onest ${isOpen || hasSelectedTag
-                                  ? "text-black/90"
-                                  : "text-black/80"
-                                  }`}
+                                className={`text-base font-onest ${
+                                  isOpen || hasSelectedTag
+                                    ? "text-black/90"
+                                    : "text-black/80"
+                                }`}
                               >
                                 {category.category_name}
                               </Text>
@@ -499,20 +529,22 @@ const Step2Preference: React.FC<StepProps> = ({
                               {category.tags.map((tag) => (
                                 <TouchableOpacity
                                   key={tag.tag_id}
-                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${isTagSelected(tag.tag_id)
-                                    ? "border-primary bg-indigo-50"
-                                    : "border-gray-300"
-                                    }`}
+                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${
+                                    isTagSelected(tag.tag_id)
+                                      ? "border-primary bg-indigo-50"
+                                      : "border-gray-300"
+                                  }`}
                                   onPress={() =>
                                     toggleTag(tag.tag_id, tag.tag_name)
                                   }
                                   activeOpacity={1}
                                 >
                                   <Text
-                                    className={`text-base font-onest ${isTagSelected(tag.tag_id)
-                                      ? "text-black/90"
-                                      : "text-black/80"
-                                      }`}
+                                    className={`text-base font-onest ${
+                                      isTagSelected(tag.tag_id)
+                                        ? "text-black/90"
+                                        : "text-black/80"
+                                    }`}
                                   >
                                     {tag.tag_name}
                                   </Text>
@@ -540,17 +572,60 @@ const Step2Preference: React.FC<StepProps> = ({
                       renderOption(
                         companion,
                         selectedCompanion === companion,
-                        () => setSelectedCompanion(companion),
-                        companion === "Solo"
-                          ? "person"
-                          : companion === "Partner"
-                            ? "heart"
-                            : companion === "Friends"
-                              ? "people"
-                              : companion === "Family"
-                                ? "home"
-                                : "person"
+                        () => {
+                          setSelectedCompanion(companion);
+                          // Set smart defaults
+                          if (companion === "Solo") setTravelerCount(1);
+                          else if (companion === "Partner") setTravelerCount(2);
+                          else if (companion === "Friends") setTravelerCount(3);
+                          else if (companion === "Family") setTravelerCount(4);
+                        }
                       )
+                    )}
+
+                    {/* Only show if not Solo */}
+                    {selectedCompanion && selectedCompanion !== "Solo" && (
+                      <View className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <Text className="font-onest-medium text-sm mb-3 text-gray-700">
+                          May I know the total number of participants?
+                        </Text>
+                        <View className="flex-row items-center justify-center">
+                          <Pressable
+                            onPress={() =>
+                              setTravelerCount(Math.max(2, travelerCount - 1))
+                            }
+                            className="bg-white  rounded-lg p-3"
+                          >
+                            <Ionicons name="remove" size={20} color="#374151" />
+                          </Pressable>
+
+                          <View className="mx-6 items-center">
+                            <Text className="font-onest-bold text-2xl text-primary">
+                              {travelerCount}
+                            </Text>
+                            <Text className="text-xs text-gray-500 font-onest mt-1">
+                              travelers
+                            </Text>
+                          </View>
+
+                          <Pressable
+                            onPress={() =>
+                              setTravelerCount(Math.min(20, travelerCount + 1))
+                            }
+                            className="bg-white rounded-lg p-3"
+                          >
+                            <Ionicons name="add" size={20} color="#374151" />
+                          </Pressable>
+                        </View>
+                      </View>
+                    )}
+
+                    {selectedCompanion === "Solo" && (
+                      <View className="mt-2 p-3 bg-indigo-50 rounded-lg">
+                        <Text className="text-xs text-indigo-700 font-onest">
+                          ✨ Solo travel - costs calculated for 1 person
+                        </Text>
+                      </View>
                     )}
                   </View>
 
@@ -567,8 +642,8 @@ const Step2Preference: React.FC<StepProps> = ({
                         time === "Daytime"
                           ? "sunny"
                           : time === "Nighttime"
-                            ? "moon"
-                            : "time"
+                          ? "moon"
+                          : "time"
                       )
                     )}
                   </View>
@@ -583,7 +658,7 @@ const Step2Preference: React.FC<StepProps> = ({
                         budget,
                         selectedBudget === budget,
                         () => setSelectedBudget(budget),
-                        budget === "Free" ? "gift" : "cash"
+                        budgetIconMap[budget]
                       )
                     )}
                   </View>
@@ -604,19 +679,19 @@ const Step2Preference: React.FC<StepProps> = ({
                         intensity === "Low"
                           ? "leaf"
                           : intensity === "Moderate"
-                            ? "walk"
-                            : "flash"
+                          ? "walk"
+                          : "flash"
                       )
                     )}
                     {selectedActivityIntensity && (
                       <View className="mt-2 p-2 bg-gray-50 rounded-lg">
                         <Text className="text-xs text-gray-600 font-onest">
                           {selectedActivityIntensity === "Low" &&
-                            "3-4 experiences per day - Perfect for a relaxed pace"}
+                            "1-2 activities per day - Perfect for a relaxed pace"}
                           {selectedActivityIntensity === "Moderate" &&
-                            "5-6 experiences per day - A good balance of activities and rest"}
+                            "2-3 activities per day - A good balance of activities and rest"}
                           {selectedActivityIntensity === "High" &&
-                            "6-8 experiences per day - Action-packed adventure!"}
+                            "3+ activities per day - Action-packed adventure!"}
                         </Text>
                       </View>
                     )}
@@ -653,8 +728,9 @@ const Step2Preference: React.FC<StepProps> = ({
 
                 <TouchableOpacity
                   onPress={handleNext}
-                  className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
-                    }`}
+                  className={`py-4 px-8 rounded-xl ${
+                    isValid() ? "bg-primary" : "bg-gray-200"
+                  }`}
                   disabled={!isValid()}
                   activeOpacity={1}
                 >

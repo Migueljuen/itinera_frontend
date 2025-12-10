@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,7 +29,7 @@ interface StepProps {
 
 const INTENSITY_COLORS: Record<string, string> = {
   low: "text-green-600",
-  moderate: "text-yellow-600",
+  moderate: "text-teal-600",
   high: "text-blue-600",
 };
 
@@ -100,69 +100,97 @@ const ExperienceCard: React.FC<{
   item: ItineraryItem;
   isPreview: boolean;
   onRemove: () => void;
-}> = ({ item, isPreview, onRemove }) => (
-  <View className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    {item.primary_image && (
-      <Image
-        source={{ uri: `${API_URL}/${item.primary_image}` }}
-        className="w-full h-32"
-        resizeMode="cover"
-      />
-    )}
-    <View className="p-4">
-      <View className="flex-row justify-between items-start mb-2">
-        <View className="flex-1 mr-3">
-          <Text className="font-onest-semibold text-base mb-1">
-            {item.experience_name || "Experience"}
-          </Text>
-          <Text className="text-gray-600 font-onest text-sm">
-            {item.destination_name}
-          </Text>
-        </View>
-        <View className="items-end">
-          <Text className="font-onest-bold text-primary">
-            {formatTime(item.start_time)} - {formatTime(item.end_time)}
-          </Text>
-          {item.price && item.price > 0 && (
-            <Text className="text-gray-600 font-onest text-sm">
-              ₱{item.price} {item.unit && `/ ${item.unit}`}
+  travelerCount?: number;
+}> = ({ item, isPreview, onRemove, travelerCount = 1 }) => {
+  const isPricedPerPerson =
+    item.unit?.toLowerCase() === "entry" ||
+    item.unit?.toLowerCase() === "person";
+
+  const displayPrice =
+    isPricedPerPerson && travelerCount > 1
+      ? (item.price || 0) * travelerCount
+      : item.price || 0;
+
+  return (
+    <View className="bg-white rounded-xl  border border-gray-200 overflow-hidden">
+      {item.primary_image && (
+        <Image
+          source={{ uri: `${API_URL}/${item.primary_image}` }}
+          className="w-full h-48"
+          resizeMode="cover"
+        />
+      )}
+      <View className="p-4">
+        <View className="flex-row justify-between items-baseline mb-2">
+          <View className="flex-1 mr-3">
+            <Text className="font-onest-semibold text-base mb-1 text-black/80">
+              {item.experience_name || "Not Available"}
             </Text>
-          )}
+            <Text className="text-black/40 font-onest text-sm">
+              {item.destination_name}
+            </Text>
+          </View>
+          <View className="items-end">
+            <Text className="font-onest-bold text-black/80">
+              {formatTime(item.start_time)} - {formatTime(item.end_time)}
+            </Text>
+            {item.price && item.price > 0 && (
+              <View className="items-end mt-1">
+                <Text className="font-onest-bold text-gray-900">
+                  ₱{displayPrice.toLocaleString()}
+                </Text>
+                {isPricedPerPerson && travelerCount > 1 ? (
+                  <Text className="text-gray-500 font-onest text-xs">
+                    ₱{(item.price || 0).toLocaleString()} × {travelerCount}{" "}
+                    {travelerCount > 1 ? "people" : "person"}
+                  </Text>
+                ) : (
+                  item.unit && (
+                    <Text className="text-black/40 font-onest text-xs">
+                      {item.unit}
+                    </Text>
+                  )
+                )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
 
-      {item.experience_description && (
-        <Text
-          numberOfLines={1}
-          className="text-gray-700 font-onest text-sm mb-2"
-        >
-          {item.experience_description}
-        </Text>
-      )}
-
-      {item.custom_note && (
-        <View className="bg-blue-50 rounded-lg p-2 mt-2">
-          <Text className="text-blue-800 font-onest text-xs">
-            {item.custom_note}
-          </Text>
-        </View>
-      )}
-
-      {isPreview && (
-        <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
-          <TouchableOpacity
-            onPress={onRemove}
-            className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
-            activeOpacity={0.7}
+        {item.experience_description && (
+          <Text
+            numberOfLines={1}
+            className="text-black/60 font-onest text-sm mb-2"
           >
-            <Ionicons name="trash-outline" size={16} color="#DC2626" />
-            <Text className="ml-2 text-red-600 font-onest text-sm">Remove</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            {item.experience_description}
+          </Text>
+        )}
+
+        {item.experience_notes && (
+          <View className="bg-blue-50 rounded-lg p-2 mt-2">
+            <Text className="text-blue-800 font-onest text-xs">
+              {item.experience_notes}
+            </Text>
+          </View>
+        )}
+
+        {isPreview && (
+          <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
+            <TouchableOpacity
+              onPress={onRemove}
+              className="flex-row items-center px-3 py-2 rounded-lg border border-red-200 bg-red-50"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              <Text className="ml-2 text-red-600 font-onest text-sm">
+                Remove
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // Main Component
 const Step3GeneratedItinerary: React.FC<StepProps> = ({
@@ -182,26 +210,51 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const [isPreview, setIsPreview] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    console.log("=== User selections from STEP 2 ===");
-    console.log("Selected experiences:", formData.preferences?.experiences);
-    console.log("Selected companion:", formData.preferences?.travelCompanion);
-    console.log("Selected explore time:", formData.preferences?.exploreTime);
-    console.log("Selected budget:", formData.preferences?.budget);
-    console.log(
-      "Selected activity intensity:",
-      formData.preferences?.activityIntensity
-    );
-    console.log(
-      "Selected travel distance:",
-      formData.preferences?.travelDistance
-    );
-    console.log("==========================================");
-  }, [formData]);
+  // useEffect(() => {
+  //   console.log("=== User selections from STEP 2 ===");
+  //   console.log("Selected experiences:", formData.preferences?.experiences);
+  //   console.log("Selected companion:", formData.preferences?.travelCompanion);
+  //   console.log("Selected explore time:", formData.preferences?.exploreTime);
+  //   console.log("Selected budget:", formData.preferences?.budget);
+  //   console.log(
+  //     "Selected activity intensity:",
+  //     formData.preferences?.activityIntensity
+  //   );
+  //   console.log(
+  //     "Selected travel distance:",
+  //     formData.preferences?.travelDistance
+  //   );
+  //   console.log("==========================================");
+  // }, [formData]);
 
   useEffect(() => {
     generateItinerary();
   }, []);
+
+  const totalCost: number = useMemo(() => {
+    if (!generatedItinerary?.items) return 0;
+
+    const travelerCount = formData.preferences?.travelerCount || 1;
+
+    return generatedItinerary.items.reduce((sum, item) => {
+      const price = Number(item.price || 0);
+      if (price <= 0) return sum;
+
+      if (
+        item.unit?.toLowerCase() === "entry" ||
+        item.unit?.toLowerCase() === "person"
+      ) {
+        return sum + price * travelerCount;
+      }
+
+      return sum + price;
+    }, 0);
+  }, [generatedItinerary?.items, formData.preferences?.travelerCount]);
+
+  const perPersonCost = useMemo(() => {
+    const count = formData.preferences?.travelerCount || 1;
+    return count > 1 ? Math.round(totalCost / count) : totalCost;
+  }, [totalCost, formData.preferences?.travelerCount]);
 
   const generateItineraryWithPreferences = async (
     preferencesToUse?: ItineraryFormData["preferences"]
@@ -573,12 +626,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const groupedItems = groupItemsByDay(generatedItinerary.items);
   const totalDays = Object.keys(groupedItems).length;
 
-  const totalCost: number =
-    generatedItinerary?.items?.reduce(
-      (sum, item) => sum + Number(item.price || 0),
-      0
-    ) || 0;
-
   return (
     <View className="flex-1 bg-gray-50">
       {isPreview && (
@@ -596,14 +643,29 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         <View className="px-2 py-4">
           {/* Total Cost Card */}
           <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-            <Text className="text-gray-700 font-onest-medium text-sm mb-1">
-              Estimated Total Cost
-            </Text>
-            <Text className="text-2xl font-onest-bold text-primary">
-              ₱{totalCost.toLocaleString()}
-            </Text>
+            <View className="flex-row justify-between items-start mb-2">
+              <View className="flex-1">
+                <Text className="text-gray-700 font-onest-medium text-sm mb-1">
+                  Estimated Total Cost
+                </Text>
+                <Text className="text-2xl font-onest-bold text-primary">
+                  ₱{totalCost.toLocaleString()}
+                </Text>
+              </View>
+              {formData.preferences?.travelerCount &&
+                formData.preferences.travelerCount > 1 && (
+                  <View className="bg-indigo-50 rounded-lg px-3 py-2">
+                    <Text className="text-indigo-700 font-onest-semibold text-xs">
+                      {formData.preferences.travelerCount} people
+                    </Text>
+                  </View>
+                )}
+            </View>
             <Text className="text-gray-500 font-onest text-xs mt-1">
-              This is an estimate. Final total will be calculated after saving.
+              {formData.preferences?.travelerCount &&
+              formData.preferences.travelerCount > 1
+                ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
+                : "This is an estimate. Final total will be calculated after saving."}
             </Text>
           </View>
 
@@ -685,6 +747,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                         item={item}
                         isPreview={isPreview}
                         onRemove={() => removeItem(item)}
+                        travelerCount={formData.preferences?.travelerCount || 1}
                       />
                     </View>
                   ))

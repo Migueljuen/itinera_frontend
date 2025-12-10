@@ -22,6 +22,7 @@ interface ItineraryFormData {
   items: any[];
   preferences?: {
     experiences: Experience[];
+    travelerCount: number;
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
     exploreTime?: ExploreTime;
@@ -80,12 +81,12 @@ const EXPERIENCE_ICONS: Partial<Record<Experience, string>> = {
 const DEFAULT_PREFERENCES: NonNullable<ItineraryFormData["preferences"]> = {
   experiences: [],
   travelCompanions: [],
+  travelerCount: 1,
   exploreTime: "Both",
   budget: "Mid-range",
   activityIntensity: "Moderate",
   travelDistance: "Moderate",
 };
-
 interface CollapsibleFilterProps {
   preferences: ItineraryFormData["preferences"];
   city: string;
@@ -108,13 +109,15 @@ const PreferenceButton: React.FC<{
       e.stopPropagation();
       onPress();
     }}
-    className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${isSelected ? "bg-indigo-50 border-gray-300" : "bg-white border-gray-300"
-      }`}
+    className={`px-6 py-2 rounded-lg mr-2 mb-2 border ${
+      isSelected ? "bg-indigo-50 border-gray-300" : "bg-white border-gray-300"
+    }`}
   >
     <View className="flex-row items-center">
       <Text
-        className={`${icon ? "ml-1" : ""} text-sm font-onest ${isSelected ? "text-black/80" : "text-black/60"
-          }`}
+        className={`${icon ? "ml-1" : ""} text-sm font-onest ${
+          isSelected ? "text-black/80" : "text-black/60"
+        }`}
       >
         {label}
       </Text>
@@ -135,7 +138,6 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
   const lastPreferencesRef = useRef<string>("");
   const isAnimatingRef = useRef(false);
 
-  // Normalize preferences helper
   const normalizePreferences = useCallback(
     (prefs: ItineraryFormData["preferences"]) => {
       if (!prefs) return DEFAULT_PREFERENCES;
@@ -143,11 +145,12 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
       return {
         ...DEFAULT_PREFERENCES,
         ...prefs,
+        travelerCount: prefs.travelerCount || DEFAULT_PREFERENCES.travelerCount, // ✅ Preserve travelerCount
         travelCompanions: prefs.travelCompanions?.length
           ? prefs.travelCompanions
           : prefs.travelCompanion
-            ? [prefs.travelCompanion]
-            : DEFAULT_PREFERENCES.travelCompanions,
+          ? [prefs.travelCompanion]
+          : DEFAULT_PREFERENCES.travelCompanions,
       };
     },
     []
@@ -192,7 +195,7 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
 
   const toggleExpanded = () => {
     console.log("Toggling from", isExpanded, "to", !isExpanded);
-    setIsExpanded(prev => !prev);
+    setIsExpanded((prev) => !prev);
   };
 
   const updatePreference = useCallback(
@@ -220,9 +223,21 @@ export const CollapsibleFilter: React.FC<CollapsibleFilterProps> = ({
   const handleApplyChanges = useCallback(() => {
     setHasUnsavedChanges(false);
     lastPreferencesRef.current = JSON.stringify(displayPreferences);
-    onRegenerateWithNewFilters(displayPreferences);
-  }, [displayPreferences, onRegenerateWithNewFilters]);
 
+    const preferencesToSend: ItineraryFormData["preferences"] = {
+      experiences: displayPreferences?.experiences || [],
+      travelerCount:
+        displayPreferences?.travelerCount || preferences?.travelerCount || 1,
+      travelCompanion: displayPreferences?.travelCompanion,
+      travelCompanions: displayPreferences?.travelCompanions,
+      exploreTime: displayPreferences?.exploreTime,
+      budget: displayPreferences?.budget,
+      activityIntensity: displayPreferences?.activityIntensity,
+      travelDistance: displayPreferences?.travelDistance,
+    };
+
+    onRegenerateWithNewFilters(preferencesToSend);
+  }, [displayPreferences, preferences, onRegenerateWithNewFilters]);
   const renderPreferenceSection = useCallback(
     (
       title: string,

@@ -90,8 +90,10 @@ interface ItineraryFormData {
   accommodation?: Accommodation;
   preferences?: {
     experiences: Experience[];
+    travelerCount: number;
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
+
     exploreTime?: ExploreTime;
     budget?: Budget;
     activityIntensity?: ActivityIntensity;
@@ -138,6 +140,7 @@ const GenerateItineraryForm: React.FC = () => {
     items: [] as ItineraryItem[],
     preferences: {
       experiences: [],
+      travelerCount: 1,
       travelCompanions: [],
     },
   });
@@ -171,10 +174,25 @@ const GenerateItineraryForm: React.FC = () => {
 
   // Calculate total cost
   const calculateTotalCost = (): number => {
-    return (
-      formData.items?.reduce((sum, item) => sum + Number(item.price || 0), 0) ||
-      0
-    );
+    if (!formData.items || formData.items.length === 0) return 0;
+
+    const travelerCount = formData.preferences?.travelerCount || 1;
+
+    return formData.items.reduce((sum, item) => {
+      const price = Number(item.price || 0);
+      if (price <= 0) return sum;
+
+      // Multiply by traveler count for per-person pricing
+      if (
+        item.unit?.toLowerCase() === "entry" ||
+        item.unit?.toLowerCase() === "person"
+      ) {
+        return sum + price * travelerCount;
+      }
+
+      // Flat rate for packages, day, hour, etc.
+      return sum + price;
+    }, 0);
   };
 
   // Show loading spinner while auth is loading
@@ -247,8 +265,11 @@ const GenerateItineraryForm: React.FC = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-1 px-6 py-4" style={{ overflow: "visible" }}>
+      {/* <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <ProgressBar currentStep={step} totalSteps={stepCount} />
+      </View> */}
+
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
         {renderStep()}
       </View>
     </SafeAreaView>
