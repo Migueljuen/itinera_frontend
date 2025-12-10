@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 interface EnhancedError {
@@ -48,7 +48,17 @@ const FilterBreakdown: React.FC<{
     </Text>
     <View className="space-y-2">
       <View className="flex-row justify-between">
-        <Text className="text-sm text-gray-600">Total in {city}:</Text>
+        <Text className="text-sm text-gray-600">
+          Total in{" "}
+          <Text className="capitalize">
+            {city
+              .trim()
+              .replace(/_City$/i, "")
+              .replace(/_/g, " ")}
+          </Text>
+          :
+        </Text>
+
         <Text className="text-sm font-onest-medium">{totalExperiences}</Text>
       </View>
       <View className="flex-row justify-between">
@@ -107,74 +117,6 @@ const ConflictingPreferencesSection: React.FC<{
   </View>
 );
 
-// Nearby Cities Component
-// const NearbyCitiesSection: React.FC<{
-//   cities: Array<{ city: string; experience_count: number }>;
-// }> = ({ cities }) => (
-//   <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-//     <Text className="font-onest-semibold text-base text-gray-900 mb-3">
-//       🏙️ Try Nearby Cities
-//     </Text>
-//     <View className="space-y-2">
-//       {cities.map((cityOption, index) => (
-//         <View
-//           key={index}
-//           className="flex-row justify-between items-center py-2"
-//         >
-//           <Text className="text-sm text-gray-700">{cityOption.city}</Text>
-//           <Text className="text-sm font-onest-medium text-green-600">
-//             {cityOption.experience_count} activities
-//           </Text>
-//         </View>
-//       ))}
-//     </View>
-//   </View>
-// );
-
-// Popular Experiences Component
-// const PopularExperiencesSection: React.FC<{
-//   experiences: Array<{
-//     title: string;
-//     price: number;
-//     travel_companion: string;
-//     travel_companions?: string[];
-//     popularity: number;
-//   }>;
-//   city: string;
-// }> = ({ experiences, city }) => (
-//   <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-//     <Text className="font-onest-semibold text-base text-gray-900 mb-3">
-//       🔥 Popular in {city}
-//     </Text>
-//     <Text className="text-sm text-gray-600 mb-3">
-//       These activities are available but don't match your current filters:
-//     </Text>
-//     <View className="space-y-3">
-//       {experiences.slice(0, 3).map((exp, index) => (
-//         <View key={index} className="bg-gray-50 rounded-lg p-3">
-//           <View className="flex-row justify-between items-start mb-1">
-//             <Text className="text-sm font-onest-medium text-gray-900 flex-1">
-//               {exp.title}
-//             </Text>
-//             <Text className="text-sm text-green-600 font-onest-medium">
-//               ${exp.price}
-//             </Text>
-//           </View>
-//           <View className="flex-row items-center">
-//             <Text className="text-xs text-gray-500">
-//               {exp.travel_companions || exp.travel_companion}
-//             </Text>
-//             <Text className="text-xs text-gray-400 mx-2">•</Text>
-//             <Text className="text-xs text-gray-500">
-//               {Math.round(exp.popularity * 100)}% popularity
-//             </Text>
-//           </View>
-//         </View>
-//       ))}
-//     </View>
-//   </View>
-// );
-
 // Action Buttons Component
 const ActionButtons: React.FC<{
   onModifyPreferences: () => void;
@@ -215,8 +157,14 @@ const ErrorHeader: React.FC<{
       No Activities Found
     </Text>
     <Text className="font-onest text-sm text-gray-600 text-center mt-2">
-      We couldn't find any activities in {city} that match your current
-      preferences
+      We couldn't find any activities in{" "}
+      <Text className="capitalize">
+        {city
+          .trim()
+          .replace(/_City$/i, "")
+          .replace(/_/g, " ")}
+      </Text>{" "}
+      that match your current preferences
     </Text>
   </View>
 );
@@ -229,6 +177,17 @@ export const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   city,
 }) => {
   const { details } = error;
+  const [allSuggestions, setAllSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newSuggestions = error.details?.suggestions;
+    if (newSuggestions && newSuggestions.length > 0) {
+      setAllSuggestions((prev) => [
+        ...prev,
+        ...newSuggestions.filter((s) => !prev.includes(s)),
+      ]);
+    }
+  }, [error]);
 
   // Early return if no details
   if (!details) {
@@ -264,8 +223,8 @@ export const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           )}
 
           {/* Suggestions */}
-          {details.suggestions && details.suggestions.length > 0 && (
-            <SuggestionsSection suggestions={details.suggestions} />
+          {allSuggestions.length > 0 && (
+            <SuggestionsSection suggestions={allSuggestions} />
           )}
 
           {/* Conflicting Preferences */}
@@ -278,24 +237,7 @@ export const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
         </View>
 
         {/* Alternative Options */}
-        {details.alternative_options && (
-          <>
-            {/* Nearby Cities */}
-            {/* {details.alternative_options.nearby_cities?.length > 0 && (
-              <NearbyCitiesSection
-                cities={details.alternative_options.nearby_cities}
-              />
-            )} */}
-
-            {/* Popular Experiences */}
-            {/* {details.alternative_options.popular_experiences?.length > 0 && (
-              <PopularExperiencesSection
-                experiences={details.alternative_options.popular_experiences}
-                city={city}
-              />
-            )} */}
-          </>
-        )}
+        {details.alternative_options && <></>}
 
         {/* Action Buttons */}
         <ActionButtons

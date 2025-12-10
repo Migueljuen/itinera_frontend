@@ -5,20 +5,20 @@ import {
 } from "@/types/itineraryTypes";
 import { EnhancedError } from "@/types/types";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import API_URL from "../../../../constants/api";
+import AnimatedDots from "./components/AnimatedDots";
 import { CollapsibleFilter } from "./components/CollapsibleFilter";
 import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
+import ExperienceCard from "./components/ExperienceCard";
 
 interface StepProps {
   formData: ItineraryFormData;
@@ -43,195 +43,12 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const formatTime = (timeString: string) => {
-  const [hours, minutes] = timeString.split(":");
-  const date = new Date();
-  date.setHours(parseInt(hours), parseInt(minutes));
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
-
 const groupItemsByDay = (items: ItineraryItem[]) => {
   return items.reduce((acc, item) => {
     if (!acc[item.day_number]) acc[item.day_number] = [];
     acc[item.day_number].push(item);
     return acc;
   }, {} as { [key: number]: ItineraryItem[] });
-};
-
-// Preference Option Button Component
-const PreferenceButton: React.FC<{
-  label: string;
-  isSelected: boolean;
-  onPress: () => void;
-  icon?: string;
-}> = ({ label, isSelected, onPress, icon }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    className={`px-3 py-2 rounded-lg mr-2 mb-2 border ${
-      isSelected ? "bg-primary border-primary" : "bg-white border-gray-300"
-    }`}
-    activeOpacity={0.7}
-  >
-    <View className="flex-row items-center">
-      {icon && (
-        <Ionicons
-          name={icon as any}
-          size={16}
-          color={isSelected ? "#FFFFFF" : "#6B7280"}
-        />
-      )}
-      <Text
-        className={`${icon ? "ml-1" : ""} text-sm font-onest ${
-          isSelected ? "text-white" : "text-gray-700"
-        }`}
-      >
-        {label}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
-
-// Experience Card Component
-const ExperienceCard: React.FC<{
-  item: ItineraryItem;
-  isPreview: boolean;
-  onRemove: () => void;
-  travelerCount?: number;
-}> = ({ item, isPreview, onRemove, travelerCount = 1 }) => {
-  const isPricedPerPerson =
-    item.unit?.toLowerCase() === "entry" ||
-    item.unit?.toLowerCase() === "person";
-
-  const displayPrice =
-    isPricedPerPerson && travelerCount > 1
-      ? (item.price || 0) * travelerCount
-      : item.price || 0;
-
-  return (
-    <View
-      className="bg-[#fff] rounded-2xl  "
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 2, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 5,
-      }}
-    >
-      {/* Image with overlay text or fallback */}
-      <View className="relative h-72 overflow-hidden ">
-        {item.primary_image ? (
-          <Image
-            source={{ uri: `${API_URL}/${item.primary_image}` }}
-            className="w-full h-72 absolute rounded-2xl"
-            resizeMode="cover"
-          />
-        ) : (
-          // Fallback when no image
-          <View className="w-full h-72 bg-gradient-to-br from-indigo-100 to-indigo-200 items-center justify-center absolute">
-            <Ionicons name="image-outline" size={64} color="#9CA3AF" />
-            <Text className="text-gray-400 font-onest text-sm mt-2">
-              No image available
-            </Text>
-          </View>
-        )}
-        {/* Gradient overlay for better text readability */}
-        <LinearGradient
-          colors={[
-            "rgba(0, 0, 0, 0.0)",
-            "rgba(0, 0, 0, 0.3)",
-            "rgba(0, 0, 0, 0.7)",
-          ]}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-          pointerEvents="none"
-        />
-        <View className="absolute bottom-0 left-0 right-0 p-4 ">
-          <Text className="font-onest-semibold text-lg text-[#fff]/90 mb-1">
-            {item.experience_name || "Not Available"}
-          </Text>
-          <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={14} color="#fff" />
-            <Text className="text-[#fff]/90 font-onest text-sm ml-1">
-              {item.destination_name}
-            </Text>
-          </View>
-        </View>
-        {isPreview && (
-          <View className="absolute top-4 right-4 flex-row justify-end  ">
-            <TouchableOpacity
-              onPress={onRemove}
-              className="flex-row items-center  p-1.5 rounded-full  bg-[#fff]/80"
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={16} color="#1a1a1a" />
-
-              {/* <Text className=" text-black/90 font-onest-medium text-xs">
-                Remove
-              </Text> */}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <View className="p-4 pb-6">
-        <View className="flex-row justify-between items-baseline my-2">
-          <View className="flex-1 ">
-            <Text className="font-onest-bold text-black/80">
-              {formatTime(item.start_time)} - {formatTime(item.end_time)}
-            </Text>
-          </View>
-          <View className="items-end ">
-            {item.price && item.price > 0 && (
-              <View className="items-end">
-                <Text className="font-onest-bold text-gray-900">
-                  ₱{displayPrice.toLocaleString()}
-                </Text>
-                {isPricedPerPerson && travelerCount > 1 ? (
-                  <Text className="text-gray-500 font-onest text-xs">
-                    ₱{(item.price || 0).toLocaleString()} × {travelerCount}{" "}
-                    {travelerCount > 1 ? "people" : "person"}
-                  </Text>
-                ) : (
-                  item.unit && (
-                    <Text className="text-black/40 font-onest text-xs">
-                      {item.unit}
-                    </Text>
-                  )
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {item.experience_description && (
-          <Text
-            numberOfLines={2}
-            className="text-black/60 font-onest text-sm mb-2"
-          >
-            {item.experience_description}
-          </Text>
-        )}
-
-        {item.experience_notes && (
-          <View className="bg-blue-50 rounded-lg p-2 mt-2">
-            <Text className="text-blue-800 font-onest text-xs">
-              {item.experience_notes}
-            </Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
 };
 
 // Main Component
@@ -251,6 +68,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   );
   const [isPreview, setIsPreview] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const MIN_LOADING_TIME = 1000;
 
   useEffect(() => {
     generateItinerary();
@@ -289,6 +107,8 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     setLoading(true);
     setError(null);
     setEnhancedError(null);
+
+    const startTime = Date.now();
 
     try {
       const requestBody: any = {
@@ -388,7 +208,14 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
 
       setRetryCount((prev) => prev + 1);
     } finally {
-      setLoading(false);
+      const elapsed = Date.now() - startTime;
+      const remaining = MIN_LOADING_TIME - elapsed;
+
+      if (remaining > 0) {
+        setTimeout(() => setLoading(false), remaining);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -533,10 +360,11 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       <View className="flex-1 justify-center items-center p-4 bg-gray-50">
         <ActivityIndicator size="large" color="#4F46E5" />
         <Text className="text-center text-lg font-onest-medium mt-4 mb-2">
-          Generating your perfect itinerary...
+          Generating your perfect itinerary
         </Text>
+
         <Text className="text-center text-sm text-gray-500 font-onest px-6">
-          This may take a few moments while we find the best activities for you.
+          Your adventures are being lined up <AnimatedDots />
         </Text>
         {retryCount > 0 && (
           <Text className="text-center text-xs text-gray-400 font-onest mt-2">
@@ -560,65 +388,65 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   }
 
   // Simple error state
-  if (error) {
-    return (
-      <View className="flex-1 justify-center items-center p-6 bg-gray-50">
-        <View className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-200">
-          <View className="items-center mb-4">
-            <View className="bg-red-100 rounded-full p-4 mb-3">
-              <Ionicons name="alert-circle" size={32} color="#EF4444" />
-            </View>
-            <Text className="text-center text-lg font-onest-semibold text-gray-900 mb-2">
-              Oops! Something went wrong
-            </Text>
-            <Text className="text-center text-sm text-gray-600 font-onest">
-              {error}
-            </Text>
-          </View>
+  // if (error) {
+  //   return (
+  //     <View className="flex-1 justify-center items-center p-6 bg-gray-50">
+  //       <View className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-200">
+  //         <View className="items-center mb-4">
+  //           <View className="bg-red-100 rounded-full p-4 mb-3">
+  //             <Ionicons name="alert-circle" size={32} color="#EF4444" />
+  //           </View>
+  //           <Text className="text-center text-lg font-onest-semibold text-gray-900 mb-2">
+  //             Oops! Something went wrong
+  //           </Text>
+  //           <Text className="text-center text-sm text-gray-600 font-onest">
+  //             {error}
+  //           </Text>
+  //         </View>
 
-          {retryCount >= 2 && (
-            <View className="bg-yellow-50 rounded-lg p-3 mb-4">
-              <Text className="text-xs text-yellow-800 font-onest text-center">
-                Multiple attempts failed. Try adjusting your preferences.
-              </Text>
-            </View>
-          )}
+  //         {retryCount >= 2 && (
+  //           <View className="bg-yellow-50 rounded-lg p-3 mb-4">
+  //             <Text className="text-xs text-yellow-800 font-onest text-center">
+  //               Multiple attempts failed. Try adjusting your preferences.
+  //             </Text>
+  //           </View>
+  //         )}
 
-          <View className="space-y-3">
-            <TouchableOpacity
-              onPress={handleRetry}
-              className="bg-primary py-3 px-6 rounded-xl"
-              activeOpacity={0.7}
-            >
-              <Text className="text-white font-onest-medium text-center">
-                Try Again
-              </Text>
-            </TouchableOpacity>
+  //         <View className="space-y-3">
+  //           <TouchableOpacity
+  //             onPress={handleRetry}
+  //             className="bg-primary py-3 px-6 rounded-xl"
+  //             activeOpacity={0.7}
+  //           >
+  //             <Text className="text-white font-onest-medium text-center">
+  //               Try Again
+  //             </Text>
+  //           </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleModifyPreferences}
-              className="bg-white border border-gray-300 py-3 px-6 rounded-xl"
-              activeOpacity={0.7}
-            >
-              <Text className="text-gray-700 font-onest-medium text-center">
-                Modify Preferences
-              </Text>
-            </TouchableOpacity>
+  //           <TouchableOpacity
+  //             onPress={handleModifyPreferences}
+  //             className="bg-white border border-gray-300 py-3 px-6 rounded-xl"
+  //             activeOpacity={0.7}
+  //           >
+  //             <Text className="text-gray-700 font-onest-medium text-center">
+  //               Modify Preferences
+  //             </Text>
+  //           </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={onBack}
-              className="py-2"
-              activeOpacity={0.7}
-            >
-              <Text className="text-gray-500 font-onest text-sm text-center">
-                Go Back
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  //           <TouchableOpacity
+  //             onPress={onBack}
+  //             className="py-2"
+  //             activeOpacity={0.7}
+  //           >
+  //             <Text className="text-gray-500 font-onest text-sm text-center">
+  //               Go Back
+  //             </Text>
+  //           </TouchableOpacity>
+  //         </View>
+  //       </View>
+  //     </View>
+  //   );
+  // }
 
   // No itinerary generated state
   if (!generatedItinerary) {
