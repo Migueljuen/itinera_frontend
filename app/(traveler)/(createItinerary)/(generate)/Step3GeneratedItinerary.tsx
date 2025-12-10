@@ -252,23 +252,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const [isPreview, setIsPreview] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
-  // useEffect(() => {
-  //   console.log("=== User selections from STEP 2 ===");
-  //   console.log("Selected experiences:", formData.preferences?.experiences);
-  //   console.log("Selected companion:", formData.preferences?.travelCompanion);
-  //   console.log("Selected explore time:", formData.preferences?.exploreTime);
-  //   console.log("Selected budget:", formData.preferences?.budget);
-  //   console.log(
-  //     "Selected activity intensity:",
-  //     formData.preferences?.activityIntensity
-  //   );
-  //   console.log(
-  //     "Selected travel distance:",
-  //     formData.preferences?.travelDistance
-  //   );
-  //   console.log("==========================================");
-  // }, [formData]);
-
   useEffect(() => {
     generateItinerary();
   }, []);
