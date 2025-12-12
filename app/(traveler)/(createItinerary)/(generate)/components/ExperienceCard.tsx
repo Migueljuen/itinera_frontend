@@ -2,14 +2,14 @@
 import { ItineraryItem } from "@/types/itineraryTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import API_URL from "../../../../../constants/api";
-
 // Helpers
 const formatTime = (time?: string) => {
   if (!time) return "";
-  const d = new Date(`1970-01-01T${time}Z`);
+  const d = new Date(`1970-01-01T${time}`);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
@@ -26,6 +26,19 @@ const ExperienceCard: React.FC<ExperienceCardProps> = ({
   onRemove,
   travelerCount = 1,
 }) => {
+  const router = useRouter();
+  const handleCardPress = () => {
+    // Navigate with modal presentation
+    router.push({
+      pathname: `../(experience)/${item.experience_id}`,
+      params: {
+        // Pass any needed data
+        fromItinerary: "true",
+        experienceId: item.experience_id,
+      },
+    });
+  };
+
   const isPricedPerPerson =
     item.unit?.toLowerCase() === "entry" ||
     item.unit?.toLowerCase() === "person";
@@ -36,7 +49,8 @@ const ExperienceCard: React.FC<ExperienceCardProps> = ({
       : item.price || 0;
 
   return (
-    <View
+    <TouchableOpacity
+      onPress={handleCardPress}
       className="bg-white rounded-2xl"
       style={{
         shadowColor: "#000",
@@ -152,7 +166,7 @@ const ExperienceCard: React.FC<ExperienceCardProps> = ({
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

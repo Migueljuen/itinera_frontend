@@ -754,12 +754,14 @@ export default function TripScreen() {
 
         {/* Floating Action Button with improved shadow */}
         <TouchableOpacity
-          className="absolute bottom-[90px] right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
+          className="absolute bottom-[90px] right-6 bg-[#20b08d] rounded-full p-4 shadow-sm flex-row items-center"
           onPress={() => router.push("/(createItinerary)/selectionScreen")}
         >
           <View className="flex-row items-center">
-            <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
-            <Text className="text-gray-300 font-onest ml-2">Build My Trip</Text>
+            <Ionicons name="add-circle-outline" size={20} color="#f4f6f6" />
+            <Text className="text-[#f4f6f6] font-onest-medium ml-2">
+              Build My Trip
+            </Text>
           </View>
         </TouchableOpacity>
       </View>

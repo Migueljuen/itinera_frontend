@@ -4,6 +4,7 @@ import {
   ItineraryItem,
 } from "@/types/itineraryTypes";
 import { EnhancedError } from "@/types/types";
+import { formatDate, groupItemsByDay } from "@/utils/generateItineraryHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -31,24 +32,6 @@ const INTENSITY_COLORS: Record<string, string> = {
   low: "text-green-600",
   moderate: "text-teal-600",
   high: "text-blue-600",
-};
-
-// Utility functions
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
-
-const groupItemsByDay = (items: ItineraryItem[]) => {
-  return items.reduce((acc, item) => {
-    if (!acc[item.day_number]) acc[item.day_number] = [];
-    acc[item.day_number].push(item);
-    return acc;
-  }, {} as { [key: number]: ItineraryItem[] });
 };
 
 // Main Component
@@ -312,6 +295,8 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
           title: generatedItinerary.title,
           notes: generatedItinerary.notes,
           items: generatedItinerary.items,
+          total_cost: totalCost,
+          traveler_count: formData.preferences?.travelerCount || 1,
         }),
       });
 
@@ -386,67 +371,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       />
     );
   }
-
-  // Simple error state
-  // if (error) {
-  //   return (
-  //     <View className="flex-1 justify-center items-center p-6 bg-gray-50">
-  //       <View className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-200">
-  //         <View className="items-center mb-4">
-  //           <View className="bg-red-100 rounded-full p-4 mb-3">
-  //             <Ionicons name="alert-circle" size={32} color="#EF4444" />
-  //           </View>
-  //           <Text className="text-center text-lg font-onest-semibold text-gray-900 mb-2">
-  //             Oops! Something went wrong
-  //           </Text>
-  //           <Text className="text-center text-sm text-gray-600 font-onest">
-  //             {error}
-  //           </Text>
-  //         </View>
-
-  //         {retryCount >= 2 && (
-  //           <View className="bg-yellow-50 rounded-lg p-3 mb-4">
-  //             <Text className="text-xs text-yellow-800 font-onest text-center">
-  //               Multiple attempts failed. Try adjusting your preferences.
-  //             </Text>
-  //           </View>
-  //         )}
-
-  //         <View className="space-y-3">
-  //           <TouchableOpacity
-  //             onPress={handleRetry}
-  //             className="bg-primary py-3 px-6 rounded-xl"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-white font-onest-medium text-center">
-  //               Try Again
-  //             </Text>
-  //           </TouchableOpacity>
-
-  //           <TouchableOpacity
-  //             onPress={handleModifyPreferences}
-  //             className="bg-white border border-gray-300 py-3 px-6 rounded-xl"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-gray-700 font-onest-medium text-center">
-  //               Modify Preferences
-  //             </Text>
-  //           </TouchableOpacity>
-
-  //           <TouchableOpacity
-  //             onPress={onBack}
-  //             className="py-2"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-gray-500 font-onest text-sm text-center">
-  //               Go Back
-  //             </Text>
-  //           </TouchableOpacity>
-  //         </View>
-  //       </View>
-  //     </View>
-  //   );
-  // }
 
   // No itinerary generated state
   if (!generatedItinerary) {

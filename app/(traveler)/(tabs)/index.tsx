@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -20,7 +21,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Adjustment from "../../../assets/icons/adjustment.svg";
 import API_URL from "../../../constants/api";
 import { useRefresh } from "../../../contexts/RefreshContext";
-
 type Experience = {
   id: number;
   title: string;
@@ -304,64 +304,88 @@ const App = () => {
               ) : (
                 <>
                   {/* Experience Items */}
+
                   {paginatedExperiences.map((item) => (
                     <TouchableWithoutFeedback
                       key={item.id}
                       onPress={() => router.push(`/(experience)/${item.id}`)}
-                      style={{
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 8,
-                        elevation: 3,
-                      }}
                     >
-                      <View className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white">
-                        <View className="relative">
-                          {/* Image */}
+                      <View
+                        className="mb-4 bg-white rounded-2xl"
+                        style={{
+                          shadowColor: "#000",
+                          shadowOffset: { width: 2, height: 4 },
+                          shadowOpacity: 0.05,
+                          shadowRadius: 4,
+                          elevation: 5,
+                        }}
+                      >
+                        {/* Image with Gradient */}
+                        <View className="relative h-72 overflow-hidden">
                           {item.images && item.images.length > 0 ? (
                             <Image
                               source={{ uri: `${API_URL}/${item.images[0]}` }}
-                              className="w-full h-40"
+                              className="w-full h-72 absolute rounded-2xl"
                               resizeMode="cover"
                             />
                           ) : (
-                            <View className="w-full h-40 bg-gray-200 items-center justify-center">
+                            <View className="w-full h-72 bg-gray-200 items-center justify-center absolute">
                               <Ionicons
                                 name="image-outline"
-                                size={40}
-                                color="#A0AEC0"
+                                size={64}
+                                color="#9CA3AF"
                               />
+                              <Text className="text-gray-400 font-onest text-sm mt-2">
+                                No image available
+                              </Text>
                             </View>
                           )}
 
-                          {/* Price Badge */}
-                          <View className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded-md">
-                            <Text className="font-onest-medium">
-                              {item.price === "0" || !item.price
-                                ? "Free"
-                                : `${item.price} ${item.unit || "per person"}`}
+                          {/* Gradient Overlay */}
+                          <LinearGradient
+                            colors={[
+                              "rgba(0, 0, 0, 0.0)",
+                              "rgba(0, 0, 0, 0.3)",
+                              "rgba(0, 0, 0, 0.7)",
+                            ]}
+                            style={{ position: "absolute", inset: 0 }}
+                            pointerEvents="none"
+                          />
+
+                          {/* Title + Location on Image */}
+                          <View className="absolute bottom-0 left-0 right-0 p-4">
+                            <Text className="font-onest-semibold text-lg text-white/90 mb-1">
+                              {item.title}
                             </Text>
+
+                            <View className="flex-row items-center">
+                              <Ionicons
+                                name="location-outline"
+                                size={14}
+                                color="#fff"
+                              />
+                              <Text className="text-white/90 font-onest text-sm ml-1">
+                                {item.location || item.destination_name}
+                              </Text>
+                            </View>
                           </View>
                         </View>
 
-                        <View className="p-3">
-                          {/* Title */}
-                          <Text className="text-lg font-onest-semibold mb-1">
-                            {item.title}
-                          </Text>
-
-                          {/* Location */}
-                          <View className="flex-row items-center mb-2">
-                            <Ionicons
-                              name="location-outline"
-                              size={16}
-                              color="#4F46E5"
-                            />
-                            <Text className="text-sm text-gray-600 ml-1">
-                              {item.location || item.destination_name}
-                            </Text>
-                          </View>
+                        {/* Content Below */}
+                        <View className="p-4 pb-6">
+                          {/* Price */}
+                          {item.price && item.price !== "0" && (
+                            <View className="mb-2">
+                              <Text className="font-onest-bold text-gray-900">
+                                ₱{parseFloat(item.price).toLocaleString()}
+                              </Text>
+                              {item.unit && (
+                                <Text className="text-black/40 font-onest text-xs">
+                                  {item.unit}
+                                </Text>
+                              )}
+                            </View>
+                          )}
 
                           {/* Tags */}
                           {item.tags && item.tags.length > 0 && (
@@ -382,7 +406,6 @@ const App = () => {
                       </View>
                     </TouchableWithoutFeedback>
                   ))}
-
                   {/* Pagination Controls */}
                   {totalPages > 1 && (
                     <View className="mt-6 mb-4">
@@ -477,12 +500,14 @@ const App = () => {
         </ScrollView>
 
         <Pressable
-          className="absolute bottom-48 right-6 bg-primary rounded-full p-4 shadow-md flex-row items-center"
+          className="absolute bottom-48 right-6 bg-[#20b08d] rounded-full p-4  flex-row items-center"
           onPress={() => router.push("/(createItinerary)/selectionScreen")}
         >
           <View className="flex-row items-center">
-            <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
-            <Text className="text-gray-300 font-onest ml-2">Build My Trip</Text>
+            <Ionicons name="add-circle-outline" size={20} color="#f4f6f6" />
+            <Text className="text-[#f4f6f6] font-onest-medium ml-2">
+              Build My Trip
+            </Text>
           </View>
         </Pressable>
       </View>
