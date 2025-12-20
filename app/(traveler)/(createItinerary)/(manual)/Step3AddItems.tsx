@@ -13,40 +13,16 @@ import {
 } from "react-native";
 import API_URL from "../../../../constants/api";
 
-import {
-  ActivityIntensity,
-  Budget,
-  Experience,
-  ExploreTime,
-  TravelCompanion,
-  TravelDistance,
-} from "@/types/experienceTypes";
-
+import { ItineraryFormData } from "@/types/itineraryTypes";
 interface ItineraryItem {
   experience_id: number;
+  experience_name?: string; // ✅ Add this
   day_number: number;
   start_time: string;
   end_time: string;
+  price?: number; // ✅ Add this
+  unit?: string; // ✅ Add this
   custom_note?: string;
-}
-
-interface ItineraryFormData {
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes?: string;
-  city: string;
-  items: ItineraryItem[];
-  preferences?: {
-    experiences: Experience[];
-    travelCompanion?: TravelCompanion; // Keep for backward compatibility
-    travelCompanions?: TravelCompanion[]; // New array field
-    exploreTime: ExploreTime;
-    budget: Budget;
-    activityIntensity?: ActivityIntensity;
-    travelDistance: TravelDistance;
-  };
 }
 
 interface StepProps {
@@ -382,17 +358,19 @@ const Step3AddItems: React.FC<StepProps> = ({
           (a) => a.day_of_week === dayName
         );
         if (dayAvailability && dayAvailability.time_slots.length > 0) {
-          // Use the first available time slot for this day
           const slot = dayAvailability.time_slots[0];
-          startTime = slot.start_time.substring(0, 5); // Extract HH:MM from HH:MM:SS
-          endTime = slot.end_time.substring(0, 5); // Extract HH:MM from HH:MM:SS
+          startTime = slot.start_time.substring(0, 5);
+          endTime = slot.end_time.substring(0, 5);
         }
 
         return {
           experience_id: exp.id,
+          experience_name: exp.title, // ✅ Add this for display
           day_number: dayNumber,
           start_time: startTime,
           end_time: endTime,
+          price: exp.price, // ✅ Add this
+          unit: exp.unit, // ✅ Add this
           custom_note: `Experience at ${exp.destination_name}`,
         };
       }
@@ -435,9 +413,8 @@ const Step3AddItems: React.FC<StepProps> = ({
 
     return (
       <TouchableOpacity
-        className={`mb-4 rounded-lg overflow-hidden border ${
-          isSelected ? "border-primary bg-indigo-50" : "border-gray-200"
-        }`}
+        className={`mb-4 rounded-lg overflow-hidden border ${isSelected ? "border-primary bg-indigo-50" : "border-gray-200"
+          }`}
         onPress={() => toggleExperienceSelection(item.id)}
         activeOpacity={0.7}
       >
@@ -550,9 +527,8 @@ const Step3AddItems: React.FC<StepProps> = ({
           <TouchableOpacity
             onPress={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className={`px-3 py-2 mr-2 rounded-md ${
-              currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-            }`}
+            className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+              }`}
           >
             <Ionicons
               name="chevron-back"
@@ -567,22 +543,20 @@ const Step3AddItems: React.FC<StepProps> = ({
               key={index}
               onPress={() => typeof page === "number" && setCurrentPage(page)}
               disabled={page === "..."}
-              className={`px-3 py-2 mx-1 rounded-md ${
-                page === currentPage
-                  ? "bg-primary"
-                  : page === "..."
+              className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                ? "bg-primary"
+                : page === "..."
                   ? "bg-transparent"
                   : "bg-white border border-gray-300"
-              }`}
+                }`}
             >
               <Text
-                className={`font-onest-medium ${
-                  page === currentPage
-                    ? "text-white"
-                    : page === "..."
+                className={`font-onest-medium ${page === currentPage
+                  ? "text-white"
+                  : page === "..."
                     ? "text-gray-400"
                     : "text-gray-700"
-                }`}
+                  }`}
               >
                 {page}
               </Text>
@@ -595,9 +569,8 @@ const Step3AddItems: React.FC<StepProps> = ({
               setCurrentPage((prev) => Math.min(totalPages, prev + 1))
             }
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 ml-2 rounded-md ${
-              currentPage === totalPages ? "bg-gray-200" : "bg-gray-800"
-            }`}
+            className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages ? "bg-gray-200" : "bg-gray-800"
+              }`}
           >
             <Ionicons
               name="chevron-forward"
@@ -640,7 +613,7 @@ const Step3AddItems: React.FC<StepProps> = ({
                 {Math.ceil(
                   (new Date(formData.end_date).getTime() -
                     new Date(formData.start_date).getTime()) /
-                    (1000 * 60 * 60 * 24)
+                  (1000 * 60 * 60 * 24)
                 ) + 1}
                 -day trip. Select as many experiences as you'd like!
               </Text>
@@ -781,16 +754,14 @@ const Step3AddItems: React.FC<StepProps> = ({
 
             <TouchableOpacity
               onPress={handleNext}
-              className={`py-4 px-8 rounded-xl ${
-                isNextEnabled() ? "bg-primary" : "bg-gray-200"
-              }`}
+              className={`py-4 px-8 rounded-xl ${isNextEnabled() ? "bg-primary" : "bg-gray-200"
+                }`}
               disabled={!isNextEnabled()}
               activeOpacity={0.7}
             >
               <Text
-                className={`text-center font-onest-medium text-base ${
-                  isNextEnabled() ? "text-white" : "text-gray-500"
-                }`}
+                className={`text-center font-onest-medium text-base ${isNextEnabled() ? "text-white" : "text-gray-500"
+                  }`}
               >
                 Next step
               </Text>

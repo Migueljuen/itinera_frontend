@@ -105,16 +105,15 @@ export default function Signup() {
   return (
     <SafeAreaView className="bg-white h-full">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
-          showsVerticalScrollIndicator={false}
-
+          className="flex-1 "
+          contentContainerStyle={{ paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-
 
           <View className="p-12">
             <View className="flex justify-center items-start gap-4">

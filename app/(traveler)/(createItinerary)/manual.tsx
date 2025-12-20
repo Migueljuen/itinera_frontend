@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,19 +7,14 @@ import API_URL from '../../../constants/api';
 
 // Step components
 import { useAuth } from '@/contexts/AuthContext';
+import { ItineraryFormData } from '@/types/itineraryTypes';
 import Step1SelectLocation from './(manual)/Step1SelectLocation';
 import Step2Preference from './(manual)/Step2Preference';
 import Step3AddItems from './(manual)/Step3AddItems';
 import Step4Calendar from './(manual)/Step4Calendar';
 import Step5ReviewSubmit from './(manual)/Step5ReviewSubmit';
 
-// Types - updated to match the corrected Step2Preference
-type Experience = 'Adventure' | 'Cultural' | 'Food' | 'Nature' | 'Relaxation' | 'Nightlife';
-type TravelCompanion = 'Solo' | 'Partner' | 'Friends' | 'Family' | 'Any';
-type ExploreTime = 'Daytime' | 'Nighttime' | 'Both';
-type Budget = 'Free' | 'Budget-friendly' | 'Mid-range' | 'Premium';
-type ActivityIntensity = 'Low' | 'Moderate' | 'High';
-type TravelDistance = 'Nearby' | 'Moderate' | 'Far';
+const router = useRouter();
 
 interface ItineraryItem {
     experience_id: number;
@@ -26,6 +22,14 @@ interface ItineraryItem {
     start_time: string;
     end_time: string;
     custom_note?: string;
+    experience_name?: string;
+    experience_description?: string;
+    destination_name?: string;
+    destination_city?: string;
+    images?: string[];
+    primary_image?: string;
+    price?: number;
+    unit?: string;
 }
 
 interface Accommodation {
@@ -40,26 +44,7 @@ interface Accommodation {
     check_out_time?: string;
 }
 
-interface ItineraryFormData {
-    traveler_id: number;
-    start_date: string;
-    end_date: string;
-    title: string;
-    notes?: string;
-    city: string;
-    items: ItineraryItem[];
-    accommodation?: Accommodation;
-    // Updated preferences to make activityIntensity optional
-    preferences?: {
-        experiences: Experience[];
-        travelCompanion?: TravelCompanion;
-        travelCompanions?: TravelCompanion[];
-        exploreTime: ExploreTime;
-        budget: Budget;
-        activityIntensity?: ActivityIntensity; // Made optional for manual creation
-        travelDistance: TravelDistance;
-    };
-}
+
 
 // Progress bar component
 interface ProgressBarProps {
@@ -68,26 +53,25 @@ interface ProgressBarProps {
     labels?: string[];
 }
 
-const ProgressBar: React.FC<ProgressBarProps> = React.memo(({ currentStep, totalSteps, labels = [] }) => {
-    return (
-        <View className="px-6 my-4">
-            <StepIndicator
-                customStyles={loadingBarStyles}
-                currentPosition={currentStep - 1}
-                stepCount={totalSteps}
-                labels={labels}
-            />
-        </View>
-    );
-});
+const ProgressBar: React.FC<ProgressBarProps> = React.memo(
+    ({ currentStep, totalSteps, labels = [] }) => {
+        return (
+            <View className="px-6 my-4">
+                <StepIndicator
+                    customStyles={loadingBarStyles}
+                    currentPosition={currentStep - 1}
+                    stepCount={totalSteps}
+                    labels={labels}
+                />
+            </View>
+        );
+    }
+);
 
 const ItineraryCreationForm: React.FC = () => {
-    // Get the logged-in user from AuthContext
     const { user, token, loading: authLoading } = useAuth();
-
-    // Step state management - simplified (removed sub-step logic)
     const [step, setStep] = useState<number>(1);
-    const stepCount = 5; // Back to 5 steps (no accommodation sub-step)
+    const stepCount = 5;
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form data state with default values
@@ -98,39 +82,50 @@ const ItineraryCreationForm: React.FC = () => {
         title: '',
         notes: 'test note',
         city: '',
-        items: [] as ItineraryItem[]
+        items: [] as ItineraryItem[],
     });
 
     // Debug logging
     useEffect(() => {
-        // console.log('=== ItineraryCreationForm Debug ===');
-        // console.log('Auth loading:', authLoading);
-        // console.log('Current user object:', user);
-        // console.log('User ID:', user?.user_id);
-        // console.log('Token exists:', !!token);
-        // console.log('Form traveler_id:', formData.traveler_id);
         console.log('Current step:', step);
-        console.log('=====================================');
-    }, [user, token, authLoading, formData.traveler_id, step]);
+    }, [step]);
 
     // Update traveler_id when user is available
     useEffect(() => {
         if (user?.user_id && formData.traveler_id !== user.user_id) {
             console.log('Setting traveler_id to:', user.user_id);
-            setFormData(prev => ({
+            setFormData((prev) => ({
                 ...prev,
-                traveler_id: user.user_id
+                traveler_id: user.user_id,
             }));
         }
     }, [user, formData.traveler_id]);
 
-    // Step navigation handlers - simplified
-    const handleNext = () => {
-        setStep((prev) => Math.min(prev + 1, 5));
-    };
+    // Step navigation handlers
+    const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
+    const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-    const handleBack = () => {
-        setStep((prev) => Math.max(prev - 1, 1));
+    // Calculate total cost
+    const calculateTotalCost = () => {
+        if (!formData.items || formData.items.length === 0) return 0;
+
+        const travelerCount = formData.preferences?.travelerCount || 1;
+
+        return formData.items.reduce((sum, item) => {
+            const price = Number(item.price || 0);
+            if (price <= 0) return sum;
+
+            // Multiply by traveler count for per-person pricing
+            if (
+                item.unit?.toLowerCase() === 'entry' ||
+                item.unit?.toLowerCase() === 'person'
+            ) {
+                return sum + price * travelerCount;
+            }
+
+            // Flat rate for packages, day, hour, etc.
+            return sum + price;
+        }, 0);
     };
 
     // Validate form data before submission
@@ -188,33 +183,41 @@ const ItineraryCreationForm: React.FC = () => {
         try {
             setIsSubmitting(true);
 
+            // Calculate total cost
+            const totalCost = calculateTotalCost();
+            const travelerCount = formData.preferences?.travelerCount || 1;
+
             const payload = {
                 traveler_id: formData.traveler_id,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 title: formData.title,
                 notes: formData.notes || '',
-                items: formData.items.map(item => ({
+                items: formData.items.map((item) => ({
                     experience_id: item.experience_id,
                     day_number: item.day_number,
                     start_time: item.start_time,
                     end_time: item.end_time,
-                    custom_note: item.custom_note || ''
+                    custom_note: item.custom_note || '',
                 })),
-                // Include accommodation if provided
-                ...(formData.accommodation && { accommodation: formData.accommodation }),
+                // Include calculated costs
+                total_cost: totalCost,
+                traveler_count: travelerCount,
+
                 // Include preferences if provided
-                ...(formData.preferences && { preferences: formData.preferences })
+                ...(formData.preferences && { preferences: formData.preferences }),
             };
 
             console.log('Submitting payload:', payload);
+            console.log('💰 Total cost:', totalCost);
+            console.log('👥 Traveler count:', travelerCount);
 
             const response = await fetch(`${API_URL}/itinerary/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
+                    ...(token && { Authorization: `Bearer ${token}` }),
                 },
                 body: JSON.stringify(payload),
             });
@@ -227,8 +230,12 @@ const ItineraryCreationForm: React.FC = () => {
                 return;
             }
 
-            Alert.alert('Success', 'Itinerary created successfully!');
-
+            Alert.alert('Success', 'Itinerary created successfully!', [
+                {
+                    text: 'OK',
+                    onPress: () => router.replace('/'),
+                },
+            ]);
         } catch (err) {
             console.error('Submit error:', err);
             Alert.alert('Error', 'An unexpected error occurred.');
@@ -314,9 +321,12 @@ const ItineraryCreationForm: React.FC = () => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
-            <View className="flex-1 px-6 py-4">
+        <SafeAreaView className="flex-1 bg-white">
+            {/* <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
                 <ProgressBar currentStep={step} totalSteps={stepCount} />
+            </View> */}
+
+            <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
                 {renderStep()}
             </View>
         </SafeAreaView>
@@ -334,7 +344,7 @@ const loadingBarStyles = {
     separatorUnFinishedColor: '#E5E7EB',
     labelSize: 0,
     stepStrokeWidth: 0,
-    currentStepStrokeWidth: 0
+    currentStepStrokeWidth: 0,
 };
 
 export default ItineraryCreationForm;
