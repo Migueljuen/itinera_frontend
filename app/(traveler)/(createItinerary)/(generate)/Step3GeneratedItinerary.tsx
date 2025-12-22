@@ -23,7 +23,7 @@ import ExperienceCard from "./components/ExperienceCard";
 interface StepProps {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: (itineraryId: number) => void; // Changed: now accepts itinerary ID
+  onNext: () => void;
   onBack: () => void;
 }
 
@@ -285,75 +285,19 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     );
   };
 
-  const saveItinerary = async () => {
-    if (!generatedItinerary || saving) return;
-
-    // Validate we have items to save
-    if (!generatedItinerary.items || generatedItinerary.items.length === 0) {
+  const handleContinue = () => {
+    // Validate we have items before continuing
+    if (!generatedItinerary?.items || generatedItinerary.items.length === 0) {
       Alert.alert(
-        "Cannot Save",
+        "Cannot Continue",
         "Your itinerary has no activities. Please regenerate or go back to adjust your preferences.",
         [{ text: "OK" }]
       );
       return;
     }
 
-    setSaving(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${API_URL}/itinerary/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          traveler_id: generatedItinerary.traveler_id,
-          start_date: generatedItinerary.start_date,
-          end_date: generatedItinerary.end_date,
-          title: generatedItinerary.title,
-          notes: generatedItinerary.notes,
-          items: generatedItinerary.items,
-          total_cost: totalCost,  // ✅ ADD: Send calculated total
-          traveler_count: formData.preferences?.travelerCount || 1,  // ✅ ADD: Send traveler count
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || data.error || "Failed to save itinerary"
-        );
-      }
-
-      if (!data.itinerary_id) {
-        throw new Error("No itinerary ID returned from server");
-      }
-
-      console.log("✅ Itinerary saved successfully:", data.itinerary_id);
-
-      setGeneratedItinerary(data.itinerary);
-      setIsPreview(false);
-
-      // Pass the itinerary ID to the parent component
-      setTimeout(() => onNext(data.itinerary_id), 500);
-    } catch (err) {
-      console.error("❌ Error saving itinerary:", err);
-
-      Alert.alert(
-        "Save Failed",
-        err instanceof Error
-          ? err.message
-          : "Failed to save itinerary. Please try again.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Retry", onPress: saveItinerary },
-        ]
-      );
-
-      setError(err instanceof Error ? err.message : "Failed to save itinerary");
-    } finally {
-      setSaving(false);
-    }
+    // Just move to next step - no saving here
+    onNext();
   };
 
   // Loading state
@@ -388,67 +332,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       />
     );
   }
-
-  // Simple error state
-  // if (error) {
-  //   return (
-  //     <View className="flex-1 justify-center items-center p-6 bg-gray-50">
-  //       <View className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-200">
-  //         <View className="items-center mb-4">
-  //           <View className="bg-red-100 rounded-full p-4 mb-3">
-  //             <Ionicons name="alert-circle" size={32} color="#EF4444" />
-  //           </View>
-  //           <Text className="text-center text-lg font-onest-semibold text-gray-900 mb-2">
-  //             Oops! Something went wrong
-  //           </Text>
-  //           <Text className="text-center text-sm text-gray-600 font-onest">
-  //             {error}
-  //           </Text>
-  //         </View>
-
-  //         {retryCount >= 2 && (
-  //           <View className="bg-yellow-50 rounded-lg p-3 mb-4">
-  //             <Text className="text-xs text-yellow-800 font-onest text-center">
-  //               Multiple attempts failed. Try adjusting your preferences.
-  //             </Text>
-  //           </View>
-  //         )}
-
-  //         <View className="space-y-3">
-  //           <TouchableOpacity
-  //             onPress={handleRetry}
-  //             className="bg-primary py-3 px-6 rounded-xl"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-white font-onest-medium text-center">
-  //               Try Again
-  //             </Text>
-  //           </TouchableOpacity>
-
-  //           <TouchableOpacity
-  //             onPress={handleModifyPreferences}
-  //             className="bg-white border border-gray-300 py-3 px-6 rounded-xl"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-gray-700 font-onest-medium text-center">
-  //               Modify Preferences
-  //             </Text>
-  //           </TouchableOpacity>
-
-  //           <TouchableOpacity
-  //             onPress={onBack}
-  //             className="py-2"
-  //             activeOpacity={0.7}
-  //           >
-  //             <Text className="text-gray-500 font-onest text-sm text-center">
-  //               Go Back
-  //             </Text>
-  //           </TouchableOpacity>
-  //         </View>
-  //       </View>
-  //     </View>
-  //   );
-  // }
 
   // No itinerary generated state
   if (!generatedItinerary) {
@@ -518,7 +401,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
             </View>
             <Text className="text-gray-500 font-onest text-xs mt-1">
               {formData.preferences?.travelerCount &&
-                formData.preferences.travelerCount > 1
+              formData.preferences.travelerCount > 1
                 ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
                 : "This is an estimate. Final total will be calculated after saving."}
             </Text>
@@ -542,11 +425,12 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                 {
                   value: formData.preferences?.activityIntensity || "N/A",
                   label: "Intensity",
-                  className: `text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
-                    formData.preferences?.activityIntensity?.toLowerCase() ||
-                    ""
-                  ] || "text-gray-600"
-                    }`,
+                  className: `text-sm font-onest-medium capitalize ${
+                    INTENSITY_COLORS[
+                      formData.preferences?.activityIntensity?.toLowerCase() ||
+                        ""
+                    ] || "text-gray-600"
+                  }`,
                 },
               ].map((stat, index) => (
                 <View key={index} className="items-center">
@@ -650,7 +534,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={saveItinerary}
+              onPress={handleContinue}
               className="py-3 px-7 rounded-xl bg-primary"
               activeOpacity={0.7}
               disabled={saving}

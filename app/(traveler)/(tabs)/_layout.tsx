@@ -1,26 +1,33 @@
 //(tabs)/_layout.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { Tabs } from 'expo-router';
-import React, { memo, useEffect, useState } from 'react';
-import { DeviceEventEmitter, ImageBackground, Text, View } from 'react-native';
-import Trip from '../../../assets/icons/calendar1.svg';
-import Inbox from '../../../assets/icons/envelope.svg';
-import HomeIcon from '../../../assets/icons/home.svg';
-import Profile from '../../../assets/icons/user.svg';
-import API_URL from '../../../constants/api';
-import { useRefresh } from '../../../contexts/RefreshContext';
-import { NotificationEvents } from '../../../utils/notificationEvents';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { Tabs, useRouter } from "expo-router";
+import React, { memo, useEffect, useState } from "react";
+import {
+  Animated,
+  DeviceEventEmitter,
+  ImageBackground,
+  Modal,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Trip from "../../../assets/icons/calendar1.svg";
+import Inbox from "../../../assets/icons/envelope.svg";
+import HomeIcon from "../../../assets/icons/home.svg";
+import Plus from "../../../assets/icons/plus.svg";
+import Profile from "../../../assets/icons/user.svg";
+import API_URL from "../../../constants/api";
+import { useRefresh } from "../../../contexts/RefreshContext";
+import { NotificationEvents } from "../../../utils/notificationEvents";
 
 const TabIcon = memo(({ focused, icon: Icon, title, badge }: any) => {
   if (focused) {
     return (
-      <ImageBackground
-        className="flex flex-col w-full min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full"
-      >
+      <ImageBackground className="flex flex-col w-full min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full">
         <View
           className="bg-[#274b46] size-16 flex justify-center items-center rounded-full border-4 border-white focus:bg-red-400"
-          style={{ position: 'absolute', top: -30 }}
+          style={{ position: "absolute", top: -30 }}
         >
           <Icon
             width={24}
@@ -33,7 +40,7 @@ const TabIcon = memo(({ focused, icon: Icon, title, badge }: any) => {
           {badge > 0 && (
             <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[20px] h-5 px-1 items-center justify-center">
               <Text className="text-white text-xs font-onest-medium">
-                {badge > 99 ? '99+' : badge}
+                {badge > 99 ? "99+" : badge}
               </Text>
             </View>
           )}
@@ -44,7 +51,7 @@ const TabIcon = memo(({ focused, icon: Icon, title, badge }: any) => {
   }
 
   return (
-    <View className='flex w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center flex-col items-center rounded-full'>
+    <View className="flex w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center flex-col items-center rounded-full">
       <View className="relative">
         <Icon
           width={24}
@@ -57,38 +64,82 @@ const TabIcon = memo(({ focused, icon: Icon, title, badge }: any) => {
         {badge > 0 && (
           <View className="absolute -top-2 -right-2 bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center">
             <Text className="text-white text-[10px] font-onest-medium">
-              {badge > 99 ? '99+' : badge}
+              {badge > 99 ? "99+" : badge}
             </Text>
           </View>
         )}
       </View>
-      <Text className='font-onest text-sm text-[#65676b] mt-2'>{title}</Text>
+      <Text className="font-onest text-sm text-[#65676b] mt-2">{title}</Text>
     </View>
   );
 });
 
 const _layout = () => {
-
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showTooltip, setShowTooltip] = useState(false);
   const { profileUpdated } = useRefresh();
+  const router = useRouter();
+  const pulseAnim = useState(new Animated.Value(1))[0];
+
+  // Check if user has seen the tooltip
+  useEffect(() => {
+    const checkFirstTime = async () => {
+      await AsyncStorage.removeItem("hasSeenCreateTooltip");
+      const hasSeenTooltip = await AsyncStorage.getItem("hasSeenCreateTooltip");
+      if (!hasSeenTooltip) {
+        // Show tooltip after a short delay
+        setTimeout(() => {
+          setShowTooltip(true);
+          startPulseAnimation();
+        }, 1000);
+      }
+    };
+    checkFirstTime();
+  }, []);
+
+  // Pulse animation for the tooltip
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const dismissTooltip = async () => {
+    setShowTooltip(false);
+    await AsyncStorage.setItem("hasSeenCreateTooltip", "true");
+  };
 
   // Function to fetch unread notification count
   const fetchUnreadCount = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
-      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await axios.get(
+        `${API_URL}/notifications/unread-count`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (response.data.success) {
         setUnreadCount(response.data.count);
       }
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      console.error("Error fetching unread count:", error);
     }
   };
 
@@ -127,117 +178,248 @@ const _layout = () => {
     };
   }, []);
 
-
   return (
-    <Tabs
-      screenOptions={{
-        tabBarShowLabel: false,
-        tabBarItemStyle: {
-          width: '100%',
-          height: '100%',
-          justifyContent: 'center',
-          alignItems: 'center'
-        },
-        tabBarStyle: {
-          height: 100,
-          borderTopLeftRadius: 25,
-          borderTopRightRadius: 25,
-          position: 'absolute',
-          borderWidth: 1,
-          borderColor: '#cdcdcd',
-          borderTopColor: '#cdcdcd',
-          // Simplify shadows - these can be expensive
-          elevation: 3, // Reduced from 5
-          shadowColor: '#000',
-          shadowOpacity: 0.05, // Reduced from 0.01 (this was barely visible anyway)
-          shadowOffset: { width: 0, height: -1 }, // Reduced
-          shadowRadius: 3, // Reduced from 5
-          overflow: 'visible',
-          paddingTop: 10
-        },
-      }}
-    // screenListeners={{
-    //   state: (e) => {
-    //     // Refresh unread count whenever tab state changes
-    //     fetchUnreadCount();
-    //   }
-    // }}
-    >
-      <Tabs.Screen
-        name='index'
-        options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={HomeIcon}
-              title="Home"
-            />
-          )
-        }}
-      />
-
-      <Tabs.Screen
-        name='trips'
-        options={{
-          title: 'Trips',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={Trip}
-              title="Trips"
-            />
-          )
-        }}
-      />
-
-      <Tabs.Screen
-        name='inbox'
-
-        options={{
-          title: 'Inbox',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={Inbox}
-              title="Inbox"
-              badge={unreadCount} // Pass the unread count here
-            />
-          )
-        }}
-        listeners={({ navigation }) => ({
-          focus: () => {
-            // Refresh count when tab is focused
-            fetchUnreadCount();
+    <>
+      <Tabs
+        screenOptions={{
+          tabBarShowLabel: false,
+          tabBarItemStyle: {
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            alignItems: "center",
           },
-          tabPress: () => {
-            // Also refresh when pressed
-            setTimeout(() => {
-              fetchUnreadCount();
-            }, 100);
-          }
-        })}
-      />
+          tabBarStyle: {
+            height: 100,
+            borderTopLeftRadius: 25,
+            borderTopRightRadius: 25,
+            position: "absolute",
+            borderWidth: 1,
+            borderColor: "#cdcdcd",
+            borderTopColor: "#cdcdcd",
 
-      <Tabs.Screen
-        name='profile'
-        options={{
-          title: 'Profile',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={Profile}
-              size={24}
-              title="Profile"
-            />
-          )
+            elevation: 3,
+            shadowColor: "#000",
+            shadowOpacity: 0.05,
+            shadowOffset: { width: 0, height: -1 },
+            shadowRadius: 3,
+            overflow: "visible",
+            paddingTop: 10,
+          },
         }}
-      />
-    </Tabs>
+        // screenListeners={{
+        //   state: (e) => {
+        //     // Refresh unread count whenever tab state changes
+        //     fetchUnreadCount();
+        //   }
+        // }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon focused={focused} icon={HomeIcon} title="Home" />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="trips"
+          options={{
+            title: "Trips",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon focused={focused} icon={Trip} title="Trips" />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="selectionScreen"
+          options={{
+            title: "Create",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -45,
+                  width: 60,
+                  height: 60,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <View
+                  style={{
+                    backgroundColor: "#7dcb80",
+                    borderRadius: 40,
+                    width: 60,
+                    height: 60,
+                    justifyContent: "center",
+                    alignItems: "center",
+
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 3.84,
+                    elevation: 5,
+                  }}
+                >
+                  <Plus
+                    width={32}
+                    height={32}
+                    fill="#ffffff"
+                    color="fff"
+                    strokeWidth={2}
+                    stroke="#ffffff"
+                  />
+                </View>
+              </View>
+            ),
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              router.push("/(createItinerary)/selectionScreen");
+            },
+          }}
+        />
+
+        <Tabs.Screen
+          name="inbox"
+          options={{
+            title: "Inbox",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon
+                focused={focused}
+                icon={Inbox}
+                title="Inbox"
+                badge={unreadCount} // Pass the unread count here
+              />
+            ),
+          }}
+          listeners={({ navigation }) => ({
+            focus: () => {
+              // Refresh count when tab is focused
+              fetchUnreadCount();
+            },
+            tabPress: () => {
+              // Also refresh when pressed
+              setTimeout(() => {
+                fetchUnreadCount();
+              }, 100);
+            },
+          })}
+        />
+
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon
+                focused={focused}
+                icon={Profile}
+                size={24}
+                title="Profile"
+              />
+            ),
+          }}
+        />
+      </Tabs>
+      {/* Tooltip Overlay */}
+      <Modal
+        visible={showTooltip}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissTooltip}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            justifyContent: "flex-end",
+            alignItems: "center",
+          }}
+          activeOpacity={1}
+          onPress={dismissTooltip}
+        >
+          <View style={{ position: "absolute", bottom: 160 }}>
+            {/* Tooltip content */}
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 12,
+                padding: 16,
+                maxWidth: 280,
+                marginTop: -40,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: "#274b46",
+                  marginBottom: 8,
+                  textAlign: "center",
+                }}
+              >
+                Create Your First Trip! ✨
+              </Text>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#65676b",
+                  textAlign: "center",
+                  marginBottom: 12,
+                }}
+              >
+                Tap the green button to start planning your adventure
+              </Text>
+              <TouchableOpacity
+                onPress={dismissTooltip}
+                style={{
+                  backgroundColor: "#7dcb80",
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 20,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    textAlign: "center",
+                  }}
+                >
+                  Got it!
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Highlight circle around create button */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              bottom: 68,
+              width: 60,
+              height: 60,
+              borderRadius: 45,
+              borderWidth: 3,
+              borderColor: "#fff",
+              transform: [{ scale: pulseAnim }],
+            }}
+          />
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 };
 

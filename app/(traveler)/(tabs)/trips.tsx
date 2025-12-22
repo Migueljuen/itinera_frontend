@@ -752,8 +752,7 @@ export default function TripScreen() {
           </View>
         </ScrollView>
 
-        {/* Floating Action Button with improved shadow */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           className="absolute bottom-[90px] right-6 bg-[#20b08d] rounded-full p-4 shadow-sm flex-row items-center"
           onPress={() => router.push("/(createItinerary)/selectionScreen")}
         >
@@ -763,7 +762,7 @@ export default function TripScreen() {
               Build My Trip
             </Text>
           </View>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </SafeAreaView>
   );

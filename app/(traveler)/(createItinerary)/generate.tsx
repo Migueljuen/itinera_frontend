@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import Step2Preference from "./(generate)/Step2Preference";
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
+import Step3aReviewServices from "./(generate)/Step3aReviewServices";
 import Step4PaymentConfirmation from "./(generate)/step4PaymentConfirmation";
 import Step1SelectLocation from "./(manual)/Step1SelectLocation"; // Reusing from manual
 
@@ -37,7 +38,14 @@ interface Step2Props {
 interface Step3Props {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: () => void;
+  onNext: () => void; // Now just moves to next step without saving
+  onBack: () => void;
+}
+
+interface Step3aProps {
+  formData: ItineraryFormData;
+  setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
+  onNext: (itineraryId: number) => void; // Accepts itinerary ID after saving
   onBack: () => void;
 }
 
@@ -79,6 +87,28 @@ interface Accommodation {
   check_out_time?: string;
 }
 
+interface TourGuide {
+  id: number;
+  name: string;
+  rating: number;
+  reviews: number;
+  languages: string[];
+  specialties: string[];
+  price_per_day: number;
+  avatar_url?: string;
+  bio: string;
+}
+
+interface CarService {
+  id: number;
+  vehicle_type: string;
+  model: string;
+  capacity: number;
+  price_per_day: number;
+  features: string[];
+  image_url?: string;
+}
+
 interface ItineraryFormData {
   traveler_id: number;
   start_date: string;
@@ -93,11 +123,18 @@ interface ItineraryFormData {
     travelerCount: number;
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
-
     exploreTime?: ExploreTime;
     budget?: Budget;
     activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
+  };
+  // Additional services from Step3a
+  tourGuide?: TourGuide | null;
+  carService?: CarService | null;
+  additionalServices?: {
+    guideCost: number;
+    carCost: number;
+    totalAdditionalCost: number;
   };
 }
 
@@ -126,7 +163,7 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(
 const GenerateItineraryForm: React.FC = () => {
   const { user, token, loading: authLoading } = useAuth();
   const [step, setStep] = useState<number>(1);
-  const stepCount = 4; // Updated to 4 steps
+  const stepCount = 5; // Updated to 5 steps (added Step3a)
   const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
 
   // Form data state with default values
@@ -159,7 +196,7 @@ const GenerateItineraryForm: React.FC = () => {
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // Handler for when itinerary is saved (called from Step 3)
+  // Handler for when itinerary is saved (called from Step3a)
   const handleItinerarySaved = (itineraryId: number) => {
     console.log("Itinerary saved with ID:", itineraryId);
     setSavedItineraryId(itineraryId);
@@ -172,8 +209,8 @@ const GenerateItineraryForm: React.FC = () => {
     router.replace("/");
   };
 
-  // Calculate total cost
-  const calculateTotalCost = (): number => {
+  // Calculate total cost (activities only)
+  const calculateActivityCost = (): number => {
     if (!formData.items || formData.items.length === 0) return 0;
 
     const travelerCount = formData.preferences?.travelerCount || 1;
@@ -193,6 +230,14 @@ const GenerateItineraryForm: React.FC = () => {
       // Flat rate for packages, day, hour, etc.
       return sum + price;
     }, 0);
+  };
+
+  // Calculate total cost including additional services
+  const calculateTotalCost = (): number => {
+    const activityCost = calculateActivityCost();
+    const additionalCost =
+      formData.additionalServices?.totalAdditionalCost || 0;
+    return activityCost + additionalCost;
   };
 
   // Show loading spinner while auth is loading
@@ -244,11 +289,20 @@ const GenerateItineraryForm: React.FC = () => {
           <Step3GeneratedItinerary
             formData={formData}
             setFormData={setFormData}
-            onNext={handleItinerarySaved}
+            onNext={handleNext} // Just move to next step
             onBack={handleBack}
           />
         );
       case 4:
+        return (
+          <Step3aReviewServices
+            formData={formData}
+            setFormData={setFormData}
+            onNext={handleItinerarySaved} // Save happens here
+            onBack={handleBack}
+          />
+        );
+      case 5:
         return (
           <Step4PaymentConfirmation
             formData={formData}

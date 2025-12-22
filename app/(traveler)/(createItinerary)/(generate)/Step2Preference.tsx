@@ -478,25 +478,77 @@ const Step2Preference: React.FC<StepProps> = ({
                       const hasSelectedTag = category.tags.some((tag) =>
                         isTagSelected(tag.tag_id)
                       );
+                      // Check if ALL tags in this category are selected
+                      const allTagsSelected = category.tags.every((tag) =>
+                        isTagSelected(tag.tag_id)
+                      );
+
+                      // Handle category radio button press
+                      const handleCategorySelect = () => {
+                        if (allTagsSelected) {
+                          // Deselect all tags in this category
+                          const categoryTagIds = category.tags.map(
+                            (tag) => tag.tag_id
+                          );
+                          setSelectedTags(
+                            selectedTags.filter(
+                              (tag) => !categoryTagIds.includes(tag.id)
+                            )
+                          );
+                        } else {
+                          // Select all tags in this category
+                          const categoryTags = category.tags.map((tag) => ({
+                            id: tag.tag_id,
+                            name: tag.tag_name,
+                          }));
+
+                          // Remove any existing tags from this category first
+                          const categoryTagIds = category.tags.map(
+                            (tag) => tag.tag_id
+                          );
+                          const otherTags = selectedTags.filter(
+                            (tag) => !categoryTagIds.includes(tag.id)
+                          );
+
+                          // Add all category tags
+                          setSelectedTags([...otherTags, ...categoryTags]);
+                        }
+                      };
 
                       return (
                         <View key={category.category_id} className="mt-2">
                           {/* Category button */}
                           <TouchableOpacity
                             activeOpacity={1}
-                            onPress={() =>
-                              setOpenCategory(
-                                isOpen ? null : category.category_name
-                              )
-                            }
-                            className={`p-4 border rounded-lg flex-row justify-between items-center ${
+                            className={`p-4 border rounded-lg flex-row justify-between items-center relative ${
                               isOpen || hasSelectedTag
                                 ? "border-primary bg-indigo-50"
                                 : "border-gray-300"
                             }`}
                           >
-                            <View className="flex-row items-center">
-                              <Ionicons
+                            {/* Radio button */}
+                            <Pressable
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleCategorySelect();
+                              }}
+                              className=" absolute left-0 top-0 bottom-0 w-16 items-center justify-center"
+                            >
+                              <View
+                                className={`w-5 h-5 rounded-full border items-center justify-center ${
+                                  allTagsSelected
+                                    ? "border-primary bg-primary"
+                                    : "border-gray-400"
+                                }`}
+                              >
+                                {allTagsSelected && (
+                                  <View className="w-2 h-2 rounded-full bg-white" />
+                                )}
+                              </View>
+                            </Pressable>
+
+                            <View className="flex-row left-12 items-center justify-start flex-1">
+                              {/* <Ionicons
                                 name={getCategoryIcon(category.category_name)}
                                 size={16}
                                 color={
@@ -504,8 +556,8 @@ const Step2Preference: React.FC<StepProps> = ({
                                     ? "#4F46E5"
                                     : "#1a1a1a"
                                 }
-                                className="mr-3"
-                              />
+                                className="ml-3"
+                              /> */}
                               <Text
                                 className={`text-base font-onest ${
                                   isOpen || hasSelectedTag
@@ -516,11 +568,21 @@ const Step2Preference: React.FC<StepProps> = ({
                                 {category.category_name}
                               </Text>
                             </View>
-                            <Ionicons
-                              name={isOpen ? "chevron-up" : "chevron-down"}
-                              size={16}
-                              color="#6B7280"
-                            />
+
+                            <Pressable
+                              onPress={() =>
+                                setOpenCategory(
+                                  isOpen ? null : category.category_name
+                                )
+                              }
+                              className="absolute  right-0 top-0 bottom-0 w-16 items-center justify-center"
+                            >
+                              <Ionicons
+                                name={isOpen ? "chevron-up" : "chevron-down"}
+                                size={16}
+                                color="#6B7280"
+                              />
+                            </Pressable>
                           </TouchableOpacity>
 
                           {/* Tags */}
@@ -687,11 +749,11 @@ const Step2Preference: React.FC<StepProps> = ({
                       <View className="mt-2 p-2 bg-gray-50 rounded-lg">
                         <Text className="text-xs text-gray-600 font-onest">
                           {selectedActivityIntensity === "Low" &&
-                            "1-2 activities per day - Perfect for a relaxed pace"}
+                            " Perfect for a relaxed pace"}
                           {selectedActivityIntensity === "Moderate" &&
-                            "2-3 activities per day - A good balance of activities and rest"}
+                            " A good balance of activities and rest"}
                           {selectedActivityIntensity === "High" &&
-                            "3+ activities per day - Action-packed adventure!"}
+                            " Action-packed adventure!"}
                         </Text>
                       </View>
                     )}

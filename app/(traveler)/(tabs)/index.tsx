@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -499,7 +498,7 @@ const App = () => {
           </View>
         </ScrollView>
 
-        <Pressable
+        {/* <Pressable
           className="absolute bottom-48 right-6 bg-[#20b08d] rounded-full p-4  flex-row items-center"
           onPress={() => router.push("/(createItinerary)/selectionScreen")}
         >
@@ -509,7 +508,7 @@ const App = () => {
               Build My Trip
             </Text>
           </View>
-        </Pressable>
+        </Pressable> */}
       </View>
     </SafeAreaView>
   );
