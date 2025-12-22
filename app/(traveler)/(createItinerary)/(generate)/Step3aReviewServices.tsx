@@ -1,4 +1,4 @@
-import { ItineraryFormData, ItineraryItem } from "@/types/itineraryTypes";
+import { ItineraryFormData } from "@/types/itineraryTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -9,7 +9,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import API_URL from "../../../../constants/api";
 
@@ -50,32 +50,18 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const groupItemsByDay = (items: ItineraryItem[]) => {
-  return items.reduce((acc, item) => {
-    if (!acc[item.day_number]) acc[item.day_number] = [];
-    acc[item.day_number].push(item);
-    return acc;
-  }, {} as { [key: number]: ItineraryItem[] });
-};
-
 const Step3aReviewServices: React.FC<Step3aProps> = ({
   formData,
   setFormData,
   onNext,
   onBack,
 }) => {
-  const [guideSelection, setGuideSelection] = useState<"none" | "select">(
-    "none"
-  );
+  const [guideExpanded, setGuideExpanded] = useState(false);
+  const [transportExpanded, setTransportExpanded] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState<TourGuide | null>(null);
-  const [showGuideModal, setShowGuideModal] = useState(false);
-
-  const [transportSelection, setTransportSelection] = useState<
-    "none" | "select"
-  >("none");
   const [selectedCar, setSelectedCar] = useState<CarService | null>(null);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [showCarModal, setShowCarModal] = useState(false);
-
   const [saving, setSaving] = useState(false);
 
   // Mock data - replace with API calls
@@ -117,12 +103,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       model: "Toyota Fortuner",
       capacity: 7,
       price_per_day: 4500,
-      features: [
-        "Air-conditioned",
-        "Professional Driver",
-        "Fuel Included",
-        "Spacious",
-      ],
+      features: ["Air-conditioned", "Professional Driver", "Fuel Included", "Spacious"],
     },
     {
       id: 3,
@@ -130,12 +111,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       model: "Toyota Hiace",
       capacity: 12,
       price_per_day: 5500,
-      features: [
-        "Air-conditioned",
-        "Professional Driver",
-        "Fuel Included",
-        "Large Groups",
-      ],
+      features: ["Air-conditioned", "Professional Driver", "Fuel Included", "Large Groups"],
     },
   ];
 
@@ -144,9 +120,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
     if (!formData.start_date || !formData.end_date) return 0;
     const start = new Date(formData.start_date);
     const end = new Date(formData.end_date);
-    return (
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    );
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   }, [formData.start_date, formData.end_date]);
 
   const guideCost = selectedGuide ? selectedGuide.price_per_day * totalDays : 0;
@@ -161,10 +135,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
     return formData.items.reduce((sum, item) => {
       const price = Number(item.price || 0);
       if (price <= 0) return sum;
-      if (
-        item.unit?.toLowerCase() === "entry" ||
-        item.unit?.toLowerCase() === "person"
-      ) {
+      if (item.unit?.toLowerCase() === "entry" || item.unit?.toLowerCase() === "person") {
         return sum + price * travelerCount;
       }
       return sum + price;
@@ -172,21 +143,19 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
   }, [formData.items, travelerCount]);
 
   // Filter cars by capacity
-  const availableCars = mockCarServices.filter(
-    (car) => car.capacity >= travelerCount
-  );
-
-  const groupedItems = formData.items ? groupItemsByDay(formData.items) : {};
+  const availableCars = mockCarServices.filter((car) => car.capacity >= travelerCount);
   const totalActivities = formData.items?.length || 0;
 
   const handleGuideSelect = (guide: TourGuide) => {
     setSelectedGuide(guide);
     setShowGuideModal(false);
+    if (!guideExpanded) setGuideExpanded(true);
   };
 
   const handleCarSelect = (car: CarService) => {
     setSelectedCar(car);
     setShowCarModal(false);
+    if (!transportExpanded) setTransportExpanded(true);
   };
 
   const handleContinue = async () => {
@@ -216,14 +185,8 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
           items: formData.items,
           total_cost: totalActivityCost + additionalCost,
           traveler_count: formData.preferences?.travelerCount || 1,
-          tour_guide_id:
-            guideSelection === "select" && selectedGuide
-              ? selectedGuide.id
-              : null,
-          car_service_id:
-            transportSelection === "select" && selectedCar
-              ? selectedCar.id
-              : null,
+          tour_guide_id: selectedGuide ? selectedGuide.id : null,
+          car_service_id: selectedCar ? selectedCar.id : null,
           guide_cost: guideCost,
           car_cost: carCost,
         }),
@@ -232,24 +195,19 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || data.error || "Failed to save itinerary"
-        );
+        throw new Error(data.message || data.error || "Failed to save itinerary");
       }
 
       if (!data.itinerary_id) {
         throw new Error("No itinerary ID returned from server");
       }
 
-      console.log(
-        "✅ Itinerary saved successfully with ID:",
-        data.itinerary_id
-      );
+      console.log("✅ Itinerary saved successfully with ID:", data.itinerary_id);
 
       const updatedFormData = {
         ...formData,
-        tourGuide: guideSelection === "select" ? selectedGuide : null,
-        carService: transportSelection === "select" ? selectedCar : null,
+        tourGuide: selectedGuide,
+        carService: selectedCar,
         additionalServices: {
           guideCost,
           carCost,
@@ -263,9 +221,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       console.error("❌ Error saving itinerary:", err);
       Alert.alert(
         "Save Failed",
-        err instanceof Error
-          ? err.message
-          : "Failed to save itinerary. Please try again.",
+        err instanceof Error ? err.message : "Failed to save itinerary. Please try again.",
         [
           { text: "Cancel", style: "cancel" },
           { text: "Retry", onPress: handleContinue },
@@ -279,7 +235,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="px-6 py-4 bg-white border-b border-gray-200">
+      <View className=" py-4 bg-white border-b border-gray-200">
         <Text className="text-xl font-onest-semibold text-center text-gray-900">
           Review & Add Services
         </Text>
@@ -289,7 +245,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        <View className="px-6 py-6">
+        <View className=" py-6">
           {/* Trip Summary Card */}
           <View className="mb-6 rounded-lg overflow-hidden border border-gray-200">
             <View className="p-6 bg-white">
@@ -300,22 +256,16 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                   </Text>
 
                   <View className="flex-row items-center mb-2">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={16}
-                      color="#6B7280"
-                    />
+                    <Ionicons name="calendar-outline" size={16} color="#6B7280" />
                     <Text className="text-sm text-gray-600 font-onest ml-2">
-                      {formatDate(formData.start_date)} -{" "}
-                      {formatDate(formData.end_date)}
+                      {formatDate(formData.start_date)} - {formatDate(formData.end_date)}
                     </Text>
                   </View>
 
                   <View className="flex-row items-center">
                     <Ionicons name="globe-outline" size={16} color="#6B7280" />
                     <Text className="text-sm text-gray-600 font-onest ml-2">
-                      {totalDays} day{totalDays > 1 ? "s" : ""} •{" "}
-                      {totalActivities}{" "}
+                      {totalDays} day{totalDays > 1 ? "s" : ""} • {totalActivities}{" "}
                       {totalActivities > 1 ? "activities" : "activity"}
                     </Text>
                   </View>
@@ -323,16 +273,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
                 {travelerCount > 1 && (
                   <View className="bg-indigo-50 rounded-lg px-3 py-2">
-                    <View className="flex-row items-center">
-                      <Ionicons
-                        name="people-outline"
-                        size={16}
-                        color="#4F46E5"
-                      />
-                      <Text className="text-primary font-onest-semibold text-sm ml-1">
-                        {travelerCount}
-                      </Text>
-                    </View>
+                    <Text className="text-indigo-700 font-onest-semibold text-xs">
+                      {travelerCount} people
+                    </Text>
                   </View>
                 )}
               </View>
@@ -340,9 +283,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               {/* Base Cost */}
               <View className="pt-4 border-t border-gray-200">
                 <View className="flex-row justify-between items-center">
-                  <Text className="text-sm text-gray-600 font-onest">
-                    Activities Total
-                  </Text>
+                  <Text className="text-sm text-gray-600 font-onest">Activities Total</Text>
                   <Text className="text-lg font-onest-bold text-gray-800">
                     ₱{totalActivityCost.toLocaleString()}
                   </Text>
@@ -351,131 +292,121 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             </View>
           </View>
 
-          {/* Tour Guide Section */}
+          {/* Tour Guide Section - Collapsible */}
           <View className="mb-6 rounded-lg overflow-hidden border border-gray-200">
             <Pressable
-              onPress={() =>
-                setGuideSelection(guideSelection === "none" ? "select" : "none")
-              }
-              className="bg-white"
+              onPress={() => setGuideExpanded(!guideExpanded)}
+              className="bg-white border-b border-gray-100"
             >
-              <View className="p-4 border-b border-gray-100">
+              <View className="p-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center flex-1">
+                    <Ionicons
+                      name={guideExpanded ? "chevron-down" : "chevron-forward"}
+                      size={20}
+                      color="#374151"
+                      style={{ marginRight: 8 }}
+                    />
                     <View className="bg-indigo-50 rounded-full p-2 mr-3">
-                      <Ionicons
-                        name="person-outline"
-                        size={20}
-                        color="#4F46E5"
-                      />
+                      <Ionicons name="person-outline" size={20} color="#4F46E5" />
                     </View>
                     <View className="flex-1">
                       <Text className="text-base font-onest-semibold text-gray-900">
                         Tour Guide
                       </Text>
                       <Text className="text-xs text-gray-500 font-onest">
-                        Optional local expert
+                        {selectedGuide ? selectedGuide.name : "Optional local expert"}
                       </Text>
                     </View>
                   </View>
-                  <View
-                    className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                      guideSelection === "select"
-                        ? "border-primary"
-                        : "border-gray-300"
-                    }`}
-                  >
-                    {guideSelection === "select" && (
-                      <View className="w-3 h-3 rounded-full bg-primary" />
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {guideSelection === "select" && (
-                <View className="p-4 bg-gray-50">
-                  {selectedGuide ? (
-                    <View className="bg-white rounded-lg p-4 border border-gray-200">
-                      <View className="flex-row justify-between items-start mb-3">
-                        <View className="flex-1">
-                          <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
-                            {selectedGuide.name}
-                          </Text>
-                          <View className="flex-row items-center mb-2">
-                            <Ionicons name="star" size={14} color="#F59E0B" />
-                            <Text className="text-xs text-gray-600 font-onest ml-1">
-                              {selectedGuide.rating} ({selectedGuide.reviews}{" "}
-                              reviews)
-                            </Text>
-                          </View>
-                          <Text className="text-sm text-gray-600 font-onest mb-3">
-                            {selectedGuide.bio}
-                          </Text>
-                          <View className="flex-row flex-wrap">
-                            {selectedGuide.languages.map((lang, idx) => (
-                              <View
-                                key={idx}
-                                className="bg-blue-50 rounded-full px-2 py-1 mr-2 mb-2"
-                              >
-                                <Text className="text-xs text-blue-700 font-onest">
-                                  {lang}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => setShowGuideModal(true)}
-                          className="ml-2"
-                        >
-                          <Text className="text-primary font-onest-medium text-sm">
-                            Change
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                        <Text className="text-sm text-gray-600 font-onest">
-                          {totalDays} {totalDays === 1 ? "day" : "days"}
-                        </Text>
-                        <Text className="text-lg font-onest-bold text-primary">
-                          ₱{guideCost.toLocaleString()}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setShowGuideModal(true)}
-                      className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name="add-circle-outline"
-                        size={32}
-                        color="#9CA3AF"
-                      />
-                      <Text className="text-gray-600 font-onest-medium mt-2">
-                        Select a Guide
+                  {selectedGuide && (
+                    <View className="bg-green-100 rounded-full px-3 py-1.5 flex-row items-center">
+                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                      <Text className="text-xs font-onest-medium text-green-700 ml-1">
+                        Selected
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   )}
                 </View>
-              )}
+              </View>
             </Pressable>
+
+            {guideExpanded && (
+              <View className="p-4 bg-gray-50">
+                {selectedGuide ? (
+                  <View className="bg-white rounded-lg p-4 border border-gray-200">
+                    <View className="flex-row justify-between items-start mb-3">
+                      <View className="flex-1">
+                        <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
+                          {selectedGuide.name}
+                        </Text>
+                        <View className="flex-row items-center mb-2">
+                          <Ionicons name="star" size={14} color="#F59E0B" />
+                          <Text className="text-xs text-gray-600 font-onest ml-1">
+                            {selectedGuide.rating} ({selectedGuide.reviews} reviews)
+                          </Text>
+                        </View>
+                        <Text className="text-sm text-gray-600 font-onest mb-3">
+                          {selectedGuide.bio}
+                        </Text>
+                        <View className="flex-row flex-wrap">
+                          {selectedGuide.languages.map((lang, idx) => (
+                            <View
+                              key={idx}
+                              className="bg-blue-50 rounded-full px-2 py-1 mr-2 mb-2"
+                            >
+                              <Text className="text-xs text-blue-700 font-onest">{lang}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowGuideModal(true)}
+                        className="ml-2"
+                      >
+                        <Text className="text-primary font-onest-medium text-sm">Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
+                      <Text className="text-sm text-gray-600 font-onest">
+                        {totalDays} {totalDays === 1 ? "day" : "days"}
+                      </Text>
+                      <Text className="text-lg font-onest-bold text-primary">
+                        ₱{guideCost.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowGuideModal(true)}
+                    className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
+                    <Text className="text-gray-600 font-onest-medium mt-2">
+                      Select a Guide
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
-          {/* Car Service Section */}
+          {/* Transportation Section - Collapsible */}
           <View className="mb-6 rounded-lg overflow-hidden border border-gray-200">
             <Pressable
-              onPress={() =>
-                setTransportSelection(
-                  transportSelection === "none" ? "select" : "none"
-                )
-              }
-              className="bg-white"
+              onPress={() => setTransportExpanded(!transportExpanded)}
+              className="bg-white border-b border-gray-100"
             >
-              <View className="p-4 border-b border-gray-100">
+              <View className="p-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center flex-1">
+                    <Ionicons
+                      name={transportExpanded ? "chevron-down" : "chevron-forward"}
+                      size={20}
+                      color="#374151"
+                      style={{ marginRight: 8 }}
+                    />
                     <View className="bg-indigo-50 rounded-full p-2 mr-3">
                       <Ionicons name="car-outline" size={20} color="#4F46E5" />
                     </View>
@@ -484,98 +415,80 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         Transportation
                       </Text>
                       <Text className="text-xs text-gray-500 font-onest">
-                        Private vehicle with driver
+                        {selectedCar
+                          ? `${selectedCar.vehicle_type} - ${selectedCar.model}`
+                          : "Private vehicle with driver"}
                       </Text>
                     </View>
                   </View>
-                  <View
-                    className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                      transportSelection === "select"
-                        ? "border-primary"
-                        : "border-gray-300"
-                    }`}
-                  >
-                    {transportSelection === "select" && (
-                      <View className="w-3 h-3 rounded-full bg-primary" />
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {transportSelection === "select" && (
-                <View className="p-4 bg-gray-50">
-                  {selectedCar ? (
-                    <View className="bg-white rounded-lg p-4 border border-gray-200">
-                      <View className="flex-row justify-between items-start mb-3">
-                        <View className="flex-1">
-                          <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
-                            {selectedCar.vehicle_type} - {selectedCar.model}
-                          </Text>
-                          <View className="flex-row items-center mb-3">
-                            <Ionicons
-                              name="people-outline"
-                              size={14}
-                              color="#6B7280"
-                            />
-                            <Text className="text-xs text-gray-600 font-onest ml-1">
-                              Up to {selectedCar.capacity} passengers
-                            </Text>
-                          </View>
-                          <View className="flex-row flex-wrap">
-                            {selectedCar.features.map((feature, idx) => (
-                              <View
-                                key={idx}
-                                className="flex-row items-center mr-3 mb-2"
-                              >
-                                <Ionicons
-                                  name="checkmark-circle"
-                                  size={14}
-                                  color="#10B981"
-                                />
-                                <Text className="text-xs text-gray-600 font-onest ml-1">
-                                  {feature}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => setShowCarModal(true)}
-                          className="ml-2"
-                        >
-                          <Text className="text-primary font-onest-medium text-sm">
-                            Change
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                        <Text className="text-sm text-gray-600 font-onest">
-                          {totalDays} {totalDays === 1 ? "day" : "days"}
-                        </Text>
-                        <Text className="text-lg font-onest-bold text-primary">
-                          ₱{carCost.toLocaleString()}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setShowCarModal(true)}
-                      className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name="add-circle-outline"
-                        size={32}
-                        color="#9CA3AF"
-                      />
-                      <Text className="text-gray-600 font-onest-medium mt-2">
-                        Select a Vehicle
+                  {selectedCar && (
+                    <View className="bg-green-100 rounded-full px-3 py-1.5 flex-row items-center">
+                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                      <Text className="text-xs font-onest-medium text-green-700 ml-1">
+                        Selected
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   )}
                 </View>
-              )}
+              </View>
             </Pressable>
+
+            {transportExpanded && (
+              <View className="p-4 bg-gray-50">
+                {selectedCar ? (
+                  <View className="bg-white rounded-lg p-4 border border-gray-200">
+                    <View className="flex-row justify-between items-start mb-3">
+                      <View className="flex-1">
+                        <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
+                          {selectedCar.vehicle_type} - {selectedCar.model}
+                        </Text>
+                        <View className="flex-row items-center mb-3">
+                          <Ionicons name="people-outline" size={14} color="#6B7280" />
+                          <Text className="text-xs text-gray-600 font-onest ml-1">
+                            Up to {selectedCar.capacity} passengers
+                          </Text>
+                        </View>
+                        <View className="flex-row flex-wrap">
+                          {selectedCar.features.map((feature, idx) => (
+                            <View key={idx} className="flex-row items-center mr-3 mb-2">
+                              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                              <Text className="text-xs text-gray-600 font-onest ml-1">
+                                {feature}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowCarModal(true)}
+                        className="ml-2"
+                      >
+                        <Text className="text-primary font-onest-medium text-sm">Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
+                      <Text className="text-sm text-gray-600 font-onest">
+                        {totalDays} {totalDays === 1 ? "day" : "days"}
+                      </Text>
+                      <Text className="text-lg font-onest-bold text-primary">
+                        ₱{carCost.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowCarModal(true)}
+                    className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
+                    <Text className="text-gray-600 font-onest-medium mt-2">
+                      Select a Vehicle
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Total Cost Summary */}
@@ -587,9 +500,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
               <View className="space-y-2">
                 <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-sm text-gray-600 font-onest">
-                    Activities
-                  </Text>
+                  <Text className="text-sm text-gray-600 font-onest">Activities</Text>
                   <Text className="text-sm font-onest-medium text-gray-900">
                     ₱{totalActivityCost.toLocaleString()}
                   </Text>
@@ -597,9 +508,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
                 {guideCost > 0 && (
                   <View className="flex-row justify-between items-center mb-2">
-                    <Text className="text-sm text-gray-600 font-onest">
-                      Tour Guide
-                    </Text>
+                    <Text className="text-sm text-gray-600 font-onest">Tour Guide</Text>
                     <Text className="text-sm font-onest-medium text-gray-900">
                       ₱{guideCost.toLocaleString()}
                     </Text>
@@ -608,9 +517,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
                 {carCost > 0 && (
                   <View className="flex-row justify-between items-center mb-2">
-                    <Text className="text-sm text-gray-600 font-onest">
-                      Transportation
-                    </Text>
+                    <Text className="text-sm text-gray-600 font-onest">Transportation</Text>
                     <Text className="text-sm font-onest-medium text-gray-900">
                       ₱{carCost.toLocaleString()}
                     </Text>
@@ -619,9 +526,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               </View>
 
               <View className="flex-row justify-between items-center pt-4 border-t border-gray-200 mt-3">
-                <Text className="text-base font-onest-semibold text-gray-900">
-                  Total Cost
-                </Text>
+                <Text className="text-base font-onest-semibold text-gray-900">Total Cost</Text>
                 <Text className="text-2xl font-onest-bold text-primary">
                   ₱{(totalActivityCost + additionalCost).toLocaleString()}
                 </Text>
@@ -630,9 +535,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               {travelerCount > 1 && (
                 <Text className="text-xs text-gray-500 font-onest mt-2 text-center">
                   ≈ ₱
-                  {Math.round(
-                    (totalActivityCost + additionalCost) / travelerCount
-                  ).toLocaleString()}{" "}
+                  {Math.round((totalActivityCost + additionalCost) / travelerCount).toLocaleString()}{" "}
                   per person
                 </Text>
               )}
@@ -651,9 +554,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl max-h-[80%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-xl font-onest-bold text-gray-900">
-                Select Tour Guide
-              </Text>
+              <Text className="text-xl font-onest-bold text-gray-900">Select Tour Guide</Text>
               <TouchableOpacity onPress={() => setShowGuideModal(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -683,9 +584,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     {guide.reviews} reviews
                   </Text>
 
-                  <Text className="text-sm text-gray-700 font-onest mb-3">
-                    {guide.bio}
-                  </Text>
+                  <Text className="text-sm text-gray-700 font-onest mb-3">{guide.bio}</Text>
 
                   <View className="flex-row flex-wrap mb-3">
                     {guide.languages.map((lang, idx) => (
@@ -693,17 +592,13 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         key={idx}
                         className="bg-blue-50 rounded-full px-3 py-1 mr-2 mb-2"
                       >
-                        <Text className="text-xs text-blue-700 font-onest">
-                          {lang}
-                        </Text>
+                        <Text className="text-xs text-blue-700 font-onest">{lang}</Text>
                       </View>
                     ))}
                   </View>
 
                   <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                    <Text className="text-sm text-gray-600 font-onest">
-                      Per day
-                    </Text>
+                    <Text className="text-sm text-gray-600 font-onest">Per day</Text>
                     <Text className="text-lg font-onest-bold text-primary">
                       ₱{guide.price_per_day.toLocaleString()}
                     </Text>
@@ -725,9 +620,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl max-h-[80%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-xl font-onest-bold text-gray-900">
-                Select Vehicle
-              </Text>
+              <Text className="text-xl font-onest-bold text-gray-900">Select Vehicle</Text>
               <TouchableOpacity onPress={() => setShowCarModal(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -747,9 +640,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
                           {car.vehicle_type}
                         </Text>
-                        <Text className="text-sm text-gray-600 font-onest">
-                          {car.model}
-                        </Text>
+                        <Text className="text-sm text-gray-600 font-onest">{car.model}</Text>
                       </View>
                       <View className="bg-indigo-50 rounded-lg px-3 py-1">
                         <Text className="text-xs text-indigo-700 font-onest-semibold">
@@ -760,15 +651,8 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
                     <View className="flex-row flex-wrap mb-3">
                       {car.features.map((feature, idx) => (
-                        <View
-                          key={idx}
-                          className="flex-row items-center mr-3 mb-2"
-                        >
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={14}
-                            color="#10B981"
-                          />
+                        <View key={idx} className="flex-row items-center mr-3 mb-2">
+                          <Ionicons name="checkmark-circle" size={14} color="#10B981" />
                           <Text className="ml-1 text-xs text-gray-600 font-onest">
                             {feature}
                           </Text>
@@ -777,9 +661,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     </View>
 
                     <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                      <Text className="text-sm text-gray-600 font-onest">
-                        Per day
-                      </Text>
+                      <Text className="text-sm text-gray-600 font-onest">Per day</Text>
                       <Text className="text-lg font-onest-bold text-primary">
                         ₱{car.price_per_day.toLocaleString()}
                       </Text>
@@ -805,18 +687,16 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         <View className="flex-row justify-between">
           <TouchableOpacity
             onPress={onBack}
-            className="py-3 px-6 rounded-lg border border-gray-300 flex-1 mr-3"
+            className="py-3 px-5 rounded-xl border border-gray-300"
             activeOpacity={0.7}
             disabled={saving}
           >
-            <Text className="text-center font-onest-medium text-base text-gray-700">
-              Back
-            </Text>
+            <Text className="text-center font-onest-medium text-base text-gray-700">Back</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleContinue}
-            className="py-3 px-8 rounded-lg bg-primary flex-1"
+            className="py-3 px-5 rounded-xl  bg-primary"
             activeOpacity={0.7}
             disabled={saving}
           >
