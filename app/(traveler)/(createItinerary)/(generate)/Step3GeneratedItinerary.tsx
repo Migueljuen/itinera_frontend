@@ -19,6 +19,7 @@ import AnimatedDots from "./components/AnimatedDots";
 import { CollapsibleFilter } from "./components/CollapsibleFilter";
 import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
 import ExperienceCard from "./components/ExperienceCard";
+import UnderfilledNotice from "./components/Notice";
 
 interface StepProps {
   formData: ItineraryFormData;
@@ -300,6 +301,37 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     onNext();
   };
 
+  const totalDays = useMemo(() => {
+    if (!generatedItinerary) return 0;
+    const start = new Date(generatedItinerary.start_date);
+    const end = new Date(generatedItinerary.end_date);
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  }, [generatedItinerary]);
+
+  const groupedItemsWithEmptyDays = useMemo(() => {
+    const grouped = groupItemsByDay(generatedItinerary?.items || []);
+    const allDays: Record<number, ItineraryItem[]> = {};
+
+    for (let day = 1; day <= totalDays; day++) {
+      allDays[day] = grouped[day] || [];
+    }
+
+    return allDays;
+  }, [generatedItinerary?.items, totalDays]);
+
+  const groupedItems = useMemo(() => {
+    if (!generatedItinerary?.items) return {};
+    return groupItemsByDay(generatedItinerary.items);
+  }, [generatedItinerary?.items]);
+
+
+  const underfilledDays = useMemo(() => {
+    return Object.entries(groupedItemsWithEmptyDays)
+      .filter(([_, items]) => items.length <= 1) // includes 0 and 1
+      .map(([day]) => Number(day));
+  }, [groupedItemsWithEmptyDays]);
+
+  const showUnderfilledNotice = underfilledDays.length > 0;
   // Loading state
   if (loading) {
     return (
@@ -361,9 +393,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     );
   }
 
-  const groupedItems = groupItemsByDay(generatedItinerary.items);
-  const totalDays = Object.keys(groupedItems).length;
-
   return (
     <View className="flex-1 bg-gray-50">
       {isPreview && (
@@ -401,7 +430,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
             </View>
             <Text className="text-gray-500 font-onest text-xs mt-1">
               {formData.preferences?.travelerCount &&
-              formData.preferences.travelerCount > 1
+                formData.preferences.travelerCount > 1
                 ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
                 : "This is an estimate. Final total will be calculated after saving."}
             </Text>
@@ -425,12 +454,11 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                 {
                   value: formData.preferences?.activityIntensity || "N/A",
                   label: "Intensity",
-                  className: `text-sm font-onest-medium capitalize ${
-                    INTENSITY_COLORS[
-                      formData.preferences?.activityIntensity?.toLowerCase() ||
-                        ""
-                    ] || "text-gray-600"
-                  }`,
+                  className: `text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
+                    formData.preferences?.activityIntensity?.toLowerCase() ||
+                    ""
+                  ] || "text-gray-600"
+                    }`,
                 },
               ].map((stat, index) => (
                 <View key={index} className="items-center">
@@ -448,6 +476,10 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
               ))}
             </View>
           </View>
+
+          {showUnderfilledNotice && (
+            <UnderfilledNotice underfilledDays={underfilledDays} visible={showUnderfilledNotice} />
+          )}
 
           {/* Itinerary Days */}
           {Object.entries(groupedItems).map(([dayNumber, dayItems]) => {

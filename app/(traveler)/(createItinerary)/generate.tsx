@@ -323,7 +323,7 @@ const GenerateItineraryForm: React.FC = () => {
         <ProgressBar currentStep={step} totalSteps={stepCount} />
       </View> */}
 
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
         {renderStep()}
       </View>
     </SafeAreaView>
