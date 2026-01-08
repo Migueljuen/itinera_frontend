@@ -33,9 +33,18 @@ const PaymentScreen = () => {
   const totalAmount = paymentInfo?.total_amount
     ? parseFloat(paymentInfo.total_amount)
     : 0;
+
+  const amountAlreadyPaid = paymentInfo?.amount_paid
+    ? parseFloat(paymentInfo.amount_paid)
+    : 0;
+
+  const remainingBalance = totalAmount - amountAlreadyPaid; // ✅ Calculate remaining balance
+
   const downPaymentAmount = totalAmount * DOWN_PAYMENT_PERCENTAGE;
-  const remainingAmount = totalAmount - downPaymentAmount;
-  const amountToPay = isPartialPayment ? downPaymentAmount : totalAmount;
+  const remainingAfterDownPayment = totalAmount - downPaymentAmount;
+
+  // ✅ Use remainingBalance for full payment option
+  const amountToPay = isPartialPayment ? downPaymentAmount : remainingBalance;
 
   // Fetch payment info
   useEffect(() => {
@@ -75,7 +84,7 @@ const PaymentScreen = () => {
       return;
     }
 
-    const paymentType = isPartialPayment ? "down payment" : "full payment";
+    const paymentType = isPartialPayment ? "down payment" : amountAlreadyPaid > 0 ? "remaining balance" : "full payment";
     Alert.alert(
       "Submit Payment",
       `Send ${paymentType} proof of ₱${amountToPay.toFixed(2)} now?`,
@@ -194,6 +203,24 @@ const PaymentScreen = () => {
             </Text>
           </View>
 
+          {/* Show already paid amount if exists */}
+          {amountAlreadyPaid > 0 && (
+            <View className="mb-4 p-4 bg-green-50 rounded-2xl border border-green-200">
+              <Text className="font-onest-semibold text-sm text-green-800">
+                Already Paid: ₱{amountAlreadyPaid.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+              <Text className="font-onest text-xs text-green-600 mt-1">
+                Remaining Balance: ₱{remainingBalance.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </View>
+          )}
+
           {/* Payment Options Toggle */}
           <View className="mb-6">
             <Text className="font-onest-semibold text-base mb-3 text-black/90">
@@ -203,37 +230,38 @@ const PaymentScreen = () => {
             {/* Full Payment Option */}
             <Pressable
               onPress={() => setIsPartialPayment(false)}
-              className={`mb-3 p-4 rounded-2xl border ${
-                !isPartialPayment
-                  ? "border-primary bg-indigo-50"
-                  : "border-gray-200 bg-white"
-              }`}
+              className={`mb-3 p-4 rounded-2xl border ${!isPartialPayment
+                ? "border-primary bg-indigo-50"
+                : "border-gray-200 bg-white"
+                }`}
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
                   <View className="flex-row items-center mb-1">
                     <View
-                      className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${
-                        !isPartialPayment
-                          ? "border-primary bg-primary"
-                          : "border-gray-300"
-                      }`}
+                      className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${!isPartialPayment
+                        ? "border-primary bg-primary"
+                        : "border-gray-300"
+                        }`}
                     >
                       {!isPartialPayment && (
                         <View className="w-2 h-2 rounded-full bg-white" />
                       )}
                     </View>
                     <Text className="font-onest-semibold text-base text-black/90">
-                      Full Payment
+                      {amountAlreadyPaid > 0 ? "Pay Remaining Balance" : "Full Payment"}
                     </Text>
                   </View>
                   <Text className="text-black/60 font-onest text-sm ml-8">
-                    Pay the complete amount now
+                    {amountAlreadyPaid > 0
+                      ? "Complete your payment"
+                      : "Pay the complete amount now"
+                    }
                   </Text>
                 </View>
                 <Text className="font-onest-bold text-lg text-black/90">
                   ₱
-                  {totalAmount.toLocaleString("en-US", {
+                  {remainingBalance.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
@@ -241,58 +269,58 @@ const PaymentScreen = () => {
               </View>
             </Pressable>
 
-            {/* Down Payment Option */}
-            <Pressable
-              onPress={() => setIsPartialPayment(true)}
-              className={`p-4 rounded-2xl border ${
-                isPartialPayment
+            {/* Down Payment Option - Only show if not already paid */}
+            {amountAlreadyPaid === 0 && (
+              <Pressable
+                onPress={() => setIsPartialPayment(true)}
+                className={`p-4 rounded-2xl border ${isPartialPayment
                   ? "border-primary bg-indigo-50"
                   : "border-gray-200 bg-white"
-              }`}
-            >
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-1">
-                  <View className="flex-row items-center mb-1">
-                    <View
-                      className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${
-                        isPartialPayment
+                  }`}
+              >
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="flex-1">
+                    <View className="flex-row items-center mb-1">
+                      <View
+                        className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${isPartialPayment
                           ? "border-primary bg-primary"
                           : "border-gray-300"
-                      }`}
-                    >
-                      {isPartialPayment && (
-                        <View className="w-2 h-2 rounded-full bg-white" />
-                      )}
+                          }`}
+                      >
+                        {isPartialPayment && (
+                          <View className="w-2 h-2 rounded-full bg-white" />
+                        )}
+                      </View>
+                      <Text className="font-onest-semibold text-base text-black/90">
+                        Down Payment (30%)
+                      </Text>
                     </View>
-                    <Text className="font-onest-semibold text-base text-black/90">
-                      Down Payment (30%)
+                    <Text className="text-black/60 font-onest text-sm ml-8">
+                      Pay 30% now, rest later
                     </Text>
                   </View>
-                  <Text className="text-black/60 font-onest text-sm ml-8">
-                    Pay 30% now, rest later
-                  </Text>
-                </View>
-                <Text className="font-onest-bold text-lg text-black/90">
-                  ₱
-                  {downPaymentAmount.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </Text>
-              </View>
-
-              {isPartialPayment && (
-                <View className="mt-2 pt-3 border-t border-indigo-200 ml-8">
-                  <Text className="text-black/60 font-onest text-xs">
-                    Remaining balance: ₱
-                    {remainingAmount.toLocaleString("en-US", {
+                  <Text className="font-onest-bold text-lg text-black/90">
+                    ₱
+                    {downPaymentAmount.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </Text>
                 </View>
-              )}
-            </Pressable>
+
+                {isPartialPayment && (
+                  <View className="mt-2 pt-3 border-t border-indigo-200 ml-8">
+                    <Text className="text-black/60 font-onest text-xs">
+                      Remaining balance: ₱
+                      {remainingAfterDownPayment.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            )}
           </View>
 
           {/* Amount Summary */}
@@ -356,7 +384,7 @@ const PaymentScreen = () => {
               <>
                 <Ionicons name="send-outline" size={20} color="white" />
                 <Text className="ml-2 font-onest-semibold text-white text-base">
-                  Submit {isPartialPayment ? "Down Payment" : "Payment"}
+                  Submit {isPartialPayment ? "Down Payment" : amountAlreadyPaid > 0 ? "Remaining Balance" : "Payment"}
                 </Text>
               </>
             )}

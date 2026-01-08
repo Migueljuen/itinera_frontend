@@ -566,7 +566,7 @@ const NotificationDetailScreen = () => {
                     className="py-4 items-center"
                   >
                     <Text className="text-blue-500 font-onest-semibold text-base">
-                      View Experience Details
+                      View Details
                     </Text>
                   </TouchableOpacity>
                 </View>

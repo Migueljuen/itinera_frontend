@@ -1,204 +1,77 @@
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Calendar from "expo-calendar";
-import * as Location from "expo-location";
+// screens/ItineraryDetailScreen.tsx
 
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
-  Platform,
   Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import API_URL from "../../../constants/api";
 
-interface PaymentInfo {
+// Types
+interface PaymentData {
   payment_id: number;
+  itinerary_id: number;
   total_amount: number;
   amount_paid: number;
-  payment_status: "Unpaid" | "Partial" | "Paid" | "Pending";
+  payment_status: string;
+
+  // 🆕 NEW FIELDS from backend
+  creator_cash_due?: number;
+  creator_cash_collected?: boolean;
+  creator_cash_collected_at?: string;
+  actual_remaining_balance?: number;
+  is_payment_complete?: boolean;
+  display_status?: string;
+  all_cash_collected?: boolean;
+  show_pay_button?: boolean;
+  payment_complete_message?: string;
+
   created_at: string;
   updated_at: string;
 }
 
-interface ItineraryItem {
-  item_id: number;
-  experience_id: number;
-  day_number: number;
-  start_time: string;
-  end_time: string;
-  custom_note: string;
-  created_at: string;
-  updated_at: string;
-  experience_name: string;
-  experience_description: string;
-  destination_name: string;
-  destination_city: string;
-  destination_latitude?: number;
-  destination_longitude?: number;
-  images: string[];
-  primary_image: string;
-}
+// Hooks
+import { useCalendarIntegration } from "@/hooks/useCalendar";
+import { useEditCapabilities } from "@/hooks/useEditCapabilities";
+import { useItinerary } from "@/hooks/useItinerary";
+import { useItineraryNavigation } from "@/hooks/useNavigation";
 
-interface Itinerary {
-  itinerary_id: number;
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes: string;
-  created_at: string;
-  status: "pending" | "upcoming" | "ongoing" | "completed" | "cancelled";
-  items: ItineraryItem[];
-  payments: PaymentInfo[]; // <-- added
-}
+// Utils
+import {
+  formatDate,
+  formatTime,
+  formatTimeRange,
+  getDateForDay,
+  getDayRange,
+  getImageUri,
+  groupItemsByDay,
+  hasEnoughTimeBetween,
+} from "@/utils/itinerary-utils";
 
-export default function ItineraryDetailScreen({ route }: any) {
+export default function ItineraryDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [loading, setLoading] = useState(true);
-  const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-  const [isPaymentExpanded, setIsPaymentExpanded] = useState(true); // Default to expanded
 
-  const [userLocation, setUserLocation] =
-    useState<Location.LocationObject | null>(null);
+  // State
+  const [isPaymentExpanded, setIsPaymentExpanded] = useState(true);
   const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
-    if (id) {
-      fetchItineraryDetails();
-      requestLocationPermission();
-    }
-  }, [id]);
-
-  // PERMISSION REQUEST
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const location = await Location.getCurrentPositionAsync({});
-        setUserLocation(location);
-      }
-    } catch (error) {
-      console.log("Location permission denied");
-    }
-  };
-
-  // PERMISSION REQUEST
-  const requestCalendarPermission = async () => {
-    const { status } = await Calendar.requestCalendarPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission required",
-        "Calendar access is needed to add events."
-      );
-      return false;
-    }
-    return true;
-  };
-  const getDefaultCalendarId = async (): Promise<string | null> => {
-    const calendars = await Calendar.getCalendarsAsync(
-      Calendar.EntityTypes.EVENT
-    );
-    const defaultCalendar = calendars.find((cal) => cal.allowsModifications);
-    return defaultCalendar?.id || null;
-  };
-  const handleAddToCalendar = async () => {
-    if (!itinerary) return;
-
-    const hasPermission = await requestCalendarPermission();
-    if (!hasPermission) return;
-
-    const calendarId = await getDefaultCalendarId();
-    if (!calendarId) {
-      Alert.alert("No calendar", "No editable calendar found.");
-      return;
-    }
-
-    try {
-      for (const item of itinerary.items) {
-        if (!item.start_time || !item.end_time) continue;
-
-        const startDate = new Date(
-          `${itinerary.start_date}T${item.start_time}`
-        );
-        const endDate = new Date(`${itinerary.start_date}T${item.end_time}`);
-
-        // Adjust date for multi-day itinerary
-        startDate.setDate(startDate.getDate() + (item.day_number - 1));
-        endDate.setDate(endDate.getDate() + (item.day_number - 1));
-
-        await Calendar.createEventAsync(calendarId, {
-          title: item.experience_name,
-          location: `${item.destination_name}, ${item.destination_city}`,
-          notes: item.custom_note || item.experience_description,
-          startDate,
-          endDate,
-          timeZone: "GMT+8", // change to your timezone
-          alarms: [{ relativeOffset: -15 }], // 15 min reminder
-        });
-      }
-
-      Alert.alert("Success", "Itinerary added to your calendar!");
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Failed to add itinerary to calendar");
-    }
-  };
-
-  const fetchItineraryDetails = async () => {
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        Alert.alert("Error", "Authentication token not found");
-        router.back();
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/itinerary/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("📦 API Response:", {
-        hasItinerary: !!data.itinerary,
-        hasPayments: !!data.payments,
-        paymentsCount: data.payments?.length || 0,
-      });
-
-      const itineraryWithPayments = {
-        ...(data.itinerary || data),
-        payments: data.payments || [],
-      };
-
-      setItinerary(itineraryWithPayments);
-    } catch (error) {
-      console.error("Error fetching itinerary details:", error);
-      Alert.alert("Error", "Failed to load itinerary details");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePayNow = () => {
-    router.push(`/(traveler)/(payment)/${itinerary?.itinerary_id}`);
-  };
+  // Hooks
+  const { loading, itinerary } = useItinerary(id);
+  const { handleMultiStopNavigation, handleSingleNavigation, navigateBetweenItems } =
+    useItineraryNavigation();
+  const { addItineraryToCalendar } = useCalendarIntegration();
+  const { getEditCapabilities, getDayHeaderStyle } = useEditCapabilities(itinerary);
 
   // Toggle collapse state for a day
   const toggleDayCollapse = (dayNumber: number) => {
@@ -213,354 +86,8 @@ export default function ItineraryDetailScreen({ route }: any) {
     });
   };
 
-  // Multi-stop navigation handler
-  const handleMultiStopNavigation = async (dayItems: ItineraryItem[]) => {
-    const itemsWithCoordinates = dayItems.filter(
-      (item) => item.destination_latitude && item.destination_longitude
-    );
-
-    if (itemsWithCoordinates.length === 0) {
-      Alert.alert(
-        "No Coordinates",
-        "Location data is not available for these activities."
-      );
-      return;
-    }
-
-    if (itemsWithCoordinates.length === 1) {
-      handleSingleNavigation(itemsWithCoordinates[0]);
-      return;
-    }
-
-    try {
-      let origin = "";
-      let currentLocation = userLocation;
-
-      // Try to get current location if we don't have it
-      if (!currentLocation) {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          currentLocation = await Location.getCurrentPositionAsync({});
-          origin = `${currentLocation.coords.latitude},${currentLocation.coords.longitude}`;
-        } else {
-          // If location permission is denied, show alert and return
-          Alert.alert(
-            "Location Required",
-            "Please enable location access to navigate from your current location.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Open Settings", onPress: () => Linking.openSettings() },
-            ]
-          );
-          return;
-        }
-      } else {
-        origin = `${currentLocation.coords.latitude},${currentLocation.coords.longitude}`;
-      }
-
-      // For iOS: Apple Maps has a different waypoint system
-      if (Platform.OS === "ios") {
-        // Apple Maps URL format: saddr (start) -> daddr (multiple destinations separated by '+to:')
-        // Example: saddr=Current+Location&daddr=Stop1+to:Stop2+to:Stop3
-
-        const destinations = itemsWithCoordinates
-          .map(
-            (item) =>
-              `${item.destination_latitude},${item.destination_longitude}`
-          )
-          .join("+to:");
-
-        const url = `https://maps.apple.com/?saddr=${origin}&daddr=${destinations}`;
-
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-          await Linking.openURL(url);
-        } else {
-          // Fallback to web-based Google Maps
-          const fallbackUrl = createGoogleMapsUrl(origin, itemsWithCoordinates);
-          await Linking.openURL(fallbackUrl);
-        }
-      } else {
-        // Android: Google Maps
-        const url = createGoogleMapsUrl(origin, itemsWithCoordinates);
-        await Linking.openURL(url);
-      }
-    } catch (error) {
-      console.error("Error opening maps:", error);
-      Alert.alert("Error", "Unable to open navigation. Please try again.");
-    }
-  };
-
-  // Helper function to create Google Maps URL
-  const createGoogleMapsUrl = (origin: string, items: ItineraryItem[]) => {
-    // Google Maps format:
-    // - origin: starting point
-    // - destination: final destination
-    // - waypoints: intermediate stops (all except the last one)
-
-    const destination = `${items[items.length - 1].destination_latitude},${
-      items[items.length - 1].destination_longitude
-    }`;
-
-    // All stops except the last one become waypoints
-    const waypoints = items
-      .slice(0, -1)
-      .map(
-        (item) => `${item.destination_latitude},${item.destination_longitude}`
-      )
-      .join("|");
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${
-      waypoints ? `&waypoints=${waypoints}` : ""
-    }&travelmode=driving`;
-  };
-  // Single navigation handler
-  const handleSingleNavigation = async (item: ItineraryItem) => {
-    if (!item.destination_latitude || !item.destination_longitude) {
-      Alert.alert(
-        "No Coordinates",
-        "Location data is not available for this activity."
-      );
-      return;
-    }
-
-    try {
-      const destination = `${item.destination_latitude},${item.destination_longitude}`;
-      const label = encodeURIComponent(item.experience_name);
-
-      const url = Platform.select({
-        ios: `maps://app?daddr=${destination}&q=${label}`,
-        android: `google.navigation:q=${destination}&mode=d`,
-      });
-
-      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${destination}&query_place_id=${label}`;
-
-      if (url) {
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-          await Linking.openURL(url);
-        } else {
-          await Linking.openURL(fallbackUrl);
-        }
-      }
-    } catch (error) {
-      Alert.alert("Error", "Unable to open maps");
-    }
-  };
-
-  // Calculate travel time between activities
-  const estimateTravelTime = (item1: ItineraryItem, item2: ItineraryItem) => {
-    if (
-      !item1.destination_latitude ||
-      !item1.destination_longitude ||
-      !item2.destination_latitude ||
-      !item2.destination_longitude
-    ) {
-      return null;
-    }
-
-    const R = 6371;
-    const dLat =
-      ((item2.destination_latitude - item1.destination_latitude) * Math.PI) /
-      180;
-    const dLon =
-      ((item2.destination_longitude - item1.destination_longitude) * Math.PI) /
-      180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((item1.destination_latitude * Math.PI) / 180) *
-        Math.cos((item2.destination_latitude * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-
-    const timeInHours = distance / 30;
-    const timeInMinutes = Math.round(timeInHours * 60);
-
-    return timeInMinutes;
-  };
-
-  // Check if there's enough time between activities
-  const hasEnoughTimeBetween = (item1: ItineraryItem, item2: ItineraryItem) => {
-    const travelTime = estimateTravelTime(item1, item2);
-    if (!travelTime) return { hasTime: true, message: "" };
-
-    const end1 = new Date(`2000-01-01T${item1.end_time}`);
-    const start2 = new Date(`2000-01-01T${item2.start_time}`);
-    const gapMinutes = (start2.getTime() - end1.getTime()) / (1000 * 60);
-
-    if (gapMinutes < travelTime) {
-      return {
-        hasTime: false,
-        message: `⚠️ Only ${Math.round(
-          gapMinutes
-        )} min gap, ~${travelTime} min travel time`,
-      };
-    }
-
-    return { hasTime: true, message: `~${travelTime} min travel` };
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  const formatTimeRange = (startTime: string, endTime: string) => {
-    return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-  };
-
-  const getDayRange = () => {
-    if (!itinerary) return 0;
-    const start = new Date(itinerary.start_date);
-    const end = new Date(itinerary.end_date);
-    return (
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1
-    );
-  };
-
-  const groupItemsByDay = () => {
-    if (!itinerary?.items) return {};
-
-    return itinerary.items.reduce((acc, item) => {
-      if (!acc[item.day_number]) {
-        acc[item.day_number] = [];
-      }
-      acc[item.day_number].push(item);
-      return acc;
-    }, {} as Record<number, ItineraryItem[]>);
-  };
-
-  const getImageUri = (imagePath: string) => {
-    if (imagePath.startsWith("http")) {
-      return imagePath;
-    }
-    return `${API_URL}${imagePath}`;
-  };
-
-  const getDateForDay = (dayNumber: number) => {
-    if (!itinerary) return "";
-    const startDate = new Date(itinerary.start_date);
-    const targetDate = new Date(startDate);
-    targetDate.setDate(startDate.getDate() + dayNumber - 1);
-    return targetDate.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const getCurrentDay = () => {
-    if (!itinerary) return 0;
-
-    const today = new Date();
-    const startDate = new Date(itinerary.start_date);
-
-    today.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-
-    const timeDiff = today.getTime() - startDate.getTime();
-    const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24)) + 1;
-
-    return Math.max(1, dayDiff);
-  };
-
-  // NEW FUNCTION: Check if all activities for a given day have passed
-  const areAllDayActivitiesPast = (dayNumber: number) => {
-    if (!itinerary) return false;
-
-    const dayItems = itinerary.items.filter(
-      (item) => item.day_number === dayNumber
-    );
-    if (dayItems.length === 0) return true; // No activities for this day
-
-    const now = new Date();
-    const startDate = new Date(itinerary.start_date);
-    const dayDate = new Date(startDate);
-    dayDate.setDate(startDate.getDate() + dayNumber - 1);
-
-    // Check if all activities for this day have ended
-    return dayItems.every((item) => {
-      const itemEndDateTime = new Date(dayDate);
-      const [hours, minutes] = item.end_time.split(":").map(Number);
-      itemEndDateTime.setHours(hours, minutes, 0, 0);
-
-      return now > itemEndDateTime;
-    });
-  };
-
-  // UPDATED FUNCTION: Get edit capabilities considering time
-  const getEditCapabilities = () => {
-    if (!itinerary) return { canEdit: false, editType: "none" };
-
-    switch (itinerary.status) {
-      case "upcoming":
-        return {
-          canEdit: true,
-          editType: "full",
-          message: "Edit your upcoming trip",
-        };
-
-      case "ongoing":
-        const currentDay = getCurrentDay();
-        const totalDays = getDayRange();
-
-        // Check if all activities for today have passed
-        const todayActivitiesComplete = areAllDayActivitiesPast(currentDay);
-
-        // If today's activities are complete, only future days are editable
-        const firstEditableDay = todayActivitiesComplete
-          ? currentDay + 1
-          : currentDay;
-
-        // Check if there are any editable days left
-        if (firstEditableDay > totalDays) {
-          return {
-            canEdit: false,
-            editType: "all_activities_complete",
-            message: "All activities have been completed",
-          };
-        }
-
-        return {
-          canEdit: true,
-          editType: "current_and_future",
-          message: todayActivitiesComplete
-            ? `Edit future days only (Day ${firstEditableDay}+)`
-            : `Edit today and future days (Day ${currentDay}+)`,
-          currentDay,
-          firstEditableDay,
-          todayComplete: todayActivitiesComplete,
-          editableDays: Array.from(
-            { length: totalDays - firstEditableDay + 1 },
-            (_, i) => firstEditableDay + i
-          ),
-        };
-
-      case "completed":
-        return {
-          canEdit: false,
-          editType: "completed",
-          message: "Completed trips cannot be edited",
-        };
-
-      default:
-        return { canEdit: false, editType: "none" };
-    }
+  const handlePayNow = () => {
+    router.push(`/(traveler)/(payment)/${itinerary?.itinerary_id}`);
   };
 
   const getEditButtonConfig = () => {
@@ -623,17 +150,15 @@ export default function ItineraryDetailScreen({ route }: any) {
         { text: "OK", style: "default" as const },
         ...(capabilities.editType === "completed"
           ? [
-              {
-                text: "Create Similar Trip",
-                style: "default" as const,
-                onPress: () =>
-                  router.push(
-                    `/(createItinerary)/duplicate/${
-                      itinerary!.itinerary_id
-                    }` as any
-                  ),
-              },
-            ]
+            {
+              text: "Create Similar Trip",
+              style: "default" as const,
+              onPress: () =>
+                router.push(
+                  `/(createItinerary)/duplicate/${itinerary!.itinerary_id}` as any
+                ),
+            },
+          ]
           : []),
       ]);
       return;
@@ -666,9 +191,7 @@ export default function ItineraryDetailScreen({ route }: any) {
       <View className="items-end">
         <View className={`px-3 py-1 rounded-md ${config.bg}`}>
           <View className="flex-row items-center">
-            <Text
-              className={`text-xs font-onest-medium capitalize ${config.text}`}
-            >
+            <Text className={`text-xs font-onest-medium capitalize ${config.text}`}>
               {status}
             </Text>
           </View>
@@ -677,56 +200,19 @@ export default function ItineraryDetailScreen({ route }: any) {
     );
   };
 
-  const getDayHeaderStyle = (dayNumber: number) => {
-    const capabilities = getEditCapabilities();
-
-    if (capabilities.editType === "current_and_future") {
-      const isEditable = capabilities.editableDays?.includes(dayNumber);
-      const isPast = dayNumber < capabilities.currentDay!;
-      const isCurrent = dayNumber === capabilities.currentDay!;
-      const isCurrentButComplete = isCurrent && capabilities.todayComplete;
-
-      if (isPast || isCurrentButComplete) {
-        return {
-          container: "bg-gray-50 border-l-4 border-gray-300",
-          text: "text-gray-500",
-          indicator: "✓ Completed",
-        };
-      } else if (isCurrent && !isCurrentButComplete) {
-        return {
-          container: "bg-blue-50 border-l-4 border-blue-400",
-          text: "text-blue-700",
-          indicator: "📍 Today - Editable",
-        };
-      } else if (isEditable) {
-        return {
-          container: "bg-white border-l-4 border-green-400",
-          text: "text-gray-800",
-          indicator: "✏️ Editable",
-        };
-      }
-    }
-
-    return {
-      container: "bg-white",
-      text: "text-gray-800",
-      indicator: "",
-    };
-  };
-
+  // Loading state
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#4F46E5" />
-          <Text className="mt-4 text-gray-600 font-onest">
-            Loading itinerary...
-          </Text>
+          <Text className="mt-4 text-gray-600 font-onest">Loading itinerary...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  // Empty state
   if (!itinerary) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -746,8 +232,8 @@ export default function ItineraryDetailScreen({ route }: any) {
     );
   }
 
-  const groupedItems = groupItemsByDay();
-  const dayCount = getDayRange();
+  const groupedItems = groupItemsByDay(itinerary.items);
+  const dayCount = getDayRange(itinerary);
 
   return (
     <SafeAreaView className="bg-gray-50">
@@ -761,10 +247,7 @@ export default function ItineraryDetailScreen({ route }: any) {
 
         <View className="w-6 mt-4" />
 
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: 142 }}
-        >
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 142 }}>
           <View className="mx-6 mb-6 rounded-lg overflow-hidden border border-gray-200">
             <View className="p-6 bg-white">
               <View className="flex-row justify-between items-start mb-4">
@@ -776,14 +259,9 @@ export default function ItineraryDetailScreen({ route }: any) {
 
                   {/* Dates */}
                   <View className="flex-row items-center mb-2">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={16}
-                      color="#6B7280"
-                    />
+                    <Ionicons name="calendar-outline" size={16} color="#6B7280" />
                     <Text className="text-sm text-gray-600 font-onest ml-2">
-                      {formatDate(itinerary.start_date)} -{" "}
-                      {formatDate(itinerary.end_date)}
+                      {formatDate(itinerary.start_date)} - {formatDate(itinerary.end_date)}
                     </Text>
                   </View>
 
@@ -791,8 +269,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                   <View className="flex-row items-center mb-2">
                     <Ionicons name="globe-outline" size={16} color="#6B7280" />
                     <Text className="text-sm text-gray-600 font-onest ml-2">
-                      {dayCount} day{dayCount > 1 ? "s" : ""} •{" "}
-                      {itinerary.items.length}{" "}
+                      {dayCount} day{dayCount > 1 ? "s" : ""} • {itinerary.items.length}{" "}
                       {itinerary.items.length > 1 ? "activities" : "activity"}
                     </Text>
                   </View>
@@ -802,18 +279,17 @@ export default function ItineraryDetailScreen({ route }: any) {
               </View>
 
               {/* ==================== PAYMENT SECTION START ==================== */}
+
               {itinerary.payments && itinerary.payments.length > 0 ? (
                 <View className="mt-4 pt-4 border-t border-gray-200">
                   {/* Collapsible Header */}
                   <Pressable
                     onPress={() => setIsPaymentExpanded(!isPaymentExpanded)}
-                    className="flex-row items-center justify-between "
+                    className="flex-row items-center justify-between"
                   >
                     <View className="flex-row items-center flex-1">
                       <Ionicons
-                        name={
-                          isPaymentExpanded ? "chevron-down" : "chevron-forward"
-                        }
+                        name={isPaymentExpanded ? "chevron-down" : "chevron-forward"}
                         size={20}
                         color="#374151"
                         style={{ marginRight: 8 }}
@@ -823,176 +299,230 @@ export default function ItineraryDetailScreen({ route }: any) {
                       </Text>
                     </View>
 
-                    {/* Payment Status Badge - Always Visible */}
-                    <View
-                      className={`px-3 py-1.5 rounded-full flex-row items-center ${
-                        itinerary.payments[0].payment_status === "Paid"
-                          ? "bg-green-100"
-                          : itinerary.payments[0].payment_status === "Partial"
-                          ? "bg-yellow-50"
-                          : "bg-yellow-50 "
-                      }`}
-                    >
-                      <Ionicons
-                        name={
-                          itinerary.payments[0].payment_status === "Paid"
-                            ? "checkmark-circle"
-                            : itinerary.payments[0].payment_status === "Partial"
-                            ? "time"
-                            : "alert-circle"
-                        }
-                        size={14}
-                        color={
-                          itinerary.payments[0].payment_status === "Paid"
-                            ? "#059669"
-                            : itinerary.payments[0].payment_status === "Partial"
-                            ? "#D97706"
-                            : "#D97706"
-                        }
-                      />
-                      <Text
-                        className={`text-xs font-onest-medium ml-1 ${
-                          itinerary.payments[0].payment_status === "Paid"
-                            ? "text-green-700"
-                            : itinerary.payments[0].payment_status === "Partial"
-                            ? "text-yellow-600"
-                            : "text-yellow-600"
-                        }`}
-                      >
-                        {itinerary.payments[0].payment_status}
-                      </Text>
-                    </View>
+                    {/* Payment Status Badge */}
+                    {(() => {
+                      const payment = itinerary.payments[0];
+                      const status = payment.display_status || payment.payment_status || "Unknown";
+                      const isPaid = status === "Paid" || payment.is_payment_complete === true;
+                      const isPartial = status === "Partial" && payment.is_payment_complete !== true;
+                      const isFailed = status === "Failed";
+
+                      // ✅ Use specific icon names directly, not variables
+                      if (isPaid) {
+                        return (
+                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-green-100">
+                            <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                            <Text className="text-xs font-onest-medium ml-1 text-green-700">
+                              {status}
+                            </Text>
+                          </View>
+                        );
+                      }
+
+                      if (isFailed) {
+                        return (
+                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-red-100">
+                            <Ionicons name="close-circle" size={14} color="#DC2626" />
+                            <Text className="text-xs font-onest-medium ml-1 text-red-700">
+                              {status}
+                            </Text>
+                          </View>
+                        );
+                      }
+
+                      if (isPartial) {
+                        return (
+                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-yellow-50">
+                            <Ionicons name="time" size={14} color="#D97706" />
+                            <Text className="text-xs font-onest-medium ml-1 text-yellow-600">
+                              {status}
+                            </Text>
+                          </View>
+                        );
+                      }
+
+                      // Default/Unknown status
+                      return (
+                        <View className="px-3 py-1.5 rounded-full flex-row items-center bg-yellow-50">
+                          <Ionicons name="alert-circle" size={14} color="#D97706" />
+                          <Text className="text-xs font-onest-medium ml-1 text-yellow-600">
+                            {status}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </Pressable>
 
                   {/* Expandable Content */}
                   {isPaymentExpanded && (
                     <View>
-                      {/* Progress Bar (for Partial payments) */}
-                      {itinerary.payments[0].payment_status === "Partial" && (
-                        <View className="mb-3">
-                          <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <View
-                              className="h-full bg-yellow-500 rounded-full"
-                              style={{
-                                width: `${
-                                  (Number(itinerary.payments[0].amount_paid) /
-                                    Number(
-                                      itinerary.payments[0].total_amount
-                                    )) *
-                                  100
-                                }%`,
-                              }}
-                            />
-                          </View>
-                          <Text className="text-xs text-gray-500 font-onest mt-1">
-                            {(
-                              (Number(itinerary.payments[0].amount_paid) /
-                                Number(itinerary.payments[0].total_amount)) *
-                              100
-                            ).toFixed(0)}
-                            % paid
-                          </Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const payment = itinerary.payments[0];
 
-                      {/* Payment Amount Details */}
-                      <View className="bg-gray-50 rounded-lg p-3 mb-3">
-                        <View className="flex-row items-center justify-between mb-2">
-                          <Text className="text-sm text-gray-600 font-onest">
-                            Total Amount
-                          </Text>
-                          <Text className="text-sm font-onest-medium text-gray-800">
-                            ₱
-                            {Number(
-                              itinerary.payments[0].total_amount
-                            ).toLocaleString()}
-                          </Text>
-                        </View>
+                        // Safe type checking and defaults
+                        const status = payment.display_status || payment.payment_status;
+                        const isFailed = status === "Failed";
+                        const isPaid = status === "Paid" || payment.is_payment_complete === true;
+                        const isPartial = payment.payment_status === "Partial" && payment.is_payment_complete !== true;
 
-                        {Number(itinerary.payments[0].amount_paid) > 0 && (
-                          <View className="flex-row items-center justify-between mb-2">
-                            <Text className="text-sm text-gray-600 font-onest">
-                              {itinerary.payments[0].payment_status ===
-                              "Pending"
-                                ? "Payment Submitted"
-                                : "Amount Paid"}
-                            </Text>
+                        // Safe number conversions with defaults
+                        const totalAmount = Number(payment.total_amount) || 0;
+                        const amountPaid = Number(payment.amount_paid) || 0;
+                        const creatorCashDue = Number(payment.creator_cash_due || 0);
+                        const creatorCashCollected = payment.creator_cash_collected === true;
 
-                            <Text
-                              className={`text-sm font-onest-medium ${
-                                itinerary.payments[0].payment_status ===
-                                "Pending"
-                                  ? "text-yellow-600"
-                                  : "text-green-600"
-                              }`}
-                            >
-                              ₱
-                              {Number(
-                                itinerary.payments[0].amount_paid
-                              ).toLocaleString()}
-                            </Text>
-                          </View>
-                        )}
+                        // Calculate progress
+                        const effectivePaid = amountPaid + (creatorCashCollected ? creatorCashDue : 0);
+                        const progressPercentage = totalAmount > 0 ? (effectivePaid / totalAmount) * 100 : 0;
 
-                        {Number(itinerary.payments[0].total_amount) -
-                          (itinerary.payments[0].payment_status === "Pending"
-                            ? 0
-                            : Number(itinerary.payments[0].amount_paid)) >
-                          0 && (
-                          <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
-                            <Text className="text-sm font-onest-semibold text-gray-800">
-                              {itinerary.payments[0].payment_status ===
-                              "Partial"
-                                ? "Remaining"
-                                : "Amount Due"}
-                            </Text>
-                            <Text className="text-base font-onest-bold text-yellow-600">
-                              ₱
-                              {(
-                                Number(itinerary.payments[0].total_amount) -
-                                (itinerary.payments[0].payment_status ===
-                                "Pending"
-                                  ? 0
-                                  : Number(itinerary.payments[0].amount_paid))
-                              ).toLocaleString()}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                        // Use actual_remaining_balance from backend if available
+                        const remainingBalance = payment.actual_remaining_balance !== undefined
+                          ? Number(payment.actual_remaining_balance)
+                          : Math.max(0, totalAmount - effectivePaid);
 
-                      {/* Action Buttons or Success Message */}
-                      {itinerary.payments[0].payment_status !== "Paid" ? (
-                        <TouchableOpacity
-                          className="bg-primary py-3 px-4 rounded-lg flex-row items-center justify-center"
-                          activeOpacity={0.7}
-                          onPress={handlePayNow}
-                        >
-                          <Ionicons
-                            name="card-outline"
-                            size={18}
-                            color="white"
-                          />
-                          <Text className="text-white font-onest-semibold text-sm ml-2">
-                            {itinerary.payments[0].payment_status === "Partial"
-                              ? `Pay Remaining ₱${(
-                                  Number(itinerary.payments[0].total_amount) -
-                                  Number(itinerary.payments[0].amount_paid)
-                                ).toLocaleString()}`
-                              : "Pay Now"}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View className="bg-green-50 rounded-lg p-3 flex-row items-center">
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={20}
-                            color="#059669"
-                          />
-                          <Text className="text-green-700 font-onest-medium text-sm ml-2 flex-1">
-                            Payment completed. Your booking is confirmed!
-                          </Text>
-                        </View>
-                      )}
+                        // Determine if pay button should show
+                        const shouldShowPayButton =
+                          isFailed ||
+                          (payment.show_pay_button !== false && !isPaid && remainingBalance > 0);
+
+                        return (
+                          <>
+                            {/* Progress Bar (for Partial payments only) */}
+                            {isPartial && !isFailed && (
+                              <View className="mb-3 mt-3">
+                                <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <View
+                                    className="h-full bg-yellow-500 rounded-full"
+                                    style={{
+                                      width: `${Math.min(progressPercentage, 100)}%`,
+                                    }}
+                                  />
+                                </View>
+                                <Text className="text-xs text-gray-500 font-onest mt-1">
+                                  {progressPercentage.toFixed(0)}% paid
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* Failed Payment Warning */}
+                            {isFailed && (
+                              <View className="bg-red-50 rounded-lg p-3 mb-3 mt-3 flex-row items-start">
+                                <Ionicons name="close-circle" size={20} color="#DC2626" />
+                                <View className="ml-2 flex-1">
+                                  <Text className="text-red-700 font-onest-semibold text-sm">
+                                    Payment Declined
+                                  </Text>
+                                  <Text className="text-red-600 font-onest text-xs mt-1">
+                                    Your payment proof was rejected. Please resubmit with a valid payment proof.
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Payment Amount Details */}
+                            <View className="bg-gray-50 rounded-lg p-3 mb-3 mt-3">
+                              {/* Total Amount */}
+                              <View className="flex-row items-center justify-between mb-2">
+                                <Text className="text-sm text-gray-600 font-onest">Total Amount</Text>
+                                <Text className="text-sm font-onest-medium text-gray-800">
+                                  ₱{totalAmount.toLocaleString()}
+                                </Text>
+                              </View>
+
+                              {/* Amount Paid Online - only show if > 0 and not failed */}
+                              {amountPaid > 0 && !isFailed && (
+                                <View className="flex-row items-center justify-between mb-2">
+                                  <Text className="text-sm text-gray-600 font-onest">
+                                    Amount Paid (Online)
+                                  </Text>
+                                  <Text className="text-sm font-onest-medium text-green-600">
+                                    ₱{amountPaid.toLocaleString()}
+                                  </Text>
+                                </View>
+                              )}
+
+                              {/* Creator Cash Payment Info */}
+                              {creatorCashDue > 0 && !isFailed && (
+                                <View className="flex-row items-center justify-between mb-2">
+                                  <Text className="text-sm text-gray-600 font-onest">
+                                    Cash Payment {creatorCashCollected ? "(✓ Collected)" : "(Due)"}
+                                  </Text>
+                                  <Text
+                                    className={`text-sm font-onest-medium ${creatorCashCollected ? "text-green-600" : "text-yellow-600"
+                                      }`}
+                                  >
+                                    ₱{creatorCashDue.toLocaleString()}
+                                  </Text>
+                                </View>
+                              )}
+
+                              {/* Remaining Balance or Amount to Pay */}
+                              {!isPaid && remainingBalance > 0 && (
+                                <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
+                                  <Text className="text-sm font-onest-semibold text-gray-800">
+                                    {isFailed ? "Amount to Pay" : "Remaining"}
+                                  </Text>
+                                  <Text
+                                    className={`text-base font-onest-bold ${isFailed ? "text-red-600" : "text-yellow-600"
+                                      }`}
+                                  >
+                                    ₱{remainingBalance.toLocaleString()}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+
+                            {/* Action: Pay Button OR Success Message */}
+                            {shouldShowPayButton ? (
+                              // Pay/Resubmit Button
+                              <TouchableOpacity
+                                className={`py-3 px-4 rounded-lg flex-row items-center justify-center bg-primary
+                                  `}
+                                activeOpacity={0.7}
+                                onPress={handlePayNow}
+                              >
+                                <Ionicons
+                                  name={isFailed ? "refresh-outline" : "card-outline"}
+                                  size={18}
+                                  color="white"
+                                />
+                                <Text className="text-white font-onest-semibold text-sm ml-2">
+                                  {isFailed
+                                    ? `Resubmit Payment`
+                                    : `Pay Remaining ₱${Math.round(remainingBalance).toLocaleString()}`}
+                                </Text>
+                              </TouchableOpacity>
+                            ) : (
+                              // Payment Complete Message
+                              <View className="bg-green-50 rounded-lg p-3 flex-row items-start">
+                                <Ionicons name="checkmark-circle" size={20} color="#059669" />
+                                <View className="ml-2 flex-1">
+                                  <Text className="text-green-700 font-onest-semibold text-sm">
+                                    Payment Complete
+                                  </Text>
+                                  {payment.payment_complete_message && (
+                                    <Text className="text-green-600 font-onest text-xs mt-1">
+                                      {payment.payment_complete_message}
+                                    </Text>
+                                  )}
+                                  {payment.creator_cash_collected_at && (
+                                    <Text className="text-green-600 font-onest text-xs mt-0.5">
+                                      Collected on{" "}
+                                      {new Date(
+                                        payment.creator_cash_collected_at
+                                      ).toLocaleDateString("en-PH", {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                            )}
+                          </>
+                        );
+                      })()}
                     </View>
                   )}
                 </View>
@@ -1005,9 +535,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                     className="flex-row items-center mb-3"
                   >
                     <Ionicons
-                      name={
-                        isPaymentExpanded ? "chevron-down" : "chevron-forward"
-                      }
+                      name={isPaymentExpanded ? "chevron-down" : "chevron-forward"}
                       size={20}
                       color="#374151"
                       style={{ marginRight: 8 }}
@@ -1019,50 +547,29 @@ export default function ItineraryDetailScreen({ route }: any) {
 
                   {isPaymentExpanded && (
                     <View className="bg-blue-50 rounded-lg p-3 flex-row items-start">
-                      <Ionicons
-                        name="information-circle-outline"
-                        size={18}
-                        color="#3B82F6"
-                      />
+                      <Ionicons name="information-circle-outline" size={18} color="#3B82F6" />
                       <Text className="text-xs text-blue-700 font-onest ml-2 flex-1">
-                        Payment information will be available once confirmed
-                        with your creator.
+                        Payment information will be available once confirmed with your creator.
                       </Text>
                     </View>
                   )}
                 </View>
               )}
               {/* ==================== PAYMENT SECTION END ==================== */}
-
-              {/* Notes */}
-              {/* {itinerary.notes && (
-                <View className="bg-indigo-50 rounded-md p-3 mt-4">
-                  <Text className="text-sm font-onest-medium text-primary mb-1">
-                    Notes
-                  </Text>
-                  <Text className="text-sm text-gray-600 font-onest">
-                    {itinerary.notes}
-                  </Text>
-                </View>
-              )} */}
             </View>
           </View>
+
           {/* Daily Itinerary Section */}
           <View className="px-6">
             <View className="flex flex-row items-center justify-between mb-4">
-              <Text className="text-normal text-xl font-onest-medium ">
-                Daily Itinerary
-              </Text>
+              <Text className="text-normal text-xl font-onest-medium ">Daily Itinerary</Text>
               {/* Add to Calendar */}
               <Pressable
-                className="flex  flex-row gap-1"
-                onPress={handleAddToCalendar}
+                className="flex flex-row gap-1"
+                onPress={() => addItineraryToCalendar(itinerary)}
               >
                 <Ionicons name="add-outline" size={16} color="#3b82f6" />
-                <Text className="font-onest text-blue-500">
-                  {" "}
-                  Add to Calendar
-                </Text>
+                <Text className="font-onest text-blue-500"> Add to Calendar</Text>
               </Pressable>
             </View>
 
@@ -1075,8 +582,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                 );
                 const hasMultipleStops = sortedItems.length > 1;
                 const hasCoordinates = sortedItems.some(
-                  (item) =>
-                    item.destination_latitude && item.destination_longitude
+                  (item) => item.destination_latitude && item.destination_longitude
                 );
                 const isCollapsed = collapsedDays.has(parseInt(day));
 
@@ -1096,9 +602,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                         <View className="flex-row justify-between items-center">
                           <View className="flex-1 flex-row items-center">
                             <Ionicons
-                              name={
-                                isCollapsed ? "chevron-forward" : "chevron-down"
-                              }
+                              name={isCollapsed ? "chevron-forward" : "chevron-down"}
                               size={20}
                               color="#6B7280"
                               style={{ marginRight: 8 }}
@@ -1117,11 +621,9 @@ export default function ItineraryDetailScreen({ route }: any) {
                                 )}
                               </View>
                               <Text className="text-sm text-gray-500 font-onest">
-                                {getDateForDay(parseInt(day))} •{" "}
+                                {getDateForDay(itinerary, parseInt(day))} •{" "}
                                 {sortedItems.length}{" "}
-                                {sortedItems.length > 1
-                                  ? "activities"
-                                  : "activity"}
+                                {sortedItems.length > 1 ? "activities" : "activity"}
                               </Text>
                             </View>
                           </View>
@@ -1137,11 +639,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                             }}
                             activeOpacity={0.7}
                           >
-                            <Ionicons
-                              name="navigate"
-                              size={16}
-                              color="#E5E7EB"
-                            />
+                            <Ionicons name="navigate" size={16} color="#E5E7EB" />
                             <Text className="text-gray-200 font-onest-medium ml-2 text-sm">
                               Navigate All ({sortedItems.length} stops)
                             </Text>
@@ -1161,27 +659,18 @@ export default function ItineraryDetailScreen({ route }: any) {
                         return (
                           <React.Fragment key={item.item_id}>
                             <TouchableOpacity
-                              className={`bg-white p-4 ${
-                                index !== items.length - 1
-                                  ? "border-b border-gray-100"
-                                  : ""
-                              }`}
+                              className={`bg-white p-4 ${index !== items.length - 1 ? "border-b border-gray-100" : ""
+                                }`}
                               activeOpacity={0.7}
                               onPress={() =>
-                                router.push(
-                                  `/(traveler)/(itinerary)/activity/${item.item_id}`
-                                )
+                                router.push(`/(traveler)/(itinerary)/activity/${item.item_id}`)
                               }
                             >
                               <View className="flex-row">
                                 {/* Time Column */}
                                 <View className="w-20 items-center mr-4">
                                   <View className="bg-indigo-50 rounded-md p-2 items-center">
-                                    <Ionicons
-                                      name="time-outline"
-                                      size={14}
-                                      color="#4F46E5"
-                                    />
+                                    <Ionicons name="time-outline" size={14} color="#4F46E5" />
                                     <Text className="text-xs font-onest-medium text-primary mt-1">
                                       {formatTime(item.start_time)}
                                     </Text>
@@ -1200,11 +689,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                                           handleSingleNavigation(item);
                                         }}
                                       >
-                                        <Ionicons
-                                          name="navigate"
-                                          size={16}
-                                          color="#4F46E5"
-                                        />
+                                        <Ionicons name="navigate" size={16} color="#4F46E5" />
                                       </TouchableOpacity>
                                     )}
                                 </View>
@@ -1215,18 +700,14 @@ export default function ItineraryDetailScreen({ route }: any) {
                                   {item.primary_image ? (
                                     <Image
                                       source={{
-                                        uri: getImageUri(item.primary_image),
+                                        uri: getImageUri(item.primary_image, API_URL),
                                       }}
                                       className="w-full h-32 rounded-md mb-3"
                                       resizeMode="cover"
                                     />
                                   ) : (
                                     <View className="w-full h-32 bg-gray-200 items-center justify-center rounded-md mb-3">
-                                      <Ionicons
-                                        name="image-outline"
-                                        size={40}
-                                        color="#A0AEC0"
-                                      />
+                                      <Ionicons name="image-outline" size={40} color="#A0AEC0" />
                                     </View>
                                   )}
 
@@ -1240,25 +721,16 @@ export default function ItineraryDetailScreen({ route }: any) {
 
                                   {/* Location */}
                                   <View className="flex-row items-center mb-2">
-                                    <Ionicons
-                                      name="location-outline"
-                                      size={16}
-                                      color="#4F46E5"
-                                    />
+                                    <Ionicons name="location-outline" size={16} color="#4F46E5" />
                                     <Text className="text-sm text-gray-600 font-onest ml-1">
-                                      {item.destination_name},{" "}
-                                      {item.destination_city}
+                                      {item.destination_name}, {item.destination_city}
                                     </Text>
                                   </View>
 
                                   {/* Duration */}
                                   <View className="bg-gray-50 rounded-md p-2 mb-2">
                                     <Text className="text-xs text-gray-500 font-onest">
-                                      Duration:{" "}
-                                      {formatTimeRange(
-                                        item.start_time,
-                                        item.end_time
-                                      )}
+                                      Duration: {formatTimeRange(item.start_time, item.end_time)}
                                     </Text>
                                   </View>
 
@@ -1291,14 +763,12 @@ export default function ItineraryDetailScreen({ route }: any) {
                                     />
                                   </View>
                                   <Text
-                                    className={`text-sm font-onest ${
-                                      timeCheck && !timeCheck.hasTime
-                                        ? "text-orange-600"
-                                        : "text-gray-600"
-                                    }`}
+                                    className={`text-sm font-onest ${timeCheck && !timeCheck.hasTime
+                                      ? "text-orange-600"
+                                      : "text-gray-600"
+                                      }`}
                                   >
-                                    {timeCheck?.message ||
-                                      "Travel to next activity"}
+                                    {timeCheck?.message || "Travel to next activity"}
                                   </Text>
                                 </View>
 
@@ -1309,15 +779,7 @@ export default function ItineraryDetailScreen({ route }: any) {
                                   nextItem.destination_longitude && (
                                     <TouchableOpacity
                                       className="bg-white border border-gray-300 rounded-full px-3 py-1.5 flex-row items-center"
-                                      onPress={() => {
-                                        const origin = `${item.destination_latitude},${item.destination_longitude}`;
-                                        const destination = `${nextItem.destination_latitude},${nextItem.destination_longitude}`;
-                                        const url = Platform.select({
-                                          ios: `https://maps.apple.com/?saddr=${origin}&daddr=${destination}`,
-                                          android: `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`,
-                                        });
-                                        if (url) Linking.openURL(url);
-                                      }}
+                                      onPress={() => navigateBetweenItems(item, nextItem)}
                                     >
                                       <Ionicons
                                         name="navigate-outline"
@@ -1352,11 +814,7 @@ export default function ItineraryDetailScreen({ route }: any) {
             >
               <View className="flex-row items-center">
                 <Ionicons
-                  name={
-                    editConfig.disabled
-                      ? "lock-closed-outline"
-                      : "create-outline"
-                  }
+                  name={editConfig.disabled ? "lock-closed-outline" : "create-outline"}
                   size={20}
                   color={editConfig.iconColor}
                 />
