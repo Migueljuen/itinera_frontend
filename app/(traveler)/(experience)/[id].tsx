@@ -12,6 +12,7 @@ import {
   Linking,
   Modal,
   Platform,
+  Pressable,
   Text,
   TouchableOpacity,
   View,
@@ -23,6 +24,15 @@ import AnimatedHeartButton from "../../../components/SaveButton";
 import API_URL from "../../../constants/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ItineraryItem } from "../../../types/itineraryTypes";
+
+type ExperienceStep = {
+  step_id: number;
+  experience_id: number;
+  step_order: number;
+  title: string;
+  description: string;
+  created_at: string;
+};
 
 type Experience = {
   id: number;
@@ -39,6 +49,7 @@ type Experience = {
     image_url: string;
     experience_id: number;
   }>;
+  steps?: ExperienceStep[];
   is_saved?: boolean;
   destination: {
     destination_id: number;
@@ -337,7 +348,7 @@ export default function ExperienceDetail() {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
         <ActivityIndicator size="large" color="#1f2937" />
-        <Text className="mt-4 text-gray-600 font-onest">
+        <Text className="mt-4 text-black/60 font-onest">
           Loading experience...
         </Text>
       </SafeAreaView>
@@ -571,10 +582,10 @@ export default function ExperienceDetail() {
           {/* Title and Location */}
           <View className="mb-4">
             <View className="flex-row justify-between">
-              <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-gray-800">
+              <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-black/90">
                 {experience.title}
               </Text>
-              <Text className="my-4 text-gray-600 font-onest">
+              <Text className="my-4 text-black/60 font-onest">
                 {experience.unit}
               </Text>
             </View>
@@ -588,7 +599,7 @@ export default function ExperienceDetail() {
 
           {/* Tab Navigation */}
           <View className="flex-row border-b border-gray-200 mt-4">
-            <TouchableOpacity
+            <Pressable
               className={`px-4 py-2 ${
                 activeTab === "details" ? "border-b-2 border-primary" : ""
               }`}
@@ -596,13 +607,13 @@ export default function ExperienceDetail() {
             >
               <Text
                 className={`font-onest-medium ${
-                  activeTab === "details" ? "text-primary" : "text-gray-600"
+                  activeTab === "details" ? "text-primary" : "text-black/60"
                 }`}
               >
                 Details
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               className={`px-4 py-2 ${
                 activeTab === "availability" ? "border-b-2 border-primary" : ""
               }`}
@@ -612,12 +623,12 @@ export default function ExperienceDetail() {
                 className={`font-onest-medium ${
                   activeTab === "availability"
                     ? "text-primary"
-                    : "text-gray-600"
+                    : "text-black/60"
                 }`}
               >
                 Availability
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Content based on active tab */}
@@ -640,10 +651,10 @@ export default function ExperienceDetail() {
               )}
 
               {/* Description */}
-              <Text className="text-lg font-onest-semibold mt-4 mb-2 text-gray-800">
-                Description
+              <Text className="text-lg font-onest-semibold mt-4 mb-2 text-black/90">
+                Activity Description
               </Text>
-              <Text className="text-gray-600 font-onest">
+              <Text className="text-black/60 font-onest">
                 {expanded
                   ? experience.description
                   : experience.description?.length > 150
@@ -659,37 +670,72 @@ export default function ExperienceDetail() {
                 </TouchableOpacity>
               )}
 
-              {/* Notes */}
-              <Text className="text-lg font-onest-semibold mt-4 mb-2 text-gray-800">
-                Additional Notes
-              </Text>
-              <Text className="text-gray-600 font-onest">
-                {expanded
-                  ? experience.notes
-                  : experience.notes?.length > 150
-                  ? `${experience.notes.substring(0, 150)}...`
-                  : experience.notes}
-              </Text>
-
-              {experience.description?.length > 150 && (
-                <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                  <Text className="text-primary mt-2 font-onest-medium">
-                    {expanded ? "Read Less" : "Read More"}
+              {/* Steps Section */}
+              {experience.steps && experience.steps.length > 0 && (
+                <View className="mt-12 border-b border-gray-200 pb-6">
+                  <Text className="text-lg font-onest-semibold mb-3 text-black/90 ">
+                    What You'll Do
                   </Text>
-                </TouchableOpacity>
+                  {experience.steps.map((step, index) => (
+                    <View key={step.step_id}>
+                      <View className="flex-row">
+                        <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3 mt-1">
+                          <Text className="text-white font-onest-semibold text-sm">
+                            {step.step_order}
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-onest text-black/90 mb-1">
+                            {step.title}
+                          </Text>
+                          <Text className="text-black/60 font-onest text-sm">
+                            {step.description}
+                          </Text>
+                        </View>
+                      </View>
+                      {index < (experience.steps?.length ?? 0) - 1 && (
+                        <View className="ml-4 my-1 border-l-2 border-gray-200 h-3" />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Notes */}
+              {experience.notes && (
+                <>
+                  <Text className="text-lg font-onest-semibold mt-6 mb-2 text-black/90">
+                    Additional Notes
+                  </Text>
+                  <Text className="text-black/60 font-onest">
+                    {expanded
+                      ? experience.notes
+                      : experience.notes?.length > 150
+                      ? `${experience.notes.substring(0, 150)}...`
+                      : experience.notes}
+                  </Text>
+
+                  {experience.notes?.length > 150 && (
+                    <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+                      <Text className="text-primary mt-2 font-onest-medium">
+                        {expanded ? "Read Less" : "Read More"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               {/* Location Information */}
               {experience.destination && (
-                <View className="mt-6">
-                  <Text className="text-lg font-onest-semibold mb-2 text-gray-800">
+                <View className="mt-12 border-b border-gray-200">
+                  <Text className="text-lg font-onest-semibold mb-2 text-black/90">
                     Location
                   </Text>
                   <View className="bg-gray-50 rounded-xl p-4 ">
                     <View className="flex-row items-start mb-3">
                       <Ionicons name="location" size={20} color="#4F46E5" />
                       <View className="ml-3 flex-1">
-                        <Text className="font-onest-semibold text-gray-800 mb-1">
+                        <Text className="font-onest-semibold text-black/90 mb-1">
                           {experience.destination.name}
                         </Text>
                         <Text className="text-gray-400 font-onest">
