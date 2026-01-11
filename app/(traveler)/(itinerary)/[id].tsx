@@ -18,6 +18,36 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from "../../../constants/api";
 
 // Types
+
+interface ActivityPayment {
+  booking_id: number;
+  item_id: number;
+  experience_id: number;
+  service_type: string;
+  activity_name: string;
+  creator_id: number;
+  creator_name: string;
+
+  // Pricing breakdown
+  activity_price: number;
+  platform_commission_rate: number;
+  platform_commission_amount: number;
+  creator_payout_amount: number;
+
+  // Payment breakdown
+  creator_prepaid_amount: number;
+  activity_paid_online: number;
+  creator_cash_due: number;
+  creator_cash_collected: boolean;
+  creator_cash_collected_at: string | null;
+
+  // Status
+  booking_status: string;
+  booking_payment_status: string;
+  is_fully_paid: boolean;
+  remaining_cash_due: number;
+}
+
 interface PaymentData {
   payment_id: number;
   itinerary_id: number;
@@ -25,20 +55,29 @@ interface PaymentData {
   amount_paid: number;
   payment_status: string;
 
-  // 🆕 NEW FIELDS from backend
-  creator_cash_due?: number;
-  creator_cash_collected?: boolean;
-  creator_cash_collected_at?: string;
+  // Aggregated cash info
+  total_creator_cash_due?: number;
+  total_creator_cash_collected?: number;
+  all_cash_collected?: boolean;
+
+  // Computed fields
   actual_remaining_balance?: number;
   is_payment_complete?: boolean;
   display_status?: string;
-  all_cash_collected?: boolean;
+
+  // Activity breakdown
+  activity_payments?: ActivityPayment[];
+  paid_activities_count?: number;
+  total_activities_count?: number;
+
+  // UI helper flags
   show_pay_button?: boolean;
   payment_complete_message?: string;
 
   created_at: string;
   updated_at: string;
 }
+
 
 // Hooks
 import { useCalendarIntegration } from "@/hooks/useCalendar";
@@ -248,7 +287,7 @@ export default function ItineraryDetailScreen() {
         <View className="w-6 mt-4" />
 
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 142 }}>
-          <View className="mx-6 mb-6 rounded-lg overflow-hidden border border-gray-200">
+          <View className="mx-4 mb-6 rounded-lg overflow-hidden border border-gray-200">
             <View className="p-6 bg-white">
               <View className="flex-row justify-between items-start mb-4">
                 <View className="flex-1 mr-4">
@@ -281,7 +320,7 @@ export default function ItineraryDetailScreen() {
               {/* ==================== PAYMENT SECTION START ==================== */}
 
               {itinerary.payments && itinerary.payments.length > 0 ? (
-                <View className="mt-4 pt-4 border-t border-gray-200">
+                <View className="mt-4 pt-4 border-t border-gray-100">
                   {/* Collapsible Header */}
                   <Pressable
                     onPress={() => setIsPaymentExpanded(!isPaymentExpanded)}
@@ -290,64 +329,55 @@ export default function ItineraryDetailScreen() {
                     <View className="flex-row items-center flex-1">
                       <Ionicons
                         name={isPaymentExpanded ? "chevron-down" : "chevron-forward"}
-                        size={20}
-                        color="#374151"
-                        style={{ marginRight: 8 }}
+                        size={18}
+                        color="#9CA3AF"
+                        style={{ marginRight: 6 }}
                       />
-                      <Text className="text-base font-onest-semibold text-gray-800">
-                        Payment Details
+                      <Text className="text-sm font-onest-medium text-gray-700">
+                        Payment
                       </Text>
                     </View>
 
-                    {/* Payment Status Badge */}
+                    {/* Minimal Status Indicator */}
                     {(() => {
                       const payment = itinerary.payments[0];
-                      const status = payment.display_status || payment.payment_status || "Unknown";
-                      const isPaid = status === "Paid" || payment.is_payment_complete === true;
-                      const isPartial = status === "Partial" && payment.is_payment_complete !== true;
-                      const isFailed = status === "Failed";
+                      const activityPayments = payment.activity_payments || [];
+                      const isPaid = payment.is_payment_complete === true;
+                      const isFailed = payment.display_status === "Failed";
+                      const paidCount = payment.paid_activities_count || activityPayments.filter(ap => ap.is_fully_paid).length;
+                      const totalCount = payment.total_activities_count || activityPayments.length;
 
-                      // ✅ Use specific icon names directly, not variables
                       if (isPaid) {
                         return (
-                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-green-100">
-                            <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                            <Text className="text-xs font-onest-medium ml-1 text-green-700">
-                              {status}
-                            </Text>
+                          <View className="flex-row items-center">
+                            <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                            <Text className="text-xs font-onest text-gray-500">Complete</Text>
                           </View>
                         );
                       }
 
                       if (isFailed) {
                         return (
-                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-red-100">
-                            <Ionicons name="close-circle" size={14} color="#DC2626" />
-                            <Text className="text-xs font-onest-medium ml-1 text-red-700">
-                              {status}
-                            </Text>
+                          <View className="flex-row items-center">
+                            <View className="w-2 h-2 rounded-full bg-red-500 mr-2" />
+                            <Text className="text-xs font-onest text-gray-500">Failed</Text>
                           </View>
                         );
                       }
 
-                      if (isPartial) {
+                      if (paidCount > 0 && totalCount > 0) {
                         return (
-                          <View className="px-3 py-1.5 rounded-full flex-row items-center bg-yellow-50">
-                            <Ionicons name="time" size={14} color="#D97706" />
-                            <Text className="text-xs font-onest-medium ml-1 text-yellow-600">
-                              {status}
-                            </Text>
+                          <View className="flex-row items-center">
+                            <View className="w-2 h-2 rounded-full bg-yellow-500 mr-2" />
+                            <Text className="text-xs font-onest text-gray-500">{paidCount}/{totalCount}</Text>
                           </View>
                         );
                       }
 
-                      // Default/Unknown status
                       return (
-                        <View className="px-3 py-1.5 rounded-full flex-row items-center bg-yellow-50">
-                          <Ionicons name="alert-circle" size={14} color="#D97706" />
-                          <Text className="text-xs font-onest-medium ml-1 text-yellow-600">
-                            {status}
-                          </Text>
+                        <View className="flex-row items-center">
+                          <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                          <Text className="text-xs font-onest text-gray-500">Pending</Text>
                         </View>
                       );
                     })()}
@@ -355,169 +385,186 @@ export default function ItineraryDetailScreen() {
 
                   {/* Expandable Content */}
                   {isPaymentExpanded && (
-                    <View>
+                    <View className="mt-4">
                       {(() => {
                         const payment = itinerary.payments[0];
+                        const activityPayments = payment.activity_payments || [];
 
-                        // Safe type checking and defaults
-                        const status = payment.display_status || payment.payment_status;
-                        const isFailed = status === "Failed";
-                        const isPaid = status === "Paid" || payment.is_payment_complete === true;
-                        const isPartial = payment.payment_status === "Partial" && payment.is_payment_complete !== true;
+                        const isFailed = payment.display_status === "Failed";
+                        const isPaid = payment.is_payment_complete === true;
 
-                        // Safe number conversions with defaults
                         const totalAmount = Number(payment.total_amount) || 0;
                         const amountPaid = Number(payment.amount_paid) || 0;
-                        const creatorCashDue = Number(payment.creator_cash_due || 0);
-                        const creatorCashCollected = payment.creator_cash_collected === true;
+                        const totalCashCollected = Number(payment.total_creator_cash_collected) || 0;
+                        const totalPaid = amountPaid + totalCashCollected;
+                        const remainingBalance = Number(payment.actual_remaining_balance) || Math.max(0, totalAmount - totalPaid);
 
-                        // Calculate progress
-                        const effectivePaid = amountPaid + (creatorCashCollected ? creatorCashDue : 0);
-                        const progressPercentage = totalAmount > 0 ? (effectivePaid / totalAmount) * 100 : 0;
-
-                        // Use actual_remaining_balance from backend if available
-                        const remainingBalance = payment.actual_remaining_balance !== undefined
-                          ? Number(payment.actual_remaining_balance)
-                          : Math.max(0, totalAmount - effectivePaid);
-
-                        // Determine if pay button should show
-                        const shouldShowPayButton =
-                          isFailed ||
-                          (payment.show_pay_button !== false && !isPaid && remainingBalance > 0);
+                        const progressPercentage = totalAmount > 0 ? (totalPaid / totalAmount) * 100 : 0;
 
                         return (
                           <>
-                            {/* Progress Bar (for Partial payments only) */}
-                            {isPartial && !isFailed && (
-                              <View className="mb-3 mt-3">
-                                <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            {/* Failed State */}
+                            {isFailed && (
+                              <View className="bg-red-50 rounded-xl p-4 mb-4">
+                                <View className="flex-row items-center">
+                                  <View className="w-8 h-8 rounded-full bg-red-100 items-center justify-center mr-3">
+                                    <Ionicons name="close" size={16} color="#DC2626" />
+                                  </View>
+                                  <View className="flex-1">
+                                    <Text className="text-sm font-onest-medium text-red-700">Payment Declined</Text>
+                                    <Text className="text-xs font-onest text-red-500 mt-0.5">Please resubmit your payment</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Amount Summary - Clean Card */}
+                            <View className="bg-gray-50 rounded-xl p-4 mb-4">
+                              {/* Progress Ring / Amount Display */}
+                              <View className="flex-row items-center justify-between mb-4">
+                                <View>
+                                  <Text className="text-2xl font-onest-semibold text-gray-900">
+                                    ₱{totalPaid.toLocaleString()}
+                                  </Text>
+                                  <Text className="text-xs font-onest text-gray-400 mt-0.5">
+                                    of ₱{totalAmount.toLocaleString()}
+                                  </Text>
+                                </View>
+
+                                {!isPaid && !isFailed && (
+                                  <View className="items-end">
+                                    <Text className="text-lg font-onest-semibold text-yellow-600">
+                                      ₱{remainingBalance.toLocaleString()}
+                                    </Text>
+                                    <Text className="text-xs font-onest text-gray-400">remaining</Text>
+                                  </View>
+                                )}
+
+                                {isPaid && (
+                                  <View className="w-10 h-10 rounded-full bg-green-100 items-center justify-center">
+                                    <Ionicons name="checkmark" size={20} color="#059669" />
+                                  </View>
+                                )}
+                              </View>
+
+                              {/* Minimal Progress Bar */}
+                              {!isPaid && !isFailed && (
+                                <View className="h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <View
-                                    className="h-full bg-yellow-500 rounded-full"
-                                    style={{
-                                      width: `${Math.min(progressPercentage, 100)}%`,
-                                    }}
+                                    className="h-full bg-primary rounded-full"
+                                    style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                                   />
                                 </View>
-                                <Text className="text-xs text-gray-500 font-onest mt-1">
-                                  {progressPercentage.toFixed(0)}% paid
-                                </Text>
-                              </View>
-                            )}
-
-                            {/* Failed Payment Warning */}
-                            {isFailed && (
-                              <View className="bg-red-50 rounded-lg p-3 mb-3 mt-3 flex-row items-start">
-                                <Ionicons name="close-circle" size={20} color="#DC2626" />
-                                <View className="ml-2 flex-1">
-                                  <Text className="text-red-700 font-onest-semibold text-sm">
-                                    Payment Declined
-                                  </Text>
-                                  <Text className="text-red-600 font-onest text-xs mt-1">
-                                    Your payment proof was rejected. Please resubmit with a valid payment proof.
-                                  </Text>
-                                </View>
-                              </View>
-                            )}
-
-                            {/* Payment Amount Details */}
-                            <View className="bg-gray-50 rounded-lg p-3 mb-3 mt-3">
-                              {/* Total Amount */}
-                              <View className="flex-row items-center justify-between mb-2">
-                                <Text className="text-sm text-gray-600 font-onest">Total Amount</Text>
-                                <Text className="text-sm font-onest-medium text-gray-800">
-                                  ₱{totalAmount.toLocaleString()}
-                                </Text>
-                              </View>
-
-                              {/* Amount Paid Online - only show if > 0 and not failed */}
-                              {amountPaid > 0 && !isFailed && (
-                                <View className="flex-row items-center justify-between mb-2">
-                                  <Text className="text-sm text-gray-600 font-onest">
-                                    Amount Paid (Online)
-                                  </Text>
-                                  <Text className="text-sm font-onest-medium text-green-600">
-                                    ₱{amountPaid.toLocaleString()}
-                                  </Text>
-                                </View>
                               )}
 
-                              {/* Creator Cash Payment Info */}
-                              {creatorCashDue > 0 && !isFailed && (
-                                <View className="flex-row items-center justify-between mb-2">
-                                  <Text className="text-sm text-gray-600 font-onest">
-                                    Cash Payment {creatorCashCollected ? "(✓ Collected)" : "(Due)"}
-                                  </Text>
-                                  <Text
-                                    className={`text-sm font-onest-medium ${creatorCashCollected ? "text-green-600" : "text-yellow-600"
-                                      }`}
-                                  >
-                                    ₱{creatorCashDue.toLocaleString()}
-                                  </Text>
-                                </View>
-                              )}
-
-                              {/* Remaining Balance or Amount to Pay */}
-                              {!isPaid && remainingBalance > 0 && (
-                                <View className="flex-row items-center justify-between pt-2 border-t border-gray-200">
-                                  <Text className="text-sm font-onest-semibold text-gray-800">
-                                    {isFailed ? "Amount to Pay" : "Remaining"}
-                                  </Text>
-                                  <Text
-                                    className={`text-base font-onest-bold ${isFailed ? "text-red-600" : "text-yellow-600"
-                                      }`}
-                                  >
-                                    ₱{remainingBalance.toLocaleString()}
-                                  </Text>
+                              {/* Payment Breakdown - Inline */}
+                              {(amountPaid > 0 || totalCashCollected > 0) && !isFailed && (
+                                <View className="flex-row mt-4 pt-3 border-t border-gray-200">
+                                  {amountPaid > 0 && (
+                                    <View className="flex-1">
+                                      <Text className="text-xs font-onest text-gray-400">Online</Text>
+                                      <Text className="text-sm font-onest-medium text-gray-700">
+                                        ₱{amountPaid.toLocaleString()}
+                                      </Text>
+                                    </View>
+                                  )}
+                                  {totalCashCollected > 0 && (
+                                    <View className="flex-1">
+                                      <Text className="text-xs font-onest text-gray-400">Cash</Text>
+                                      <Text className="text-sm font-onest-medium text-gray-700">
+                                        ₱{totalCashCollected.toLocaleString()}
+                                      </Text>
+                                    </View>
+                                  )}
                                 </View>
                               )}
                             </View>
 
-                            {/* Action: Pay Button OR Success Message */}
-                            {shouldShowPayButton ? (
-                              // Pay/Resubmit Button
+                            {/* Activity List - Minimal Cards */}
+                            {activityPayments.length > 0 && (
+                              <View className="space-y-2">
+                                {activityPayments.map((activity, index) => {
+                                  const isActivityPaid = activity.is_fully_paid;
+
+                                  return (
+                                    <View
+                                      key={activity.booking_id || index}
+                                      className={`flex-row items-center p-3 rounded-xl ${isActivityPaid ? 'bg-green-50' : 'bg-white border border-gray-100'
+                                        }`}
+                                    >
+                                      {/* Status Indicator */}
+                                      <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isActivityPaid ? 'bg-green-100' : 'bg-gray-100'
+                                        }`}>
+                                        {isActivityPaid ? (
+                                          <Ionicons name="checkmark" size={16} color="#059669" />
+                                        ) : (
+                                          <Ionicons name="time-outline" size={16} color="#9CA3AF" />
+                                        )}
+                                      </View>
+
+                                      {/* Activity Info */}
+                                      <View className="flex-1 mr-3">
+                                        <Text className="text-sm font-onest-medium text-gray-800" numberOfLines={1}>
+                                          {activity.activity_name}
+                                        </Text>
+                                        <Text className="text-xs font-onest text-gray-400 mt-0.5">
+                                          {activity.creator_name}
+                                        </Text>
+                                      </View>
+
+                                      {/* Amount */}
+                                      <View className="items-end">
+                                        <Text className={`text-sm font-onest-medium ${isActivityPaid ? 'text-green-600' : 'text-gray-700'
+                                          }`}>
+                                          ₱{activity.activity_price.toLocaleString()}
+                                        </Text>
+                                        {!isActivityPaid && activity.remaining_cash_due > 0 && (
+                                          <Text className="text-xs font-onest text-yellow-600 mt-0.5">
+                                            ₱{activity.remaining_cash_due.toLocaleString()} due
+                                          </Text>
+                                        )}
+                                        {isActivityPaid && activity.creator_cash_collected_at && (
+                                          <Text className="text-xs font-onest text-gray-400 mt-0.5">
+                                            {new Date(activity.creator_cash_collected_at).toLocaleDateString('en-PH', {
+                                              month: 'short',
+                                              day: 'numeric'
+                                            })}
+                                          </Text>
+                                        )}
+                                      </View>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            )}
+
+                            {/* Action Button - Minimal */}
+                            {!isPaid && remainingBalance > 0 && payment.show_pay_button !== false && (
                               <TouchableOpacity
-                                className={`py-3 px-4 rounded-lg flex-row items-center justify-center bg-primary
-                                  `}
-                                activeOpacity={0.7}
+                                className={`mt-4 py-3.5 rounded-xl flex-row items-center justify-center ${isFailed ? 'bg-red-500' : 'bg-primary'
+                                  }`}
+                                activeOpacity={0.8}
                                 onPress={handlePayNow}
                               >
-                                <Ionicons
-                                  name={isFailed ? "refresh-outline" : "card-outline"}
-                                  size={18}
-                                  color="white"
-                                />
-                                <Text className="text-white font-onest-semibold text-sm ml-2">
-                                  {isFailed
-                                    ? `Resubmit Payment`
-                                    : `Pay Remaining ₱${Math.round(remainingBalance).toLocaleString()}`}
+                                <Text className="text-white font-onest-medium text-sm">
+                                  {isFailed ? 'Retry Payment' : `Pay ₱${remainingBalance.toLocaleString()}`}
                                 </Text>
+                                <Ionicons
+                                  name="arrow-forward"
+                                  size={16}
+                                  color="white"
+                                  style={{ marginLeft: 6 }}
+                                />
                               </TouchableOpacity>
-                            ) : (
-                              // Payment Complete Message
-                              <View className="bg-green-50 rounded-lg p-3 flex-row items-start">
-                                <Ionicons name="checkmark-circle" size={20} color="#059669" />
-                                <View className="ml-2 flex-1">
-                                  <Text className="text-green-700 font-onest-semibold text-sm">
-                                    Payment Complete
-                                  </Text>
-                                  {payment.payment_complete_message && (
-                                    <Text className="text-green-600 font-onest text-xs mt-1">
-                                      {payment.payment_complete_message}
-                                    </Text>
-                                  )}
-                                  {payment.creator_cash_collected_at && (
-                                    <Text className="text-green-600 font-onest text-xs mt-0.5">
-                                      Collected on{" "}
-                                      {new Date(
-                                        payment.creator_cash_collected_at
-                                      ).toLocaleDateString("en-PH", {
-                                        year: "numeric",
-                                        month: "short",
-                                        day: "numeric",
-                                      })}
-                                    </Text>
-                                  )}
-                                </View>
+                            )}
+
+                            {/* Success State - Minimal */}
+                            {isPaid && (
+                              <View className="mt-2 flex-row items-center justify-center py-2">
+                                <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                                <Text className="text-xs font-onest text-green-600 ml-1.5">
+                                  All payments complete
+                                </Text>
                               </View>
                             )}
                           </>
@@ -527,29 +574,36 @@ export default function ItineraryDetailScreen() {
                   )}
                 </View>
               ) : (
-                // No payment information available
-                <View className="mt-4 pt-4 border-t border-gray-200">
-                  <TouchableOpacity
+                // No payment information
+                <View className="mt-4 pt-4 border-t border-gray-100">
+                  <Pressable
                     onPress={() => setIsPaymentExpanded(!isPaymentExpanded)}
-                    activeOpacity={0.7}
-                    className="flex-row items-center mb-3"
+                    className="flex-row items-center justify-between"
                   >
-                    <Ionicons
-                      name={isPaymentExpanded ? "chevron-down" : "chevron-forward"}
-                      size={20}
-                      color="#374151"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text className="text-base font-onest-semibold text-gray-800">
-                      Payment Details
-                    </Text>
-                  </TouchableOpacity>
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name={isPaymentExpanded ? "chevron-down" : "chevron-forward"}
+                        size={18}
+                        color="#9CA3AF"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className="text-sm font-onest-medium text-gray-700">
+                        Payment
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center">
+                      <View className="w-2 h-2 rounded-full bg-gray-300 mr-2" />
+                      <Text className="text-xs font-onest text-gray-400">Awaiting</Text>
+                    </View>
+                  </Pressable>
 
                   {isPaymentExpanded && (
-                    <View className="bg-blue-50 rounded-lg p-3 flex-row items-start">
-                      <Ionicons name="information-circle-outline" size={18} color="#3B82F6" />
-                      <Text className="text-xs text-blue-700 font-onest ml-2 flex-1">
-                        Payment information will be available once confirmed with your creator.
+                    <View className="mt-4 bg-gray-50 rounded-xl p-4 flex-row items-center">
+                      <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center mr-3">
+                        <Ionicons name="hourglass-outline" size={16} color="#9CA3AF" />
+                      </View>
+                      <Text className="text-xs text-gray-500 font-onest flex-1">
+                        Payment details will appear once your booking is confirmed.
                       </Text>
                     </View>
                   )}
@@ -560,9 +614,9 @@ export default function ItineraryDetailScreen() {
           </View>
 
           {/* Daily Itinerary Section */}
-          <View className="px-6">
-            <View className="flex flex-row items-center justify-between mb-4">
-              <Text className="text-normal text-xl font-onest-medium ">Daily Itinerary</Text>
+          <View className="px-4">
+            <View className="flex flex-row items-center justify-between px-2 mb-4">
+              <Text className="text-normal text-xl font-onest-medium  ">Daily Itinerary</Text>
               {/* Add to Calendar */}
               <Pressable
                 className="flex flex-row gap-1"
@@ -656,6 +710,7 @@ export default function ItineraryDetailScreen() {
                           ? hasEnoughTimeBetween(item, nextItem)
                           : null;
 
+
                         return (
                           <React.Fragment key={item.item_id}>
                             <TouchableOpacity
@@ -663,7 +718,8 @@ export default function ItineraryDetailScreen() {
                                 }`}
                               activeOpacity={0.7}
                               onPress={() =>
-                                router.push(`/(traveler)/(itinerary)/activity/${item.item_id}`)
+                                // UPDATED: Navigate to experience detail with itinerary context
+                                router.push(`/(traveler)/(experience)/${item.experience_id}?itineraryItemId=${item.item_id}`)
                               }
                             >
                               <View className="flex-row">

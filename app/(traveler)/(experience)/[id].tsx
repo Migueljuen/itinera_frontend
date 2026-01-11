@@ -1,16 +1,15 @@
+import API_URL from "@/constants/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
-  FlatList,
   Image,
   Linking,
-  Modal,
   Platform,
   Pressable,
   Text,
@@ -19,273 +18,62 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AvailabilityCalendar from "../../../components/AvailablityCalendar";
-import ReviewsSection, { Review } from "../../../components/ReviewsSection";
-import AnimatedHeartButton from "../../../components/SaveButton";
-import API_URL from "../../../constants/api";
-import { useAuth } from "../../../contexts/AuthContext";
+import ReviewsSection from "../../../components/ReviewsSection";
 import { ItineraryItem } from "../../../types/itineraryTypes";
-
-type ExperienceStep = {
-  step_id: number;
-  experience_id: number;
-  step_order: number;
-  title: string;
-  description: string;
-  created_at: string;
-};
-
-type Experience = {
-  id: number;
-  title: string;
-  description: string;
-  notes: string;
-  price: string;
-  unit: string;
-  destination_name: string;
-  location: string;
-  tags: string[];
-  images: Array<{
-    image_id: number;
-    image_url: string;
-    experience_id: number;
-  }>;
-  steps?: ExperienceStep[];
-  is_saved?: boolean;
-  destination: {
-    destination_id: number;
-    name: string;
-    city: string;
-    longitude: number;
-    latitude: number;
-    description: string;
-  };
-};
+// Local imports
+import AvailabilityModal from "@/components/AvailabilityModal";
+import FloatingActions from "@/components/FloatingActions";
+import HeroImageCarousel from "@/components/HeroImageCarousel";
+import MapPreview from "@/components/MapPreview";
+import { useExperience } from "@/hooks/useExperience";
+import { useItineraryItem } from "@/hooks/useItineraryItem";
+import { useReviews } from "@/hooks/useReviews";
+import { Experience } from "@/types/experienceDetails";
+import {
+  getCurrentDateString,
+  getNextWeekDateString,
+  getProfilePicUrl,
+} from "@/utils/formatters";
 
 export default function ExperienceDetail() {
   const router = useRouter();
-  const { user } = useAuth();
   const {
     id,
     tripStartDate: paramTripStart,
     tripEndDate: paramTripEnd,
+    itineraryItemId, // NEW: Optional param for itinerary context
   } = useLocalSearchParams();
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const screenWidth = Dimensions.get("window").width;
-  const fullscreenFlatListRef = useRef<FlatList>(null);
-  const experienceId = Number(id);
-  const [reviews, setReviews] = useState<Review[]>([]);
 
-  const [experience, setExperience] = useState<Experience | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
-  const [isSaved, setIsSaved] = useState(false);
+  const experienceId = Number(id);
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const imageScale = scrollY.interpolate({
-    inputRange: [-150, 0],
-    outputRange: [1.5, 1],
-    extrapolate: "clamp",
-  });
+  // Custom hooks for data fetching
+  const { experience, loading, isSaved, toggleSave } = useExperience(experienceId);
+  const { reviews, loading: reviewsLoading } = useReviews(experienceId);
 
-  const imageTranslateY = scrollY.interpolate({
-    inputRange: [-150, 0, 150],
-    outputRange: [-50, 0, -75],
-    extrapolate: "clamp",
-  });
+  // NEW: Fetch itinerary context if viewing from itinerary
+  const { itineraryItem, loading: itineraryLoading } = useItineraryItem(
+    itineraryItemId ? Number(itineraryItemId) : null
+  );
 
-  const dummyReviews: Review[] = [
-    {
-      id: 1,
-      userName: "Maria Santos",
-      rating: 5,
-      comment:
-        "Amazing experience! The guide was very knowledgeable and friendly. The views were breathtaking and worth every peso. Highly recommend this to anyone visiting the area!",
-      date: "2025-06-15",
-      helpful: 12,
-    },
-    {
-      id: 2,
-      userName: "John Chen",
-      rating: 4,
-      comment:
-        "Great tour overall. The location is beautiful and the activities were fun. Only minor issue was the timing - we felt a bit rushed at some spots. Still, would definitely recommend!",
-      date: "2025-06-10",
-      helpful: 8,
-    },
-    {
-      id: 3,
-      userName: "Ana Reyes",
-      rating: 5,
-      comment:
-        "Perfect day out! Everything was well organized from start to finish. The local insights shared by our guide made the experience even more special. Don't forget to bring your camera!",
-      date: "2025-06-05",
-      helpful: 15,
-    },
-    {
-      id: 4,
-      userName: "Robert Garcia",
-      rating: 3,
-      comment:
-        "The experience itself was good but felt overpriced for what was offered. The location is nice but can get very crowded. Better to go early in the morning if possible.",
-      date: "2025-05-28",
-      helpful: 5,
-    },
-    {
-      id: 5,
-      userName: "Lisa Fernandez",
-      rating: 5,
-      comment:
-        "Absolutely loved it! This was the highlight of our trip. The staff went above and beyond to make sure everyone had a great time. Worth every penny!",
-      date: "2025-05-20",
-      helpful: 20,
-    },
-  ];
+  // Determine if viewing from itinerary context
+  const isFromItinerary = !!itineraryItem;
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const response = await fetch(
-          `${API_URL}/reviews/experience/${experienceId}`
-        );
+  // Local UI state
+  const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
-        const data = await response.json();
-
-        if (data.success && data.reviews.length > 0) {
-          const mapped = data.reviews.map((r: any) => ({
-            id: r.review_id,
-            userName: r.user_name,
-            userAvatar: r.profile_pic,
-            rating: r.rating,
-            comment: r.comment,
-            date: r.created_at,
-            helpful: r.helpful_count,
-          }));
-
-          setReviews(mapped);
-        } else {
-          // fallback to dummy data
-          setReviews(dummyReviews);
-        }
-      } catch (err) {
-        console.log("Error fetching reviews:", err);
-        setReviews(dummyReviews); // fallback
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReviews();
-  }, [experienceId]);
-
-  const getCurrentDateString = () => new Date().toISOString().split("T")[0];
-  const getNextWeekDateString = () => {
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    return nextWeek.toISOString().split("T")[0];
-  };
-
-  const [tripStartDate, setTripStartDate] = useState<string>(
+  // Trip dates state
+  const [tripStartDate] = useState<string>(
     (paramTripStart as string) || getCurrentDateString()
   );
-  const [tripEndDate, setTripEndDate] = useState<string>(
+  const [tripEndDate] = useState<string>(
     (paramTripEnd as string) || getNextWeekDateString()
   );
   const [selectedItems, setSelectedItems] = useState<ItineraryItem[]>([]);
 
-  useEffect(() => {
-    const fetchExperience = async () => {
-      try {
-        const response = await fetch(`${API_URL}/experience/${experienceId}`);
-        const data = await response.json();
-        setExperience(data);
-
-        let userId = user?.user_id;
-
-        if (!userId) {
-          const userData = await AsyncStorage.getItem("user");
-          if (userData) {
-            try {
-              const userObj = JSON.parse(userData);
-              userId = userObj.user_id;
-            } catch (e) {
-              console.error("Error parsing user data:", e);
-            }
-          }
-        }
-
-        if (userId) {
-          const savedResponse = await fetch(
-            `${API_URL}/saved-experiences/check/${experienceId}?user_id=${userId}`
-          );
-          if (savedResponse.ok) {
-            const savedData = await savedResponse.json();
-            setIsSaved(savedData.isSaved);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching experience data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchExperience();
-  }, [experienceId, user]);
-
-  const handleSaveForLater = async () => {
-    try {
-      let userId = user?.user_id;
-
-      if (!userId) {
-        const userData = await AsyncStorage.getItem("user");
-        if (userData) {
-          try {
-            const userObj = JSON.parse(userData);
-            userId = userObj.user_id;
-          } catch (e) {
-            console.error("Error parsing user data:", e);
-          }
-        }
-      }
-
-      if (!userId) {
-        Alert.alert(
-          "Authentication Required",
-          "Please login to save experiences"
-        );
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/saved-experiences/toggle`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          experience_id: experienceId,
-          user_id: userId,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIsSaved(data.action === "saved");
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update saved status");
-      }
-    } catch (error) {
-      console.error("Error saving experience:", error);
-      Alert.alert(
-        "Error",
-        "Failed to save experience. Please check your connection."
-      );
-    }
-  };
-
+  // Handlers
   const handleOpenMap = async () => {
     if (!experience?.destination) {
       Alert.alert("Error", "Location not available");
@@ -296,7 +84,6 @@ export default function ExperienceDetail() {
     const label = encodeURIComponent(`${experience.title} - ${name}`);
 
     let url = "";
-
     if (Platform.OS === "ios") {
       url = `maps:0,0?q=${label}@${latitude},${longitude}`;
     } else {
@@ -335,16 +122,13 @@ export default function ExperienceDetail() {
     );
   };
 
-  const getFormattedImageUrl = (imageUrl: string) => {
-    if (!imageUrl) return null;
-    if (imageUrl.startsWith("http")) {
-      return imageUrl;
-    }
-    const formattedPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-    return `${API_URL}${formattedPath}`;
+  const handleConfirmSelection = () => {
+    setShowAvailabilityModal(false);
+    // Add any additional logic here
   };
 
-  if (loading) {
+  // Loading state
+  if (loading || itineraryLoading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
         <ActivityIndicator size="large" color="#1f2937" />
@@ -355,9 +139,10 @@ export default function ExperienceDetail() {
     );
   }
 
+  // Error state
   if (!experience) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 hidden">
+      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
         <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
         <Text className="text-red-500 font-onest-medium text-lg mt-4">
           Experience not found
@@ -376,419 +161,68 @@ export default function ExperienceDetail() {
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-50 pb-36">
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        bounces={true}
+        bounces
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
       >
         {/* Hero Image Carousel */}
-        {experience.images && experience.images.length > 0 && !imageError ? (
-          <>
-            <Animated.View
-              style={{
-                height: 320,
-                overflow: "hidden",
-              }}
-            >
-              <FlatList
-                data={experience.images}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={(event) => {
-                  const { contentOffset, layoutMeasurement } =
-                    event.nativeEvent;
-                  const index = Math.round(
-                    contentOffset.x / layoutMeasurement.width
-                  );
-                  setActiveImageIndex(index);
-                }}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => setIsFullscreen(true)}
-                  >
-                    <Animated.Image
-                      source={{
-                        uri: getFormattedImageUrl(item.image_url)!,
-                      }}
-                      style={{
-                        width: screenWidth,
-                        height: 320,
-                        transform: [
-                          { translateY: imageTranslateY },
-                          { scale: imageScale },
-                        ],
-                      }}
-                      resizeMode="cover"
-                      onError={() => setImageError(true)}
-                    />
-                  </TouchableOpacity>
-                )}
-              />
-
-              {/* Image Indicators */}
-              {experience.images.length > 1 && (
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: 32,
-                    left: 0,
-                    right: 0,
-                    flexDirection: "row",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  {experience.images.map((_, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor:
-                          index === activeImageIndex
-                            ? "#FFFFFF"
-                            : "rgba(255, 255, 255, 0.5)",
-                      }}
-                    />
-                  ))}
-                </View>
-              )}
-            </Animated.View>
-
-            {/* Fullscreen Modal */}
-            <Modal
-              visible={isFullscreen}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setIsFullscreen(false)}
-            >
-              <View style={{ flex: 1, backgroundColor: "black" }}>
-                <TouchableOpacity
-                  style={{
-                    position: "absolute",
-                    top: 50,
-                    right: 20,
-                    zIndex: 10,
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                    borderRadius: 20,
-                    padding: 8,
-                  }}
-                  onPress={() => setIsFullscreen(false)}
-                >
-                  <Ionicons name="close" size={28} color="white" />
-                </TouchableOpacity>
-
-                <FlatList
-                  ref={fullscreenFlatListRef}
-                  data={experience.images}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onLayout={() => {
-                    // Scroll to the active image after layout is complete
-                    if (activeImageIndex > 0 && fullscreenFlatListRef.current) {
-                      setTimeout(() => {
-                        fullscreenFlatListRef.current?.scrollToOffset({
-                          offset: screenWidth * activeImageIndex,
-                          animated: false,
-                        });
-                      }, 50);
-                    }
-                  }}
-                  onScroll={(event) => {
-                    const index = Math.round(
-                      event.nativeEvent.contentOffset.x / screenWidth
-                    );
-                    setActiveImageIndex(index);
-                  }}
-                  keyExtractor={(item, index) => index.toString()}
-                  renderItem={({ item }) => (
-                    <View
-                      style={{
-                        width: screenWidth,
-                        height: "100%",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Image
-                        source={{
-                          uri: getFormattedImageUrl(item.image_url)!,
-                        }}
-                        style={{
-                          width: screenWidth,
-                          height: screenWidth,
-                        }}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-                />
-
-                {/* Fullscreen Indicators */}
-                {experience.images.length > 1 && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      bottom: 40,
-                      left: 0,
-                      right: 0,
-                      flexDirection: "row",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    {experience.images.map((_, index) => (
-                      <View
-                        key={index}
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 3,
-                          backgroundColor:
-                            index === activeImageIndex
-                              ? "#FFFFFF"
-                              : "rgba(255, 255, 255, 0.5)",
-                        }}
-                      />
-                    ))}
-                  </View>
-                )}
-              </View>
-            </Modal>
-          </>
-        ) : (
-          <View className="w-full h-80 justify-center items-center bg-gray-100">
-            <Ionicons name="image-outline" size={64} color="#9CA3AF" />
-            <Text className="text-gray-500 font-onest mt-2">
-              {imageError ? "Failed to load image" : "No image available"}
-            </Text>
-          </View>
-        )}
+        <HeroImageCarousel images={experience.images} scrollY={scrollY} />
 
         {/* Content Card */}
         <View className="px-6 pt-2 -mt-5 rounded-3xl bg-white">
-          {/* Title and Location */}
-          <View className="mb-4">
-            <View className="flex-row justify-between">
-              <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-black/90">
-                {experience.title}
-              </Text>
-              <Text className="my-4 text-black/60 font-onest">
-                {experience.unit}
-              </Text>
-            </View>
 
-            <Text className="text-lg font-onest-bold text-primary my-2">
-              {experience.price
-                ? `₱${experience.price}`
-                : "Price not available"}
-            </Text>
-          </View>
 
-          {/* Tab Navigation */}
-          <View className="flex-row border-b border-gray-200 mt-4">
-            <Pressable
-              className={`px-4 py-2 ${
-                activeTab === "details" ? "border-b-2 border-primary" : ""
-              }`}
-              onPress={() => setActiveTab("details")}
-            >
-              <Text
-                className={`font-onest-medium ${
-                  activeTab === "details" ? "text-primary" : "text-black/60"
-                }`}
-              >
-                Details
-              </Text>
-            </Pressable>
-            <Pressable
-              className={`px-4 py-2 ${
-                activeTab === "availability" ? "border-b-2 border-primary" : ""
-              }`}
-              onPress={() => setActiveTab("availability")}
-            >
-              <Text
-                className={`font-onest-medium ${
-                  activeTab === "availability"
-                    ? "text-primary"
-                    : "text-black/60"
-                }`}
-              >
-                Availability
-              </Text>
-            </Pressable>
-          </View>
+          {/* Title and Description */}
+          <ExperienceHeader
+            title={experience.title}
+            description={experience.description}
+            expanded={expanded}
+            onToggleExpanded={() => setExpanded(!expanded)}
+          />
+
+
 
           {/* Content based on active tab */}
           {activeTab === "details" ? (
             <View className="py-4">
-              {/* Tags */}
-              {experience.tags && experience.tags.length > 0 && (
-                <View className="flex-row flex-wrap mb-4">
-                  {experience.tags.map((tag) => (
-                    <View
-                      key={tag}
-                      className="bg-indigo-50 px-3 py-1 rounded-full mr-2 mb-2"
-                    >
-                      <Text className="text-primary text-xs font-onest-medium">
-                        {tag}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Description */}
-              <Text className="text-lg font-onest-semibold mt-4 mb-2 text-black/90">
-                Activity Description
-              </Text>
-              <Text className="text-black/60 font-onest">
-                {expanded
-                  ? experience.description
-                  : experience.description?.length > 150
-                  ? `${experience.description.substring(0, 150)}...`
-                  : experience.description}
-              </Text>
-
-              {experience.description?.length > 150 && (
-                <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                  <Text className="text-primary mt-2 font-onest-medium">
-                    {expanded ? "Read Less" : "Read More"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Steps Section */}
-              {experience.steps && experience.steps.length > 0 && (
-                <View className="mt-12 border-b border-gray-200 pb-6">
-                  <Text className="text-lg font-onest-semibold mb-3 text-black/90 ">
-                    What You'll Do
-                  </Text>
-                  {experience.steps.map((step, index) => (
-                    <View key={step.step_id}>
-                      <View className="flex-row">
-                        <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3 mt-1">
-                          <Text className="text-white font-onest-semibold text-sm">
-                            {step.step_order}
-                          </Text>
-                        </View>
-                        <View className="flex-1">
-                          <Text className="font-onest text-black/90 mb-1">
-                            {step.title}
-                          </Text>
-                          <Text className="text-black/60 font-onest text-sm">
-                            {step.description}
-                          </Text>
-                        </View>
-                      </View>
-                      {index < (experience.steps?.length ?? 0) - 1 && (
-                        <View className="ml-4 my-1 border-l-2 border-gray-200 h-3" />
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Notes */}
-              {experience.notes && (
-                <>
-                  <Text className="text-lg font-onest-semibold mt-6 mb-2 text-black/90">
-                    Additional Notes
-                  </Text>
-                  <Text className="text-black/60 font-onest">
-                    {expanded
-                      ? experience.notes
-                      : experience.notes?.length > 150
-                      ? `${experience.notes.substring(0, 150)}...`
-                      : experience.notes}
-                  </Text>
-
-                  {experience.notes?.length > 150 && (
-                    <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                      <Text className="text-primary mt-2 font-onest-medium">
-                        {expanded ? "Read Less" : "Read More"}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </>
+              {/* Creator Information */}
+              {experience.creator && (
+                <CreatorSection creator={experience.creator} />
               )}
 
               {/* Location Information */}
               {experience.destination && (
-                <View className="mt-12 border-b border-gray-200">
-                  <Text className="text-lg font-onest-semibold mb-2 text-black/90">
-                    Location
-                  </Text>
-                  <View className="bg-gray-50 rounded-xl p-4 ">
-                    <View className="flex-row items-start mb-3">
-                      <Ionicons name="location" size={20} color="#4F46E5" />
-                      <View className="ml-3 flex-1">
-                        <Text className="font-onest-semibold text-black/90 mb-1">
-                          {experience.destination.name}
-                        </Text>
-                        <Text className="text-gray-400 font-onest">
-                          {experience.destination.city}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+                <LocationSection destination={experience.destination} />
+              )}
+
+              {/* Steps Section */}
+              {experience.steps && experience.steps.length > 0 && (
+                <StepsSection steps={experience.steps} />
+              )}
+
+              {/* Inclusions Section */}
+              {experience.inclusions && experience.inclusions.length > 0 && (
+                <InclusionsSection inclusions={experience.inclusions} />
               )}
 
               {/* Reviews Section */}
-              {loading ? (
+              {reviewsLoading ? (
                 <ActivityIndicator size="small" color="#000" />
               ) : (
                 <ReviewsSection reviews={reviews} initialDisplayCount={2} />
               )}
 
               {/* Location Button */}
-              <TouchableOpacity
-                className={`my-6 py-4 rounded-2xl items-center flex-row justify-center ${
-                  experience.destination ? "bg-primary" : "bg-gray-400"
-                }`}
+              <MapPreview
+                destination={experience.destination}
                 onPress={handleOpenMap}
-                disabled={!experience.destination}
-                style={
-                  experience.destination
-                    ? {
-                        shadowColor: "#4F46E5",
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 8,
-                        elevation: 6,
-                      }
-                    : {}
-                }
-                activeOpacity={1}
-              >
-                <Ionicons
-                  name="map-outline"
-                  size={20}
-                  color={experience.destination ? "#E5E7EB" : "#9CA3AF"}
-                />
-                <Text
-                  className={`font-onest-semibold ml-3 ${
-                    experience.destination ? "text-gray-200" : "text-gray-500"
-                  }`}
-                >
-                  {experience.destination
-                    ? "Open Location on Map"
-                    : "Location Not Available"}
-                </Text>
-              </TouchableOpacity>
+              />
             </View>
           ) : (
             <View className="py-4">
@@ -805,25 +239,280 @@ export default function ExperienceDetail() {
         </View>
       </Animated.ScrollView>
 
-      {/* Floating Action Button (FAB) for Save */}
-      <View
-        className="absolute bottom-24 right-6"
-        style={{
-          shadowColor: isSaved ? "#EF4444" : "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: isSaved ? 0.3 : 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-          backgroundColor: isSaved ? "#EF4444" : "#FFFFFF",
-          borderRadius: 30,
-        }}
-      >
-        <AnimatedHeartButton
-          isSaved={isSaved}
-          onPress={handleSaveForLater}
-          size={28}
+      {/* Floating Action Buttons */}
+      <FloatingActions
+        price={experience.price}
+        unit={experience.unit}
+        isSaved={isSaved}
+        onSavePress={toggleSave}
+        onCalendarPress={() => setShowAvailabilityModal(true)}
+        itineraryContext={itineraryItem}
+      />
+
+      {/* Availability Modal - Only show when NOT from itinerary */}
+      {!isFromItinerary && (
+        <AvailabilityModal
+          visible={showAvailabilityModal}
+          onClose={() => setShowAvailabilityModal(false)}
+          experienceId={experienceId}
+          tripStartDate={tripStartDate}
+          tripEndDate={tripEndDate}
+          selectedItems={selectedItems}
+          onTimeSlotSelect={handleTimeSlotSelect}
+          onTimeSlotDeselect={handleTimeSlotDeselect}
+          onConfirm={handleConfirmSelection}
         />
-      </View>
+      )}
     </View>
   );
 }
+
+
+// ============ EXISTING COMPONENTS (unchanged) ============
+
+type ExperienceHeaderProps = {
+  title: string;
+  description: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+};
+
+const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
+  title,
+  description,
+  expanded,
+  onToggleExpanded,
+}) => (
+  <View className="mb-4">
+    <View className="flex-row justify-between">
+      <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-black/90">
+        {title}
+      </Text>
+    </View>
+
+    <Text className="mt-4 text-black/60 font-onest">
+      {expanded
+        ? description
+        : description?.length > 100
+          ? `${description.substring(0, 100)}...`
+          : description}
+    </Text>
+
+    {description?.length > 100 && (
+      <TouchableOpacity onPress={onToggleExpanded}>
+        <Text className="text-primary mt-2 font-onest-medium">
+          {expanded ? "Read Less" : "Read More"}
+        </Text>
+      </TouchableOpacity>
+    )}
+  </View>
+);
+
+type CreatorSectionProps = {
+  creator: Experience["creator"];
+};
+
+const CreatorSection: React.FC<CreatorSectionProps> = ({ creator }) => {
+  const router = useRouter();
+  const [startingChat, setStartingChat] = useState(false);
+
+  const handleStartConversation = async () => {
+    try {
+      setStartingChat(true);
+
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Please log in to send messages");
+        return;
+      }
+
+      // Create or get existing conversation with this creator
+      const response = await axios.post(
+        `${API_URL}/conversations`,
+        { participantId: creator.user_id },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        const conversationId = response.data.data.id;
+
+        // Navigate to the chat
+        router.push({
+          pathname: "/(traveler)/(conversations)/[id]",
+          params: {
+            id: String(conversationId),
+            name: creator.full_name,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      Alert.alert("Error", "Failed to start conversation");
+    } finally {
+      setStartingChat(false);
+    }
+  };
+
+  return (
+    <View className="pt-6 border-t border-gray-200">
+      <View className="">
+        <View className="flex-row items-start mb-3">
+          {creator.profile_pic ? (
+            <Image
+              source={{ uri: getProfilePicUrl(creator.profile_pic)! }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#E5E7EB",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="person" size={24} color="#9CA3AF" />
+            </View>
+          )}
+          <View className="ml-3 flex-1">
+            <Text className="font-onest-semibold text-black/90 mb-1">
+              {creator.full_name}
+            </Text>
+            <Text className="text-gray-400 font-onest">Itinera Partner</Text>
+          </View>
+
+          <Pressable
+            onPress={handleStartConversation}
+            disabled={startingChat}
+            className="bg-gray-100 p-3 rounded-full"
+          >
+            {startingChat ? (
+              <ActivityIndicator size="small" color="#1f2937" />
+            ) : (
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color="#1f2937"
+              />
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+type LocationSectionProps = {
+  destination: Experience["destination"];
+};
+
+const LocationSection: React.FC<LocationSectionProps> = ({ destination }) => (
+  <View className="mt-4 pb-6 border-b border-gray-200">
+    <View className="rounded-xl">
+      <View className="flex-row items-start mb-3">
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "#EEF2FF",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Ionicons name="location" size={20} color="#4F46E5" />
+        </View>
+        <View className="ml-3 flex-1">
+          <Text className="font-onest-semibold text-black/90 mb-1">
+            {destination.name}
+          </Text>
+          <Text className="text-gray-400 font-onest">{destination.city}</Text>
+        </View>
+      </View>
+    </View>
+  </View>
+);
+
+type InclusionsSectionProps = {
+  inclusions: Experience["inclusions"];
+};
+
+const InclusionsSection: React.FC<InclusionsSectionProps> = ({ inclusions }) => {
+  if (!inclusions || inclusions.length === 0) return null;
+
+  return (
+    <View className="border-b border-gray-200 py-12">
+      <Text className="text-2xl font-onest-semibold mb-4 text-black/90">
+        What's Included
+      </Text>
+      <View className="space-y-3">
+        {inclusions.map((inclusion) => (
+          <View key={inclusion.inclusion_id} className="flex-row items-start mb-3">
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: "#eff6ff",
+                justifyContent: "center",
+                alignItems: "center",
+                marginTop: 2,
+              }}
+            >
+              <Ionicons name="checkmark" size={16} color="#3B82F6" />
+            </View>
+            <Text className="flex-1 ml-3 text-black/70 font-onest leading-6">
+              {inclusion.title}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Disclaimer */}
+      <View className="mt-6 py-4 rounded-xl flex-row items-start">
+        <Ionicons name="information-circle-outline" size={20} color="#1d1d1d" style={{ marginTop: 2 }} />
+        <Text className="flex-1 ml-3 text-black/90 font-onest text-sm leading-5">
+          Only items listed above are included in the price. Any additional services or expenses are at your own cost.
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+type StepsSectionProps = {
+  steps: Experience["steps"];
+};
+
+const StepsSection: React.FC<StepsSectionProps> = ({ steps }) => {
+  if (!steps || steps.length === 0) return null;
+
+  return (
+    <View className="border-b border-gray-200 py-12">
+      <Text className="text-2xl font-onest-semibold mb-3 text-black/90">
+        What You'll Do
+      </Text>
+      {steps.map((step, index) => (
+        <View key={step.step_id}>
+          <View className="flex-row">
+            <View className="flex-1">
+              <Text className="font-onest-medium text-lg text-black/90 mb-1">
+                {step.title}
+              </Text>
+              <Text className="text-black/60 font-onest">{step.description}</Text>
+            </View>
+          </View>
+          {index < steps.length - 1 && (
+            <View className="ml-4 my-1 border-l-2 border-gray-200 h-3" />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+};
+

@@ -79,24 +79,24 @@ export default function ReviewsSection({
   }
 
   return (
-    <View className="mt-6">
+    <View className="mt-12">
       <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-lg font-onest-semibold text-gray-800">
-          Reviews
+        <Text className="text-2xl font-onest-semibold text-black/90">
+          <Ionicons
+
+            name={"star"}
+            size={16}
+            color={"#FDB022"}
+          /> {averageRating.toFixed(1)} · {reviews.length} Reviews
         </Text>
-        <View className="flex-row items-center">
-          {renderStars(Math.round(averageRating))}
-          <Text className="ml-2 text-gray-600 font-onest-medium">
-            {averageRating.toFixed(1)} ({reviews.length})
-          </Text>
-        </View>
+
       </View>
 
       {/* Review Cards */}
       {reviews
         .slice(0, showAllReviews ? reviews.length : initialDisplayCount)
         .map((review) => (
-          <View key={review.id} className="bg-gray-50 rounded-xl p-4 mb-3">
+          <View key={review.id} className="bg-gray-50 rounded-xl py-4 mb-3">
             <View className="flex-row items-start justify-between mb-2">
               <View className="flex-1">
                 <View className="flex-row items-center mb-1">

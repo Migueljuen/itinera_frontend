@@ -29,22 +29,35 @@ const PaymentScreen = () => {
 
   const DOWN_PAYMENT_PERCENTAGE = 0.3; // 30%
 
-  // Calculate amounts
+  // Calculate amounts (UPDATED to include cash collected)
   const totalAmount = paymentInfo?.total_amount
     ? parseFloat(paymentInfo.total_amount)
     : 0;
 
-  const amountAlreadyPaid = paymentInfo?.amount_paid
+  const amountPaidOnline = paymentInfo?.amount_paid
     ? parseFloat(paymentInfo.amount_paid)
     : 0;
 
-  const remainingBalance = totalAmount - amountAlreadyPaid; // ✅ Calculate remaining balance
+  const totalCashCollected = paymentInfo?.total_creator_cash_collected
+    ? parseFloat(paymentInfo.total_creator_cash_collected)
+    : 0;
+
+  // Total paid = online + cash collected
+  const totalPaid = amountPaidOnline + totalCashCollected;
+
+  // Use actual_remaining_balance from backend (accounts for cash collected)
+  const remainingBalance = paymentInfo?.actual_remaining_balance !== undefined
+    ? parseFloat(paymentInfo.actual_remaining_balance)
+    : totalAmount - totalPaid;
 
   const downPaymentAmount = totalAmount * DOWN_PAYMENT_PERCENTAGE;
   const remainingAfterDownPayment = totalAmount - downPaymentAmount;
 
-  // ✅ Use remainingBalance for full payment option
+  // Amount to pay online
   const amountToPay = isPartialPayment ? downPaymentAmount : remainingBalance;
+
+  // Check if payment is complete
+  const isPaymentComplete = paymentInfo?.is_payment_complete === true;
 
   // Fetch payment info
   useEffect(() => {
@@ -84,7 +97,7 @@ const PaymentScreen = () => {
       return;
     }
 
-    const paymentType = isPartialPayment ? "down payment" : amountAlreadyPaid > 0 ? "remaining balance" : "full payment";
+    const paymentType = isPartialPayment ? "down payment" : totalPaid > 0 ? "remaining balance" : "full payment";
     Alert.alert(
       "Submit Payment",
       `Send ${paymentType} proof of ₱${amountToPay.toFixed(2)} now?`,
@@ -162,6 +175,32 @@ const PaymentScreen = () => {
     );
   }
 
+  // If payment is complete, show message and go back
+  if (isPaymentComplete) {
+    return (
+      <View className="flex-1 bg-[#fff]">
+        <StatusBar />
+        <SafeAreaView className="flex-1 justify-center items-center px-6">
+          <View className="w-20 h-20 rounded-full bg-green-100 items-center justify-center mb-6">
+            <Ionicons name="checkmark" size={40} color="#059669" />
+          </View>
+          <Text className="text-xl font-onest-semibold text-black/90 mb-2">
+            Payment Complete!
+          </Text>
+          <Text className="text-sm font-onest text-black/60 text-center mb-8">
+            All payments for this itinerary have been completed.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="bg-primary py-3 px-8 rounded-full"
+          >
+            <Text className="text-white font-onest-semibold">Go Back</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-[#fff]">
       <StatusBar />
@@ -203,16 +242,39 @@ const PaymentScreen = () => {
             </Text>
           </View>
 
-          {/* Show already paid amount if exists */}
-          {amountAlreadyPaid > 0 && (
-            <View className="mb-4 p-4 bg-green-50 rounded-2xl border border-green-200">
-              <Text className="font-onest-semibold text-sm text-green-800">
-                Already Paid: ₱{amountAlreadyPaid.toLocaleString("en-US", {
+          {/* Show already paid amount if exists (UPDATED to include cash) */}
+          {totalPaid > 0 && (
+            <View className="mb-4 py-4 rounded-2xl">
+              <Text className="font-onest-semibold  text-black/90">
+                Total Paid: ₱{totalPaid.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text className="font-onest text-xs text-green-600 mt-1">
+
+              {/* Breakdown of online vs cash */}
+              {(amountPaidOnline > 0 || totalCashCollected > 0) && (
+                <View className="mt-2 pt-2 border-t border-gray-200">
+                  {amountPaidOnline > 0 && (
+                    <Text className="font-onest text-sm text-black/60">
+                      Online: ₱{amountPaidOnline.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  )}
+                  {totalCashCollected > 0 && (
+                    <Text className="font-onest text-sm text-black/60">
+                      Cash Collected: ₱{totalCashCollected.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              <Text className="font-onest text-sm text-black/60 mt-2">
                 Remaining Balance: ₱{remainingBalance.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -220,6 +282,27 @@ const PaymentScreen = () => {
               </Text>
             </View>
           )}
+
+          {/* Cash Due Notice (NEW) */}
+          {/* {paymentInfo?.total_creator_cash_due > 0 &&
+            paymentInfo?.total_creator_cash_due > totalCashCollected && (
+              <View className="mb-4 p-4 bg-yellow-50 rounded-2xl border border-yellow-200">
+                <View className="flex-row items-start">
+                  <Ionicons name="information-circle" size={18} color="#D97706" />
+                  <View className="ml-2 flex-1">
+                    <Text className="font-onest-semibold text-sm text-yellow-800">
+                      Cash Payment Required
+                    </Text>
+                    <Text className="font-onest text-sm text-yellow-700 mt-1">
+                      ₱{(paymentInfo.total_creator_cash_due - totalCashCollected).toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} will be collected in cash by the creator(s) during your activities.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )} */}
 
           {/* Payment Options Toggle */}
           <View className="mb-6">
@@ -249,11 +332,11 @@ const PaymentScreen = () => {
                       )}
                     </View>
                     <Text className="font-onest-semibold text-base text-black/90">
-                      {amountAlreadyPaid > 0 ? "Pay Remaining Balance" : "Full Payment"}
+                      {totalPaid > 0 ? "Pay Remaining Balance" : "Full Payment"}
                     </Text>
                   </View>
                   <Text className="text-black/60 font-onest text-sm ml-8">
-                    {amountAlreadyPaid > 0
+                    {totalPaid > 0
                       ? "Complete your payment"
                       : "Pay the complete amount now"
                     }
@@ -269,8 +352,8 @@ const PaymentScreen = () => {
               </View>
             </Pressable>
 
-            {/* Down Payment Option - Only show if not already paid */}
-            {amountAlreadyPaid === 0 && (
+            {/* Down Payment Option - Only show if nothing paid yet */}
+            {totalPaid === 0 && (
               <Pressable
                 onPress={() => setIsPartialPayment(true)}
                 className={`p-4 rounded-2xl border ${isPartialPayment
@@ -310,7 +393,7 @@ const PaymentScreen = () => {
 
                 {isPartialPayment && (
                   <View className="mt-2 pt-3 border-t border-indigo-200 ml-8">
-                    <Text className="text-black/60 font-onest text-xs">
+                    <Text className="text-black/60 font-onest text-sm">
                       Remaining balance: ₱
                       {remainingAfterDownPayment.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
@@ -384,7 +467,7 @@ const PaymentScreen = () => {
               <>
                 <Ionicons name="send-outline" size={20} color="white" />
                 <Text className="ml-2 font-onest-semibold text-white text-base">
-                  Submit {isPartialPayment ? "Down Payment" : amountAlreadyPaid > 0 ? "Remaining Balance" : "Payment"}
+                  Submit {isPartialPayment ? "Down Payment" : totalPaid > 0 ? "Remaining Balance" : "Payment"}
                 </Text>
               </>
             )}

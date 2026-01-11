@@ -1,5 +1,33 @@
 // types/itineraryDetails.ts
-// 🔥 UPDATED PaymentInfo interface with new fields
+
+export interface ActivityPayment {
+    booking_id: number;
+    item_id: number;
+    experience_id: number;
+    service_type: string;
+    activity_name: string;
+    creator_id: number;
+    creator_name: string;
+
+    // Pricing breakdown
+    activity_price: number;
+    platform_commission_rate: number;
+    platform_commission_amount: number;
+    creator_payout_amount: number;
+
+    // Payment breakdown
+    creator_prepaid_amount: number;
+    activity_paid_online: number;
+    creator_cash_due: number;
+    creator_cash_collected: boolean;
+    creator_cash_collected_at: string | null;
+
+    // Status
+    booking_status: string;
+    booking_payment_status: string;
+    is_fully_paid: boolean;
+    remaining_cash_due: number;
+}
 
 export interface PaymentInfo {
     payment_id: number;
@@ -9,13 +37,23 @@ export interface PaymentInfo {
     payment_status: "Unpaid" | "Partial" | "Paid" | "Pending" | "Failed";
     created_at: string;
     updated_at: string;
-    creator_cash_due?: number;
-    creator_cash_collected?: boolean;
-    creator_cash_collected_at?: string;
+
+    // Aggregated cash info
+    total_creator_cash_due?: number;
+    total_creator_cash_collected?: number;
+    all_cash_collected?: boolean;
+
+    // Computed fields
     actual_remaining_balance?: number;
     is_payment_complete?: boolean;
-    display_status?: "Unpaid" | "Partial" | "Paid" | "Pending";
-    all_cash_collected?: boolean;
+    display_status?: "Unpaid" | "Partial" | "Paid" | "Pending" | "Failed";
+
+    // Activity breakdown
+    activity_payments?: ActivityPayment[];
+    paid_activities_count?: number;
+    total_activities_count?: number;
+
+    // UI helper flags
     show_pay_button?: boolean;
     payment_complete_message?: string;
 }

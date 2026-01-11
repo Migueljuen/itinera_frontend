@@ -1,10 +1,13 @@
+// app/(traveler)/(home)/index.tsx
+
+import socketService from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -20,6 +23,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Adjustment from "../../../assets/icons/adjustment.svg";
 import API_URL from "../../../constants/api";
 import { useRefresh } from "../../../contexts/RefreshContext";
+
 type Experience = {
   id: number;
   title: string;
@@ -32,15 +36,18 @@ type Experience = {
   images: string[];
 };
 
+interface Conversation {
+  id: number;
+  unreadCount: number;
+}
+
 const ITEMS_PER_PAGE = 10;
 
 const App = () => {
   const router = useRouter();
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [categories, setCategories] = useState<
-    { tag_id: number; name: string; category_id: number }[]
-  >([]);
+  const [categories, setCategories] = useState<{ tag_id: number; name: string; category_id: number }[]>([]);
 
   const { profileUpdated } = useRefresh();
   const [refreshing, setRefreshing] = useState(false);
@@ -52,6 +59,10 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // New state for unread messages
+  const [totalUnreadMessages, setTotalUnreadMessages] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
   const fetchUserData = async () => {
     try {
       const user = await AsyncStorage.getItem("user");
@@ -60,6 +71,7 @@ const App = () => {
         const parsedUser = JSON.parse(user);
         setFirstName(parsedUser.first_name);
         setProfilePic(parsedUser.profile_pic);
+        setCurrentUserId(parsedUser.user_id);
       } else {
         console.log("No user found in AsyncStorage.");
       }
@@ -67,6 +79,69 @@ const App = () => {
       console.error("Error fetching user data:", error);
     }
   };
+
+  // Fetch unread message count
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(`${API_URL}/conversations`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.success) {
+        const conversations: Conversation[] = response.data.data;
+        const total = conversations.reduce(
+          (sum, conv) => sum + (conv.unreadCount || 0),
+          0
+        );
+        setTotalUnreadMessages(total);
+
+        // Join all conversations for real-time updates
+        conversations.forEach((conv) => {
+          socketService.joinConversation(conv.id);
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+    }
+  }, []);
+
+  // Setup socket connection and listen for new messages
+  useEffect(() => {
+    const setupSocket = async () => {
+      await socketService.connect();
+    };
+    setupSocket();
+  }, []);
+
+  // Listen for new messages to update badge
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const handleNewMessage = (message: { senderId: number }) => {
+      // Only increment if message is from someone else
+      if (message.senderId !== currentUserId) {
+        setTotalUnreadMessages((prev) => prev + 1);
+      }
+    };
+
+    socketService.onNewMessage(handleNewMessage);
+
+    return () => {
+      socketService.offNewMessage1(handleNewMessage);
+    };
+  }, [currentUserId]);
+
+  // Fetch unread count when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [fetchUnreadCount])
+  );
 
   useEffect(() => {
     fetchUserData();
@@ -93,7 +168,6 @@ const App = () => {
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${API_URL}/tags`);
-      // Add an "All" option manually at the start
       setCategories([
         { tag_id: 0, name: "All", category_id: 0 },
         ...response.data.tags,
@@ -111,7 +185,11 @@ const App = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([fetchExperiences(), fetchUserData()]);
+      await Promise.all([
+        fetchExperiences(),
+        fetchUserData(),
+        fetchUnreadCount(),
+      ]);
       setCurrentPage(1);
     } finally {
       setRefreshing(false);
@@ -222,7 +300,7 @@ const App = () => {
           }
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex items-center justify-between flex-row p-6">
+          <View className="flex items-baseline justify-between flex-row p-6">
             <View className="">
               <Text className="text-normal text-3xl font-onest-semibold">
                 Hello, {firstName}
@@ -232,20 +310,31 @@ const App = () => {
               </Text>
             </View>
 
-            {profilePic ? (
-              <Image
-                source={{ uri: `${API_URL}/${profilePic}` }}
-                style={{ width: 50, height: 50, borderRadius: 25 }}
-                defaultSource={require("../../../assets/images/balay.jpg")}
+            {/* Message Icon with Badge */}
+            <TouchableOpacity
+              onPress={() => router.push(`/(conversations)`)}
+              className="bg-gray-100 p-3 rounded-full relative"
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color="#1f2937"
               />
-            ) : (
-              <Image
-                source={require("../../../assets/images/balay.jpg")}
-                style={{ width: 50, height: 50, borderRadius: 25 }}
-              />
-            )}
+              {/* Unread Badge */}
+              {totalUnreadMessages > 0 && (
+                <View
+                  className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[20px] h-5 items-center justify-center px-1"
+
+                >
+                  <Text className="text-white text-xs font-onest-semibold">
+                    {totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
+          {/* Rest of your component stays the same */}
           <View className="flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4">
             <Image
               source={require("../../../assets/images/search.png")}
@@ -274,14 +363,12 @@ const App = () => {
                     key={category.tag_id}
                     onPress={() => setSelectedCategory(category.name)}
                     activeOpacity={1}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${
-                      isSelected ? "bg-black/80" : "bg-white"
-                    }`}
+                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? "bg-black/80" : "bg-white"
+                      }`}
                   >
                     <Text
-                      className={`text-base font-onest-medium ${
-                        isSelected ? "text-white" : "text-gray-400"
-                      }`}
+                      className={`text-base font-onest-medium ${isSelected ? "text-white" : "text-gray-400"
+                        }`}
                     >
                       {category.name}
                     </Text>
@@ -302,8 +389,6 @@ const App = () => {
                 </View>
               ) : (
                 <>
-                  {/* Experience Items */}
-
                   {paginatedExperiences.map((item) => (
                     <TouchableWithoutFeedback
                       key={item.id}
@@ -319,7 +404,6 @@ const App = () => {
                           elevation: 5,
                         }}
                       >
-                        {/* Image with Gradient */}
                         <View className="relative h-72 overflow-hidden">
                           {item.images && item.images.length > 0 ? (
                             <Image
@@ -340,7 +424,6 @@ const App = () => {
                             </View>
                           )}
 
-                          {/* Gradient Overlay */}
                           <LinearGradient
                             colors={[
                               "rgba(0, 0, 0, 0.0)",
@@ -351,7 +434,6 @@ const App = () => {
                             pointerEvents="none"
                           />
 
-                          {/* Title + Location on Image */}
                           <View className="absolute bottom-0 left-0 right-0 p-4">
                             <Text className="font-onest-semibold text-lg text-white/90 mb-1">
                               {item.title}
@@ -370,23 +452,15 @@ const App = () => {
                           </View>
                         </View>
 
-                        {/* Content Below */}
                         <View className="p-4 pb-6">
-                          {/* Price */}
                           {item.price && item.price !== "0" && (
                             <View className="mb-2">
                               <Text className="font-onest-bold text-gray-900">
-                                ₱{parseFloat(item.price).toLocaleString()}
+                                From ₱{parseFloat(item.price).toLocaleString()}
                               </Text>
-                              {item.unit && (
-                                <Text className="text-black/40 font-onest text-xs">
-                                  {item.unit}
-                                </Text>
-                              )}
                             </View>
                           )}
 
-                          {/* Tags */}
                           {item.tags && item.tags.length > 0 && (
                             <View className="flex-row flex-wrap">
                               {item.tags.slice(0, 3).map((tag, index) => (
@@ -405,28 +479,24 @@ const App = () => {
                       </View>
                     </TouchableWithoutFeedback>
                   ))}
-                  {/* Pagination Controls */}
+
                   {totalPages > 1 && (
                     <View className="mt-6 mb-4">
-                      {/* Results Info */}
                       <Text className="text-center text-gray-500 text-sm mb-4 font-onest">
                         Showing {startIndex + 1}-
                         {Math.min(endIndex, filteredExperiences.length)} of{" "}
                         {filteredExperiences.length} activities
                       </Text>
 
-                      {/* Pagination Buttons */}
                       <View className="flex-row justify-center items-center">
-                        {/* Previous Button */}
                         <TouchableOpacity
                           onPress={() =>
                             setCurrentPage((prev) => Math.max(1, prev - 1))
                           }
                           disabled={currentPage === 1}
                           activeOpacity={1}
-                          className={`px-3 py-2 mr-2 rounded-md ${
-                            currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                          }`}
+                          className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
+                            }`}
                         >
                           <Ionicons
                             name="chevron-back"
@@ -435,7 +505,6 @@ const App = () => {
                           />
                         </TouchableOpacity>
 
-                        {/* Page Numbers */}
                         {getPageNumbers().map((page, index) => (
                           <TouchableOpacity
                             key={index}
@@ -444,29 +513,26 @@ const App = () => {
                               typeof page === "number" && setCurrentPage(page)
                             }
                             disabled={page === "..."}
-                            className={`px-3 py-2 mx-1 rounded-md ${
-                              page === currentPage
-                                ? "bg-primary"
-                                : page === "..."
+                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
+                              ? "bg-primary"
+                              : page === "..."
                                 ? "bg-transparent"
                                 : "bg-white border border-gray-300"
-                            }`}
+                              }`}
                           >
                             <Text
-                              className={`font-onest-medium ${
-                                page === currentPage
-                                  ? "text-white"
-                                  : page === "..."
+                              className={`font-onest-medium ${page === currentPage
+                                ? "text-white"
+                                : page === "..."
                                   ? "text-gray-400"
                                   : "text-gray-700"
-                              }`}
+                                }`}
                             >
                               {page}
                             </Text>
                           </TouchableOpacity>
                         ))}
 
-                        {/* Next Button */}
                         <TouchableOpacity
                           onPress={() =>
                             setCurrentPage((prev) =>
@@ -475,11 +541,10 @@ const App = () => {
                           }
                           activeOpacity={1}
                           disabled={currentPage === totalPages}
-                          className={`px-3 py-2 ml-2 rounded-md ${
-                            currentPage === totalPages
-                              ? "bg-gray-200"
-                              : "bg-gray-800"
-                          }`}
+                          className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
+                            ? "bg-gray-200"
+                            : "bg-gray-800"
+                            }`}
                         >
                           <Ionicons
                             name="chevron-forward"
@@ -497,18 +562,6 @@ const App = () => {
             </View>
           </View>
         </ScrollView>
-
-        {/* <Pressable
-          className="absolute bottom-48 right-6 bg-[#20b08d] rounded-full p-4  flex-row items-center"
-          onPress={() => router.push("/(createItinerary)/selectionScreen")}
-        >
-          <View className="flex-row items-center">
-            <Ionicons name="add-circle-outline" size={20} color="#f4f6f6" />
-            <Text className="text-[#f4f6f6] font-onest-medium ml-2">
-              Build My Trip
-            </Text>
-          </View>
-        </Pressable> */}
       </View>
     </SafeAreaView>
   );

@@ -114,17 +114,11 @@ const AnimatedHeartButton: React.FC<AnimatedHeartButtonProps> = ({
                 });
             });
         } else {
-            // When unsaved, ensure all animations are reset immediately
-            // Main heart animation
+            // When unsaved, just do a simple scale animation without particles/ring
             Animated.sequence([
                 Animated.timing(scaleAnim, {
                     toValue: 0.8,
                     duration: 100,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(scaleAnim, {
-                    toValue: 1.2,
-                    duration: 150,
                     useNativeDriver: true,
                 }),
                 Animated.timing(scaleAnim, {
@@ -133,9 +127,10 @@ const AnimatedHeartButton: React.FC<AnimatedHeartButtonProps> = ({
                     useNativeDriver: true,
                 }),
             ]).start();
+
+            // Ensure particles and ring are hidden
             ringScale.setValue(0);
             ringOpacity.setValue(0);
-
             particleAnims.forEach((anim) => {
                 anim.scale.setValue(0);
                 anim.translateX.setValue(0);
@@ -194,7 +189,7 @@ const AnimatedHeartButton: React.FC<AnimatedHeartButtonProps> = ({
                     <Ionicons
                         name={isSaved ? "heart" : "heart-outline"}
                         size={size}
-                        color={isSaved ? "#fff" : "#1f2937"}
+                        color={isSaved ? "#fff" : "#fff"}
                     />
                 </Animated.View>
             </View>
@@ -204,27 +199,27 @@ const AnimatedHeartButton: React.FC<AnimatedHeartButtonProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        padding: 10,
+        // Removed padding so parent can control it
     },
     animationContainer: {
-        width: 35,
-        height: 35,
+        width: 24,
+        height: 24,
         justifyContent: 'center',
         alignItems: 'center',
     },
     particle: {
         position: 'absolute',
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         backgroundColor: '#EF4444',
     },
     ring: {
         position: 'absolute',
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        borderWidth: 3,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 2,
         borderColor: '#EF4444',
     },
 });
