@@ -119,22 +119,23 @@ const App = () => {
   }, []);
 
   // Listen for new messages to update badge
-  useEffect(() => {
-    if (!currentUserId) return;
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId) return;
 
-    const handleNewMessage = (message: { senderId: number }) => {
-      // Only increment if message is from someone else
-      if (message.senderId !== currentUserId) {
-        setTotalUnreadMessages((prev) => prev + 1);
-      }
-    };
+      const handleNewMessage = (message: { senderId: number }) => {
+        if (message.senderId !== currentUserId) {
+          setTotalUnreadMessages((prev) => prev + 1);
+        }
+      };
 
-    socketService.onNewMessage(handleNewMessage);
+      socketService.onNewMessage(handleNewMessage);
 
-    return () => {
-      socketService.offNewMessage1(handleNewMessage);
-    };
-  }, [currentUserId]);
+      return () => {
+        socketService.offNewMessage1(handleNewMessage);
+      };
+    }, [currentUserId])
+  );
 
   // Fetch unread count when screen is focused
   useFocusEffect(
