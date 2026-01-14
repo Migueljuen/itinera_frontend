@@ -570,8 +570,8 @@ export default function TripScreen() {
                   >
                     <Text
                       className={`text-base font-onest-medium ${activeTab === filterValue
-                          ? "text-white"
-                          : "text-gray-400"
+                        ? "text-white"
+                        : "text-gray-400"
                         }`}
                     >
                       {filter}
@@ -701,18 +701,18 @@ export default function TripScreen() {
                           }
                           disabled={page === "..."}
                           className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                              ? "bg-primary"
-                              : page === "..."
-                                ? "bg-transparent"
-                                : "bg-white border border-gray-300"
+                            ? "bg-primary"
+                            : page === "..."
+                              ? "bg-transparent"
+                              : "bg-white border border-gray-300"
                             }`}
                         >
                           <Text
                             className={`font-onest-medium ${page === currentPage
-                                ? "text-white"
-                                : page === "..."
-                                  ? "text-gray-400"
-                                  : "text-gray-700"
+                              ? "text-white"
+                              : page === "..."
+                                ? "text-gray-400"
+                                : "text-gray-700"
                               }`}
                           >
                             {page}
@@ -729,8 +729,8 @@ export default function TripScreen() {
                         }
                         disabled={currentPage === totalPages}
                         className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
-                            ? "bg-gray-200"
-                            : "bg-gray-800"
+                          ? "bg-gray-200"
+                          : "bg-gray-800"
                           }`}
                       >
                         <Ionicons

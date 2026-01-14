@@ -110,7 +110,7 @@ const ExperienceCard: React.FC<ExperienceCardProps> = ({
               className="p-1.5 rounded-full bg-white/80 "
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={16} color="#1a1a1a" />
+              <Ionicons name="trash-bin-outline" size={16} color="#1a1a1a" />
             </TouchableOpacity>
           </View>
         )}

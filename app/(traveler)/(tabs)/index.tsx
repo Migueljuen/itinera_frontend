@@ -1,23 +1,21 @@
-// app/(traveler)/(home)/index.tsx
 
 import socketService from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Adjustment from "../../../assets/icons/adjustment.svg";
@@ -41,55 +39,55 @@ interface Conversation {
   unreadCount: number;
 }
 
-const ITEMS_PER_PAGE = 10;
-
 const App = () => {
   const router = useRouter();
-  const navigation = useNavigation();
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [categories, setCategories] = useState<{ tag_id: number; name: string; category_id: number }[]>([]);
-
   const { profileUpdated } = useRefresh();
   const [refreshing, setRefreshing] = useState(false);
 
   const [searchText, setSearchText] = useState("");
-  const [experiences, setExperiences] = useState<Experience[]>([]);
   const [firstName, setFirstName] = useState("");
   const [profilePic, setProfilePic] = useState("");
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [userLocation, setUserLocation] = useState("Silay"); // Default or from user profile
 
-  // New state for unread messages
+  // Section states
+  const [recentlyViewed, setRecentlyViewed] = useState<Experience[]>([]);
+  const [weekendExperiences, setWeekendExperiences] = useState<Experience[]>([]);
+  const [tomorrowExperiences, setTomorrowExperiences] = useState<Experience[]>([]);
+  const [popularExperiences, setPopularExperiences] = useState<Experience[]>([]);
+  const [todayExperiences, setTodayExperiences] = useState<Experience[]>([]);
+
+  // Unread messages state
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
+  // ============ USER DATA ============
   const fetchUserData = async () => {
     try {
       const user = await AsyncStorage.getItem("user");
-
       if (user) {
         const parsedUser = JSON.parse(user);
         setFirstName(parsedUser.first_name);
         setProfilePic(parsedUser.profile_pic);
         setCurrentUserId(parsedUser.user_id);
-      } else {
-        console.log("No user found in AsyncStorage.");
+        // If user has a location saved, use it
+        if (parsedUser.city) {
+          setUserLocation(parsedUser.city);
+        }
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
     }
   };
 
-  // Fetch unread message count
+  // ============ UNREAD COUNT ============
   const fetchUnreadCount = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/conversations`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
@@ -99,8 +97,6 @@ const App = () => {
           0
         );
         setTotalUnreadMessages(total);
-
-        // Join all conversations for real-time updates
         conversations.forEach((conv) => {
           socketService.joinConversation(conv.id);
         });
@@ -110,7 +106,126 @@ const App = () => {
     }
   }, []);
 
-  // Setup socket connection and listen for new messages
+  // ============ RECENTLY VIEWED ============
+  const fetchRecentlyViewed = async () => {
+    try {
+      const viewed = await AsyncStorage.getItem("recentlyViewed");
+      if (viewed) {
+        const viewedIds: number[] = JSON.parse(viewed);
+        if (viewedIds.length > 0) {
+          const response = await axios.post(`${API_URL}/experience/by-ids`, {
+            ids: viewedIds.slice(0, 10),
+          });
+          setRecentlyViewed(response.data);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching recently viewed:", error);
+    }
+  };
+
+  // Save to recently viewed when navigating to experience
+  const addToRecentlyViewed = async (experienceId: number) => {
+    try {
+      const viewed = await AsyncStorage.getItem("recentlyViewed");
+      let viewedIds: number[] = viewed ? JSON.parse(viewed) : [];
+
+      // Remove if already exists (to move to front)
+      viewedIds = viewedIds.filter((id) => id !== experienceId);
+
+      // Add to front
+      viewedIds.unshift(experienceId);
+
+      // Keep only last 20
+      viewedIds = viewedIds.slice(0, 20);
+
+      await AsyncStorage.setItem("recentlyViewed", JSON.stringify(viewedIds));
+    } catch (error) {
+      console.error("Error saving recently viewed:", error);
+    }
+  };
+
+  // ============ SECTION FETCHERS ============
+  const fetchWeekendExperiences = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/experience/active?filter=weekend&limit=10`
+      );
+      setWeekendExperiences(response.data);
+    } catch (error) {
+      console.error("Error fetching weekend experiences:", error);
+    }
+  };
+
+  const fetchTomorrowExperiences = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/experience/active?filter=tomorrow&location=${userLocation}&limit=10`
+      );
+      setTomorrowExperiences(response.data);
+    } catch (error) {
+      console.error("Error fetching tomorrow experiences:", error);
+    }
+  };
+
+  const fetchTodayExperiences = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/experience/active?filter=today&limit=10`
+      );
+      setTodayExperiences(response.data);
+    } catch (error) {
+      console.error("Error fetching today experiences:", error);
+    }
+  };
+
+  const fetchPopularExperiences = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/experience/active?filter=popular&limit=10`
+      );
+      setPopularExperiences(response.data);
+    } catch (error) {
+      console.error("Error fetching popular experiences:", error);
+    }
+  };
+
+  // ============ LOAD ALL DATA ============
+  const loadAllSections = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchUserData(),
+        fetchRecentlyViewed(),
+        fetchWeekendExperiences(),
+        fetchTomorrowExperiences(),
+        fetchTodayExperiences(),
+        fetchPopularExperiences(),
+        fetchUnreadCount(),
+      ]);
+    } catch (error) {
+      console.error("Error loading sections:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllSections();
+  }, []);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [profileUpdated]);
+
+  // Refetch tomorrow experiences when user location changes
+  useEffect(() => {
+    if (!loading) {
+      fetchTomorrowExperiences();
+    }
+  }, [userLocation]);
+
+  // Socket setup
   useEffect(() => {
     const setupSocket = async () => {
       await socketService.connect();
@@ -118,7 +233,7 @@ const App = () => {
     setupSocket();
   }, []);
 
-  // Listen for new messages to update badge
+  // Listen for new messages
   useFocusEffect(
     useCallback(() => {
       if (!currentUserId) return;
@@ -130,150 +245,142 @@ const App = () => {
       };
 
       socketService.onNewMessage(handleNewMessage);
-
       return () => {
         socketService.offNewMessage1(handleNewMessage);
       };
     }, [currentUserId])
   );
 
-  // Fetch unread count when screen is focused
+  // Fetch unread count on focus
   useFocusEffect(
     useCallback(() => {
       fetchUnreadCount();
     }, [fetchUnreadCount])
   );
-
   useEffect(() => {
-    fetchUserData();
-  }, [profileUpdated]);
-
-  // Function to fetch experiences
-  const fetchExperiences = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/experience/active`);
-      setExperiences(response.data);
-    } catch (error) {
-      console.error("Error fetching experiences:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data loading
-  useEffect(() => {
-    fetchExperiences();
+    fetchRecentlyViewed();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/tags`);
-      setCategories([
-        { tag_id: 0, name: "All", category_id: 0 },
-        ...response.data.tags,
-      ]);
-    } catch (error) {
-      console.error("Error fetching tags:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // Update the handleRefresh function
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await Promise.all([
-        fetchExperiences(),
-        fetchUserData(),
-        fetchUnreadCount(),
-      ]);
-      setCurrentPage(1);
-    } finally {
-      setRefreshing(false);
-    }
+    await loadAllSections();
+    setRefreshing(false);
   };
 
-  // Reset to first page when category or search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedCategory, searchText]);
+  // ============ EXPERIENCE CARD COMPONENT ============
+  const ExperienceCard = ({ item }: { item: Experience }) => (
+    <Pressable
+      onPress={() => {
+        addToRecentlyViewed(item.id);
+        router.push(`/(experience)/${item.id}`);
+      }}
 
-  // Filter experiences based on selected category and search text
-  const filteredExperiences: Experience[] = React.useMemo(() => {
-    let filtered = [...experiences];
+      className="mr-4 "
+      style={{ width: 240 }}
+    >
+      <View
+        className=" "
+        style={{
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 3,
+        }}
+      >
+        <View className="h-48 rounded-2xl overflow-hidden">
+          {item.images && item.images.length > 0 ? (
+            <Image
+              source={{ uri: `${API_URL}/${item.images[0]}` }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-full h-full bg-gray-200 items-center justify-center">
+              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+            </View>
+          )}
 
-    if (selectedCategory !== "All") {
-      filtered = filtered.filter(
-        (exp) =>
-          exp.tags &&
-          exp.tags.some(
-            (tag) => tag.toLowerCase() === selectedCategory.toLowerCase()
-          )
-      );
-    }
+        </View>
 
-    if (searchText) {
-      const searchLower = searchText.toLowerCase();
-      filtered = filtered.filter(
-        (exp) =>
-          (exp.title && exp.title.toLowerCase().includes(searchLower)) ||
-          (exp.description &&
-            exp.description.toLowerCase().includes(searchLower)) ||
-          (exp.location && exp.location.toLowerCase().includes(searchLower)) ||
-          (exp.destination_name &&
-            exp.destination_name.toLowerCase().includes(searchLower))
-      );
-    }
+        <View className="py-3">
+          <Text
+            className="font-onest-semibold text-base text-black/90"
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          <View className="flex-row items-center mt-1">
 
-    return filtered;
-  }, [experiences, selectedCategory, searchText]);
+            <Text
+              className="text-black/60 font-onest text-sm "
+              numberOfLines={1}
+            >
+              {item.location}, {item.destination_name}
+            </Text>
+          </View>
+          {item.price && item.price !== "0" && (
+            <Text className="text-black/60 font-onest text-sm mt-2">
+              From ₱{parseFloat(item.price).toLocaleString()}
+            </Text>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredExperiences.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedExperiences = filteredExperiences.slice(startIndex, endIndex);
+  // ============ SECTION COMPONENT ============
+  const Section = ({
+    title,
+    data,
+    onSeeAll,
+    emptyMessage,
+  }: {
+    title: string;
+    data: Experience[];
+    onSeeAll?: () => void;
+    emptyMessage?: string;
+  }) => {
+    // Don't render section if no data and no empty message
+    if (data.length === 0 && !emptyMessage) return null;
 
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxPagesToShow = 5;
+    return (
+      <View className="mt-6">
+        <View className="flex-row justify-between items-center px-6 mb-4">
+          <Text className="text-xl font-onest-semibold text-black/90">
+            {title}
+          </Text>
+          {onSeeAll && data.length > 0 && (
+            <Pressable onPress={onSeeAll}>
+              <Text className="text-primary font-onest-medium">See all</Text>
+            </Pressable>
+          )}
+        </View>
 
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push("...");
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        pages.push(1);
-        pages.push("...");
-        pages.push(currentPage - 1);
-        pages.push(currentPage);
-        pages.push(currentPage + 1);
-        pages.push("...");
-        pages.push(totalPages);
-      }
-    }
-
-    return pages;
+        {data.length > 0 ? (
+          <FlatList
+            horizontal
+            data={data}
+            renderItem={({ item }) => <ExperienceCard item={item} />}
+            keyExtractor={(item) => item.id.toString()}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24 }}
+          />
+        ) : (
+          <View className="px-6">
+            <View className="bg-gray-100 rounded-xl p-6 items-center">
+              <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
+              <Text className="text-black/50 font-onest mt-2 text-center">
+                {emptyMessage}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
   };
 
+  // ============ LOADING STATE ============
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
@@ -285,285 +392,114 @@ const App = () => {
     );
   }
 
+  // ============ MAIN RENDER ============
   return (
-    <SafeAreaView className="bg-gray-50">
-      <View className="w-full h-screen pb-20">
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: 142 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={["#1f2937"]}
-              tintColor={"#1f2937"}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="flex items-baseline justify-between flex-row p-6">
-            <View className="">
-              <Text className="text-normal text-3xl font-onest-semibold">
-                Hello, {firstName}
-              </Text>
-              <Text className="text-gray-400 font-onest">
-                Welcome to Itinera
-              </Text>
-            </View>
-
-            {/* Message Icon with Badge */}
-            <TouchableOpacity
-              onPress={() => router.push(`/(conversations)`)}
-              className="bg-gray-100 p-3 rounded-full relative"
-            >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={24}
-                color="#1f2937"
-              />
-              {/* Unread Badge */}
-              {totalUnreadMessages > 0 && (
-                <View
-                  className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[20px] h-5 items-center justify-center px-1"
-
-                >
-                  <Text className="text-white text-xs font-onest-semibold">
-                    {totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Rest of your component stays the same */}
-          <View className="flex flex-row items-center justify-between p-4 bg-white rounded-xl mx-4">
-            <Image
-              source={require("../../../assets/images/search.png")}
-              className="w-5 h-5 mr-3 opacity-60"
-              resizeMode="contain"
-            />
-            <TextInput
-              className="flex-1 text-base text-gray-800"
-              placeholder="Search activities"
-              placeholderTextColor="#9CA3AF"
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-            <Adjustment className="w-5 h-5 mr-3 opacity-60" />
-          </View>
-
-          <View className="px-6 py-8">
-            <Text className="text-normal text-xl font-onest-medium">
-              Featured Activities
+    <SafeAreaView className="bg-gray-50 flex-1">
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#1f2937"]}
+            tintColor={"#1f2937"}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* Header */}
+        <View className="flex-row items-center justify-between p-6">
+          <View>
+            <Text className="text-3xl font-onest-semibold text-black/90">
+              Hello, {firstName}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {categories.map((category) => {
-                const isSelected = selectedCategory === category.name;
-                return (
-                  <TouchableOpacity
-                    key={category.tag_id}
-                    onPress={() => setSelectedCategory(category.name)}
-                    activeOpacity={1}
-                    className={`px-6 py-2 rounded-full mr-3 mt-4 ${isSelected ? "bg-black/80" : "bg-white"
-                      }`}
-                  >
-                    <Text
-                      className={`text-base font-onest-medium ${isSelected ? "text-white" : "text-gray-400"
-                        }`}
-                    >
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View className="mt-8 min-h-fit">
-              {filteredExperiences.length === 0 ? (
-                <View className="py-16 items-center">
-                  <Text className="text-center text-gray-500 font-onest-medium text-lg">
-                    No experiences found
-                  </Text>
-                  <Text className="text-center text-gray-400 px-8 mt-3 font-onest leading-5">
-                    Try adjusting your search or category filter
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  {paginatedExperiences.map((item) => (
-                    <TouchableWithoutFeedback
-                      key={item.id}
-                      onPress={() => router.push(`/(experience)/${item.id}`)}
-                    >
-                      <View
-                        className="mb-4 bg-white rounded-2xl"
-                        style={{
-                          shadowColor: "#000",
-                          shadowOffset: { width: 2, height: 4 },
-                          shadowOpacity: 0.05,
-                          shadowRadius: 4,
-                          elevation: 5,
-                        }}
-                      >
-                        <View className="relative h-72 overflow-hidden">
-                          {item.images && item.images.length > 0 ? (
-                            <Image
-                              source={{ uri: `${API_URL}/${item.images[0]}` }}
-                              className="w-full h-72 absolute rounded-2xl"
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View className="w-full h-72 bg-gray-200 items-center justify-center absolute">
-                              <Ionicons
-                                name="image-outline"
-                                size={64}
-                                color="#9CA3AF"
-                              />
-                              <Text className="text-gray-400 font-onest text-sm mt-2">
-                                No image available
-                              </Text>
-                            </View>
-                          )}
-
-                          <LinearGradient
-                            colors={[
-                              "rgba(0, 0, 0, 0.0)",
-                              "rgba(0, 0, 0, 0.3)",
-                              "rgba(0, 0, 0, 0.7)",
-                            ]}
-                            style={{ position: "absolute", inset: 0 }}
-                            pointerEvents="none"
-                          />
-
-                          <View className="absolute bottom-0 left-0 right-0 p-4">
-                            <Text className="font-onest-semibold text-lg text-white/90 mb-1">
-                              {item.title}
-                            </Text>
-
-                            <View className="flex-row items-center">
-                              <Ionicons
-                                name="location-outline"
-                                size={14}
-                                color="#fff"
-                              />
-                              <Text className="text-white/90 font-onest text-sm ml-1">
-                                {item.location || item.destination_name}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <View className="p-4 pb-6">
-                          {item.price && item.price !== "0" && (
-                            <View className="mb-2">
-                              <Text className="font-onest-bold text-gray-900">
-                                From ₱{parseFloat(item.price).toLocaleString()}
-                              </Text>
-                            </View>
-                          )}
-
-                          {item.tags && item.tags.length > 0 && (
-                            <View className="flex-row flex-wrap">
-                              {item.tags.slice(0, 3).map((tag, index) => (
-                                <View
-                                  key={index}
-                                  className="bg-indigo-50 px-2 py-1 rounded-md mr-2 mb-2"
-                                >
-                                  <Text className="text-xs text-primary font-onest-medium">
-                                    {tag}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableWithoutFeedback>
-                  ))}
-
-                  {totalPages > 1 && (
-                    <View className="mt-6 mb-4">
-                      <Text className="text-center text-gray-500 text-sm mb-4 font-onest">
-                        Showing {startIndex + 1}-
-                        {Math.min(endIndex, filteredExperiences.length)} of{" "}
-                        {filteredExperiences.length} activities
-                      </Text>
-
-                      <View className="flex-row justify-center items-center">
-                        <TouchableOpacity
-                          onPress={() =>
-                            setCurrentPage((prev) => Math.max(1, prev - 1))
-                          }
-                          disabled={currentPage === 1}
-                          activeOpacity={1}
-                          className={`px-3 py-2 mr-2 rounded-md ${currentPage === 1 ? "bg-gray-200" : "bg-gray-800"
-                            }`}
-                        >
-                          <Ionicons
-                            name="chevron-back"
-                            size={20}
-                            color={currentPage === 1 ? "#9CA3AF" : "#FFFFFF"}
-                          />
-                        </TouchableOpacity>
-
-                        {getPageNumbers().map((page, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            activeOpacity={1}
-                            onPress={() =>
-                              typeof page === "number" && setCurrentPage(page)
-                            }
-                            disabled={page === "..."}
-                            className={`px-3 py-2 mx-1 rounded-md ${page === currentPage
-                              ? "bg-primary"
-                              : page === "..."
-                                ? "bg-transparent"
-                                : "bg-white border border-gray-300"
-                              }`}
-                          >
-                            <Text
-                              className={`font-onest-medium ${page === currentPage
-                                ? "text-white"
-                                : page === "..."
-                                  ? "text-gray-400"
-                                  : "text-gray-700"
-                                }`}
-                            >
-                              {page}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-
-                        <TouchableOpacity
-                          onPress={() =>
-                            setCurrentPage((prev) =>
-                              Math.min(totalPages, prev + 1)
-                            )
-                          }
-                          activeOpacity={1}
-                          disabled={currentPage === totalPages}
-                          className={`px-3 py-2 ml-2 rounded-md ${currentPage === totalPages
-                            ? "bg-gray-200"
-                            : "bg-gray-800"
-                            }`}
-                        >
-                          <Ionicons
-                            name="chevron-forward"
-                            size={20}
-                            color={
-                              currentPage === totalPages ? "#9CA3AF" : "#FFFFFF"
-                            }
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
+            <Text className="text-black/50 font-onest">Welcome to Itinera</Text>
           </View>
-        </ScrollView>
-      </View>
+
+          <Pressable
+            onPress={() => router.push(`/(conversations)`)}
+            className="bg-gray-100 p-3 rounded-full relative"
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="#1f2937"
+            />
+            {totalUnreadMessages > 0 && (
+              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[20px] h-5 items-center justify-center px-1">
+                <Text className="text-white text-xs font-onest-semibold">
+                  {totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Search Bar */}
+        <Pressable
+          onPress={() => router.push("/(search)")}
+
+          className="flex-row items-center mx-6 p-4 bg-white rounded-xl"
+          style={{
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <Image
+            source={require("../../../assets/images/search.png")}
+            className="w-5 h-5 mr-3 opacity-60"
+            resizeMode="contain"
+          />
+          <Text className="flex-1 text-base text-black/50 font-onest">
+            Search activities
+          </Text>
+          <Adjustment className="w-5 h-5 mr-3 opacity-60" />
+        </Pressable>
+
+        {/* Recently Viewed - Only show if user has viewed experiences */}
+        {recentlyViewed.length > 0 && (
+          <Section
+            title="Recently Viewed"
+            data={recentlyViewed}
+            onSeeAll={() => router.push("/(recently-viewed)")}
+          />
+        )}
+
+        {/* Happening Today */}
+        <Section
+          title="Happening Today"
+          data={todayExperiences}
+          onSeeAll={() => router.push("/(experiences)?filter=today")}
+          emptyMessage="No experiences scheduled for today"
+        />
+
+        {/* Tomorrow in [Location] */}
+        <Section
+          title={`Tomorrow in ${userLocation}`}
+          data={tomorrowExperiences}
+          onSeeAll={() =>
+            router.push(`/(experiences)?filter=tomorrow&location=${userLocation}`)
+          }
+        />
+
+        {/* This Weekend */}
+        <Section
+          title="This Weekend"
+          data={weekendExperiences}
+          onSeeAll={() => router.push("/(experiences)?filter=weekend")}
+          emptyMessage="No weekend experiences available"
+        />
+
+        {/* Popular Experiences */}
+        <Section
+          title="Popular Experiences"
+          data={popularExperiences}
+          onSeeAll={() => router.push("/(experiences)?filter=popular")}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 };

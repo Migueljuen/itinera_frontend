@@ -245,18 +245,26 @@ const ConversationsScreen = () => {
     return (
         <SafeAreaView className="flex-1 bg-gray-50">
             {/* Header */}
-            <View className="p-6">
+            <View className="py-6 px-4">
                 <View className="flex-row justify-between items-center mb-6">
-                    <View>
-                        <Text className="text-3xl font-onest-semibold text-gray-800">
-                            Messages
-                        </Text>
-                        <Text className="text-gray-400 font-onest">
-                            {totalUnread > 0
-                                ? `${totalUnread} unread messages`
-                                : "All caught up"}
-                        </Text>
-                    </View>
+                    <Pressable className="flex flex-row items-baseline" onPress={() => router.back()}>
+                        <Ionicons
+                            name="chevron-back"
+                            size={26}
+                            color="#9CA3AF"
+                            style={{ marginRight: 6, }}
+                        />
+                        <View>
+                            <Text className="text-3xl font-onest-semibold text-gray-800">
+                                Messages
+                            </Text>
+                            <Text className="text-gray-400 font-onest">
+                                {totalUnread > 0
+                                    ? `${totalUnread} unread messages`
+                                    : "All caught up"}
+                            </Text>
+                        </View>
+                    </Pressable>
                     {totalUnread > 0 && (
                         <View className="bg-indigo-50 rounded-full px-3 py-1">
                             <Text className="text-primary font-onest-semibold text-sm">
@@ -367,8 +375,8 @@ const ConversationsScreen = () => {
                                             <View className="flex-row justify-between items-center">
                                                 <Text
                                                     className={`font-onest text-sm flex-1 mr-2 ${hasUnread
-                                                            ? "text-gray-700 font-onest-medium"
-                                                            : "text-gray-400"
+                                                        ? "text-gray-700 font-onest-medium"
+                                                        : "text-gray-400"
                                                         }`}
                                                     numberOfLines={1}
                                                 >
