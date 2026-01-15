@@ -13,16 +13,16 @@ export function ActivityPaymentItem({ activity }: Props) {
     const isActivityPaid = activity.is_fully_paid;
 
     return (
-        <View className="flex-row items-center p-3 rounded-xl bg-[#fff]">
+        <View className="flex-row items-center py-3">
             {/* Status Indicator */}
             <View
-                className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isActivityPaid ? 'bg-green-100' : 'bg-gray-100'
+                className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${isActivityPaid ? 'bg-green-100' : 'bg-gray-50'
                     }`}
             >
                 {isActivityPaid ? (
-                    <Ionicons name="checkmark" size={16} color="#059669" />
+                    <Ionicons name="checkmark" size={18} color="#059669" />
                 ) : (
-                    <Ionicons name="time-outline" size={16} color="#9CA3AF" />
+                    <Ionicons name="time-outline" size={18} color="#9CA3AF" />
                 )}
             </View>
 

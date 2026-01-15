@@ -248,12 +248,8 @@ const ConversationsScreen = () => {
             <View className="py-6 px-4">
                 <View className="flex-row justify-between items-center mb-6">
                     <Pressable className="flex flex-row items-baseline" onPress={() => router.back()}>
-                        <Ionicons
-                            name="chevron-back"
-                            size={26}
-                            color="#9CA3AF"
-                            style={{ marginRight: 6, }}
-                        />
+                        <Ionicons name="arrow-back" size={24} color="#1f1f1f" style={{ marginRight: 6, }} />
+
                         <View>
                             <Text className="text-3xl font-onest-semibold text-gray-800">
                                 Messages

@@ -1,6 +1,7 @@
 // hooks/useFoodStopsAlongRoute.ts
 
 import { ItineraryItem } from "@/types/itineraryDetails";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
@@ -30,11 +31,69 @@ export interface RouteWithFoodStops {
     waypoints: Coordinate[];
 }
 
-// OpenRouteService API key - replace with your env variable setup
+interface CachedRouteData {
+    routeData: RouteWithFoodStops;
+    timestamp: number;
+}
+
 const ORS_API_KEY = process.env.EXPO_PUBLIC_OPENROUTE_API_KEY || "";
+const CACHE_PREFIX = "food_stops_cache_";
+const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Decode OpenRouteService polyline (uses Google's polyline encoding)
+ * Generate a cache key from itinerary items
+ */
+const generateCacheKey = (items: ItineraryItem[]): string => {
+    const coordString = items
+        .filter((item) => item.destination_latitude && item.destination_longitude)
+        .map((item) => `${item.destination_latitude?.toFixed(4)},${item.destination_longitude?.toFixed(4)}`)
+        .join("|");
+    return `${CACHE_PREFIX}${coordString}`;
+};
+
+/**
+ * Get cached route data if valid
+ */
+const getCachedRouteData = async (cacheKey: string): Promise<RouteWithFoodStops | null> => {
+    try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (!cached) return null;
+
+        const parsedCache: CachedRouteData = JSON.parse(cached);
+        const now = Date.now();
+
+        // Check if cache is expired
+        if (now - parsedCache.timestamp > CACHE_EXPIRY_MS) {
+            await AsyncStorage.removeItem(cacheKey);
+            return null;
+        }
+
+        console.log(">>> Using cached food stops data");
+        return parsedCache.routeData;
+    } catch (error) {
+        console.warn("Error reading cache:", error);
+        return null;
+    }
+};
+
+/**
+ * Save route data to cache
+ */
+const setCachedRouteData = async (cacheKey: string, routeData: RouteWithFoodStops): Promise<void> => {
+    try {
+        const cacheData: CachedRouteData = {
+            routeData,
+            timestamp: Date.now(),
+        };
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log(">>> Cached food stops data");
+    } catch (error) {
+        console.warn("Error saving to cache:", error);
+    }
+};
+
+/**
+ * Decode OpenRouteService polyline
  */
 const decodePolyline = (encoded: string): Coordinate[] => {
     const coordinates: Coordinate[] = [];
@@ -79,7 +138,6 @@ const decodePolyline = (encoded: string): Coordinate[] => {
 
 /**
  * Sample points along the route at regular intervals
- * to use for querying food stops
  */
 const sampleRoutePoints = (
     polyline: Coordinate[],
@@ -100,16 +158,13 @@ const sampleRoutePoints = (
 
 /**
  * Build Overpass API query for food establishments
- * within a certain radius of multiple points
  */
 const buildOverpassQuery = (
     points: Coordinate[],
     radiusMeters: number = 1000
 ): string => {
-    // Build individual queries for each point and food type
     const queries: string[] = [];
 
-    // Expanded list of food-related amenities
     const amenities = [
         "restaurant",
         "cafe",
@@ -123,7 +178,6 @@ const buildOverpassQuery = (
         "canteen",
     ];
 
-    // Also search for shops that sell food
     const shops = [
         "bakery",
         "pastry",
@@ -133,25 +187,21 @@ const buildOverpassQuery = (
     ];
 
     for (const point of points) {
-        // Amenities
         for (const amenity of amenities) {
             queries.push(
                 `node["amenity"="${amenity}"](around:${radiusMeters},${point.latitude},${point.longitude});`
             );
-            // Also check "way" (buildings) not just nodes
             queries.push(
                 `way["amenity"="${amenity}"](around:${radiusMeters},${point.latitude},${point.longitude});`
             );
         }
 
-        // Food shops
         for (const shop of shops) {
             queries.push(
                 `node["shop"="${shop}"](around:${radiusMeters},${point.latitude},${point.longitude});`
             );
         }
 
-        // Cuisine-tagged places (catches more restaurants)
         queries.push(
             `node["cuisine"](around:${radiusMeters},${point.latitude},${point.longitude});`
         );
@@ -179,19 +229,15 @@ const parseOverpassResponse = (data: any): FoodStop[] => {
 
     return data.elements
         .filter((el: any) => {
-            // Must have coordinates (nodes have lat/lon, ways have center.lat/center.lon)
             const hasCoords = (el.lat && el.lon) || (el.center?.lat && el.center?.lon);
-            // Must have a name
             const hasName = el.tags?.name;
             return hasCoords && hasName;
         })
         .map((el: any) => {
-            // Get coordinates (handle both nodes and ways)
             const latitude = el.lat || el.center?.lat;
             const longitude = el.lon || el.center?.lon;
 
-            // Determine food type
-            let type: FoodStop["type"] = "restaurant"; // default
+            let type: FoodStop["type"] = "restaurant";
             const amenity = el.tags?.amenity;
             const shop = el.tags?.shop;
 
@@ -206,7 +252,7 @@ const parseOverpassResponse = (data: any): FoodStop[] => {
             } else if (amenity === "bar" || amenity === "pub" || amenity === "biergarten") {
                 type = "bar";
             } else if (amenity === "ice_cream") {
-                type = "cafe"; // group ice cream with cafes
+                type = "cafe";
             }
 
             return {
@@ -225,13 +271,12 @@ const parseOverpassResponse = (data: any): FoodStop[] => {
 };
 
 /**
- * Remove duplicate food stops (same location or very close)
+ * Remove duplicate food stops
  */
 const deduplicateFoodStops = (stops: FoodStop[]): FoodStop[] => {
     const seen = new Map<string, FoodStop>();
 
     for (const stop of stops) {
-        // Round coordinates to ~11m precision for deduplication
         const key = `${stop.latitude.toFixed(4)},${stop.longitude.toFixed(4)}`;
         if (!seen.has(key)) {
             seen.set(key, stop);
@@ -251,11 +296,11 @@ export const useFoodStopsAlongRoute = () => {
             dayItems: ItineraryItem[],
             userLocation?: Location.LocationObject | null
         ): Promise<RouteWithFoodStops | null> => {
+            console.log(">>> FETCH START");
             setLoading(true);
             setError(null);
 
             try {
-                // Filter items with valid coordinates
                 const itemsWithCoords = dayItems.filter(
                     (item) => item.destination_latitude && item.destination_longitude
                 );
@@ -264,7 +309,24 @@ export const useFoodStopsAlongRoute = () => {
                     throw new Error("No activities with location data");
                 }
 
-                // Determine origin (user location or first item)
+                // Check cache first
+                const cacheKey = generateCacheKey(itemsWithCoords);
+                const cachedData = await getCachedRouteData(cacheKey);
+
+                if (cachedData) {
+                    // Update origin with current user location if available
+                    if (userLocation) {
+                        cachedData.origin = {
+                            latitude: userLocation.coords.latitude,
+                            longitude: userLocation.coords.longitude,
+                        };
+                    }
+                    setRouteData(cachedData);
+                    setLoading(false);
+                    return cachedData;
+                }
+
+                // No cache, fetch fresh data
                 let origin: Coordinate;
                 if (userLocation) {
                     origin = {
@@ -272,7 +334,6 @@ export const useFoodStopsAlongRoute = () => {
                         longitude: userLocation.coords.longitude,
                     };
                 } else {
-                    // Try to get current location
                     const { status } = await Location.requestForegroundPermissionsAsync();
                     if (status === "granted") {
                         const location = await Location.getCurrentPositionAsync({});
@@ -281,7 +342,6 @@ export const useFoodStopsAlongRoute = () => {
                             longitude: location.coords.longitude,
                         };
                     } else {
-                        // Fall back to first item as origin
                         origin = {
                             latitude: itemsWithCoords[0].destination_latitude!,
                             longitude: itemsWithCoords[0].destination_longitude!,
@@ -289,7 +349,6 @@ export const useFoodStopsAlongRoute = () => {
                     }
                 }
 
-                // Build waypoints and destination
                 const allPoints = itemsWithCoords.map((item) => ({
                     latitude: item.destination_latitude!,
                     longitude: item.destination_longitude!,
@@ -298,15 +357,13 @@ export const useFoodStopsAlongRoute = () => {
                 const destination = allPoints[allPoints.length - 1];
                 const waypoints = allPoints.slice(0, -1);
 
-                // Build coordinates array for OpenRouteService
-                // Format: [[lng, lat], [lng, lat], ...]
                 const coordinates = [
                     [origin.longitude, origin.latitude],
                     ...waypoints.map((wp) => [wp.longitude, wp.latitude]),
                     [destination.longitude, destination.latitude],
                 ];
 
-                // Fetch route from OpenRouteService
+                console.log(">>> Fetching route from OpenRouteService...");
                 const routeResponse = await fetch(
                     "https://api.openrouteservice.org/v2/directions/driving-car",
                     {
@@ -321,6 +378,7 @@ export const useFoodStopsAlongRoute = () => {
                         }),
                     }
                 );
+                console.log(">>> Route response received");
 
                 if (!routeResponse.ok) {
                     const errorData = await routeResponse.json().catch(() => ({}));
@@ -335,20 +393,14 @@ export const useFoodStopsAlongRoute = () => {
                     throw new Error("No route found");
                 }
 
-                // Decode the polyline
                 const polyline = decodePolyline(routeJson.routes[0].geometry);
-
-                // Sample points along the route for food stop queries
-                // More points = better coverage along the route
                 const sampledPoints = sampleRoutePoints(polyline, 15);
-
-                // Query Overpass API for food stops
-                // 1000m radius = ~1km on each side of the route
                 const overpassQuery = buildOverpassQuery(sampledPoints, 1000);
 
                 let foodStops: FoodStop[] = [];
 
                 try {
+                    console.log(">>> Fetching food stops from Overpass...");
                     const overpassResponse = await fetch(
                         "https://overpass-api.de/api/interpreter",
                         {
@@ -359,6 +411,7 @@ export const useFoodStopsAlongRoute = () => {
                             body: `data=${encodeURIComponent(overpassQuery)}`,
                         }
                     );
+                    console.log(">>> Overpass response received");
 
                     if (!overpassResponse.ok) {
                         const errorText = await overpassResponse.text();
@@ -366,7 +419,7 @@ export const useFoodStopsAlongRoute = () => {
                     } else {
                         const overpassJson = await overpassResponse.json();
                         foodStops = deduplicateFoodStops(parseOverpassResponse(overpassJson));
-                        console.log(`Found ${foodStops.length} food stops`);
+                        console.log(`>>> Found ${foodStops.length} food stops`);
                     }
                 } catch (overpassError) {
                     console.warn("Overpass API request failed:", overpassError);
@@ -380,13 +433,18 @@ export const useFoodStopsAlongRoute = () => {
                     waypoints,
                 };
 
+                // Cache the result
+                await setCachedRouteData(cacheKey, result);
+
                 setRouteData(result);
                 setLoading(false);
+                console.log(">>> FETCH COMPLETE");
                 return result;
             } catch (err: any) {
                 const errorMessage = err.message || "Failed to fetch route";
                 setError(errorMessage);
                 setLoading(false);
+                console.log(">>> FETCH ERROR:", errorMessage);
                 Alert.alert("Error", errorMessage);
                 return null;
             }
@@ -399,11 +457,24 @@ export const useFoodStopsAlongRoute = () => {
         setError(null);
     }, []);
 
+    // Optional: Clear all food stops cache
+    const clearCache = useCallback(async () => {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            const cacheKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX));
+            await AsyncStorage.multiRemove(cacheKeys);
+            console.log(`>>> Cleared ${cacheKeys.length} cached routes`);
+        } catch (error) {
+            console.warn("Error clearing cache:", error);
+        }
+    }, []);
+
     return {
         loading,
         error,
         routeData,
         fetchRouteWithFoodStops,
         clearRouteData,
+        clearCache,
     };
 };

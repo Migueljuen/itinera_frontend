@@ -54,15 +54,23 @@ export function TripPlanActionBar({
     };
 
     const handleFoodStops = () => {
+        console.log('0. Button pressed');
         onShowFoodStops(dayNumber, items);
     };
 
     return (
         <View
             className="absolute bg-[#fff] bottom-0 left-0 right-0"
-
+            style={{
+                paddingBottom: insets.bottom || 16,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -12 },  // Shadow goes upward
+                shadowOpacity: 0.04,                      // Very subtle
+                shadowRadius: 8,                          // Soft blur
+                elevation: 4,                             // Android shadow
+            }}
         >
-            <View className="flex flex-row  justify-between  py-4">
+            <View className="flex flex-row  justify-between  pt-8">
                 {/* Navigate Button */}
                 <Pressable
                     onPress={handleNavigate}
@@ -77,11 +85,11 @@ export function TripPlanActionBar({
                 {/* Food Stops Button */}
                 <Pressable
                     onPress={handleFoodStops}
-                    className="flex-1 flex-row items-center justify-center "
+                    className="flex-1 flex-row items-center justify-center"
                 >
-                    <Ionicons name="pizza-outline" size={18} color="#000000cc" />
+                    <Ionicons name="restaurant-outline" size={18} color="#000000cc" />
                     <Text className="text-black/90 font-onest-medium ml-2 text-base">
-                        Food Stops
+                        {hasMultipleStops ? 'Food Stops' : 'Food on Route'}
                     </Text>
                 </Pressable>
             </View>

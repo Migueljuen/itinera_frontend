@@ -26,6 +26,11 @@ export interface ItineraryFormData {
     activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
   };
+  services?: {
+
+    tour_guide_id?: number;
+    car_service_id?: number;
+  };
 }
 
 export interface ItineraryItem {

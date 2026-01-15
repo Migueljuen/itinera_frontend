@@ -20,12 +20,14 @@ export function TravelIndicator({ timeCheck, canNavigate, onNavigate }: Props) {
     const message = timeCheck?.message || 'Travel to next activity';
 
     return (
-        <View className="px-4 py-3 my-4 flex-row items-center justify-between">
-            <View className="flex-row items-center flex-1">
-                <View className="w-20 items-center ">
+        <View className=" py-3 my-4  flex-row items-start ">
+            <View className="flex-row items-center gap-3 flex-1">
+                <View className=" flex items-center gap-2 justify-center w-fit">
                     {/* Use border instead of width for thin lines */}
                     <View className="h-8 border-l border-gray-300" />
-                    <Ionicons name="car-outline" size={16} color="#000000cc" />
+                    <View className=''>
+                        <Ionicons name="car-outline" size={16} color="#000000cc" />
+                    </View>
                     <View className="h-8 border-l border-gray-300" />
                 </View>
                 <Text

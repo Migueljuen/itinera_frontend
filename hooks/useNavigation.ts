@@ -102,15 +102,15 @@ export const useItineraryNavigation = () => {
         }
 
         try {
-            const destination = `${item.destination_latitude},${item.destination_longitude}`;
-            const label = encodeURIComponent(item.experience_name);
+            const { destination_latitude, destination_longitude, experience_name } = item;
+            const label = encodeURIComponent(experience_name);
 
             const url = Platform.select({
-                ios: `maps://app?daddr=${destination}&q=${label}`,
-                android: `google.navigation:q=${destination}&mode=d`,
+                ios: `maps://app?daddr=${label}@${destination_latitude},${destination_longitude}`,
+                android: `google.navigation:q=${destination_latitude},${destination_longitude}(${label})`,
             });
 
-            const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${destination}&query_place_id=${label}`;
+            const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${destination_latitude},${destination_longitude}`;
 
             if (url) {
                 const supported = await Linking.canOpenURL(url);

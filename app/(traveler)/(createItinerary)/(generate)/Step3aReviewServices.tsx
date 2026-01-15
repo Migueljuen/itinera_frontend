@@ -49,6 +49,8 @@ interface CarService {
   price_per_day: string | number;
   city: string;
   driver_name: string;
+  driver_id: number;      // Add this - from driver_profiles
+  driver_user_id: number; // Add this - user_id from driver_profiles
   avg_rating: string | number;
   review_count: number;
 }
@@ -209,6 +211,32 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
     setSaving(true);
 
     try {
+      // Build service assignments array
+      const serviceAssignments: Array<{
+        service_type: 'Guide' | 'Driver';
+        provider_id: number;
+        provider_profile_id: number;
+        price: number;
+      }> = [];
+
+      if (selectedGuide) {
+        serviceAssignments.push({
+          service_type: 'Guide',
+          provider_id: selectedGuide.user_id,
+          provider_profile_id: selectedGuide.guide_id,
+          price: guideCost,
+        });
+      }
+
+      if (selectedCar) {
+        serviceAssignments.push({
+          service_type: 'Driver',
+          provider_id: selectedCar.driver_user_id,
+          provider_profile_id: selectedCar.driver_id,
+          price: carCost,
+        });
+      }
+
       const response = await fetch(`${API_URL}/itinerary/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -219,12 +247,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
           title: formData.title,
           notes: formData.notes,
           items: formData.items,
-          total_cost: totalActivityCost + additionalCost,
+          total_cost: totalActivityCost, // Only activities cost, services excluded
           traveler_count: formData.preferences?.travelerCount || 1,
-          tour_guide_id: selectedGuide ? selectedGuide.guide_id : null,
-          car_service_id: selectedCar ? selectedCar.vehicle_id : null,
-          guide_cost: guideCost,
-          car_cost: carCost,
+          service_assignments: serviceAssignments,
         }),
       });
 
@@ -265,10 +290,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       setSaving(false);
     }
   };
-
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="py-4 bg-white border-b border-gray-200">
+    <View className="flex-1 bg-[#fff]">
+      <View className="py-4  border-b border-gray-200">
         <Text className="text-xl font-onest-semibold text-center text-gray-900">
           Review & Add Services
         </Text>
@@ -279,8 +303,8 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         <View className="py-6">
-          <View className="mb-6 rounded-lg overflow-hidden border border-gray-200">
-            <View className="p-6 bg-white">
+          <View className="mb-6 rounded-lg overflow-hidden ">
+            <View className="p-6 ">
               <View className="flex-row justify-between items-start mb-4">
                 <View className="flex-1 mr-4">
                   <Text className="text-2xl font-onest-semibold text-gray-800 mb-2">
@@ -319,14 +343,14 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             </View>
           </View>
 
-          <View className=" border border-gray-200">
+          <View className=" ">
             <Text className="text-lg font-onest-semibold text-start text-gray-900 my-4 px-4">
               Optional Add-ons
             </Text>
             <View className="mb-6 rounded-lg overflow-hidden ">
 
               <Pressable
-                className="bg-white border-b border-gray-100"
+                className=" border-b border-gray-100"
               >
                 <View className="p-4">
                   <View className="flex-row items-center justify-between">
@@ -354,9 +378,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               </Pressable>
 
 
-              <View className="p-4 bg-gray-50">
+              <View className="py-4 ">
                 {selectedGuide ? (
-                  <View className="bg-white rounded-lg p-4 border border-gray-200">
+                  <View className=" rounded-lg p-4 border border-gray-200">
                     <View className="flex-row justify-between items-start mb-3">
                       <View className="flex-1">
                         <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
@@ -395,7 +419,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                 ) : (
                   <TouchableOpacity
                     onPress={openGuideModal}
-                    className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
+                    className=" rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
                     activeOpacity={0.7}
                   >
                     <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
@@ -411,7 +435,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             <View className="mb-6 rounded-lg overflow-hidden">
               <Pressable
 
-                className="bg-white border-b border-gray-100"
+                className=" border-b border-gray-100"
               >
                 <View className="p-4">
                   <View className="flex-row items-center justify-between">
@@ -441,9 +465,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               </Pressable>
 
 
-              <View className="p-4 bg-gray-50">
+              <View className="p-4 ">
                 {selectedCar ? (
-                  <View className="bg-white rounded-lg p-4 border border-gray-200">
+                  <View className="rounded-lg p-4 border border-gray-200">
                     <View className="flex-row justify-between items-start mb-3">
                       <View className="flex-1">
                         <Text className="text-lg font-onest-semibold text-gray-900 mb-1">
@@ -481,7 +505,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                 ) : (
                   <TouchableOpacity
                     onPress={openCarModal}
-                    className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
+                    className=" rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
                     activeOpacity={0.7}
                   >
                     <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
@@ -496,7 +520,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
           </View>
 
           <View className="mb-6 rounded-lg overflow-hidden border border-gray-200">
-            <View className="p-6 bg-white">
+            <View className="p-6 ">
               <Text className="text-lg font-onest-semibold text-gray-900 mb-4">
                 Cost Summary
               </Text>
@@ -543,7 +567,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
       <Modal visible={showGuideModal} animationType="slide" transparent={true} onRequestClose={() => setShowGuideModal(false)}>
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl max-h-[80%]">
+          <View className=" bg-[#fff] rounded-t-3xl max-h-[100%]">
 
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <Text className="text-xl font-onest-bold text-gray-900">Select Tour Guide</Text>
@@ -564,7 +588,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                 </View>
               ) : (
                 guides.map((guide) => (
-                  <TouchableOpacity key={guide.guide_id} onPress={() => handleGuideSelect(guide)} className="bg-white border border-gray-200 rounded-xl p-4 mb-3" activeOpacity={0.7}>
+                  <TouchableOpacity key={guide.guide_id} onPress={() => handleGuideSelect(guide)} className=" border border-gray-200 rounded-xl p-4 mb-3" activeOpacity={0.7}>
                     <View className="flex-row justify-between items-start mb-2">
                       <Text className="text-lg font-onest-semibold text-gray-900 flex-1">{guide.name}</Text>
                       <View className="flex-row items-center">
@@ -597,7 +621,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
       <Modal visible={showCarModal} animationType="slide" transparent={true} onRequestClose={() => setShowCarModal(false)}>
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl max-h-[80%]">
+          <View className=" rounded-t-3xl max-h-[80%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <Text className="text-xl font-onest-bold text-gray-900">Select Vehicle</Text>
               <TouchableOpacity onPress={() => setShowCarModal(false)}>
@@ -612,7 +636,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                 </View>
               ) : availableVehicles.length > 0 ? (
                 availableVehicles.map((car) => (
-                  <TouchableOpacity key={car.vehicle_id} onPress={() => handleCarSelect(car)} className="bg-white border border-gray-200 rounded-xl p-4 mb-3" activeOpacity={0.7}>
+                  <TouchableOpacity key={car.vehicle_id} onPress={() => handleCarSelect(car)} className=" border border-gray-200 rounded-xl p-4 mb-3" activeOpacity={0.7}>
                     <View className="flex-row justify-between items-start mb-3">
                       <View className="flex-1">
                         <Text className="text-lg font-onest-semibold text-gray-900 mb-1">{car.vehicle_type}</Text>
@@ -654,7 +678,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       </Modal>
 
       {/* Floating Action Buttons */}
-      <View className="px-6 py-4 bg-white border-t border-gray-200">
+      <View className="px-6 py-4  border-t border-gray-200">
         <View className="flex-row justify-between">
           <TouchableOpacity
             onPress={onBack}

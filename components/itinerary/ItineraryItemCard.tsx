@@ -40,12 +40,12 @@ export function ItineraryItemCard({
                             color={isCompleted ? '#10B981' : '#4F46E5'}
                         />
                         <Text
-                            className={`text-xs font-onest-medium mt-1 ${isCompleted ? 'text-gray-500' : 'text-primary'
+                            className={`text-xs font-onest-medium mt-1 ${isCompleted ? 'text-black/50' : 'text-primary'
                                 }`}
                         >
                             {startTimeDisplay}
                         </Text>
-                        <Text className="text-xs text-gray-400 font-onest">{endTimeDisplay}</Text>
+                        <Text className="text-xs text-black/50 font-onest">{endTimeDisplay}</Text>
                     </View>
 
                     {/* Quick Navigation Button */}
@@ -89,7 +89,7 @@ export function ItineraryItemCard({
 
                     {/* Experience Details */}
                     <Text
-                        className={`text-2xl font-onest mb-1 ${isCompleted ? 'text-gray-500' : 'text-gray-900'
+                        className={`text-2xl font-onest mb-1 ${isCompleted ? 'text-black/50' : 'text-black/90'
                             }`}
                         numberOfLines={1}
                     >
@@ -105,7 +105,7 @@ export function ItineraryItemCard({
                             color={isCompleted ? '#9CA3AF' : '#4F46E5'}
                         />
                         <Text
-                            className={`text-sm font-onest ml-1 ${isCompleted ? 'text-gray-400' : 'text-gray-500'
+                            className={`text-sm font-onest ml-1 ${isCompleted ? 'text-black/50' : 'text-black/50'
                                 }`}
                             numberOfLines={1}
                         >
@@ -118,7 +118,7 @@ export function ItineraryItemCard({
 
                     <View className='mt-8 flex flex-row items-baseline justify-between'>
                         <Text
-                            className={`text-2xl  font-onest mb-1 ${isCompleted ? 'text-gray-500' : 'text-gray-900'}`}
+                            className={`text-2xl  font-onest mb-1 ${isCompleted ? 'text-black/50' : 'text-black/90'}`}
                             numberOfLines={1}
                         >
                             {startTimeDisplay} - {endTimeDisplay}

@@ -1,11 +1,10 @@
-// screens/ItineraryDetailScreen.tsx
+// screens/ItineraryDetailScreen.tsx main file
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 // Components
 import { FoodStopsSheet } from '@/components/FoodStopSheet';
 import { TabNavigation, TabType } from '@/components/itinerary/TabNavigation';
@@ -87,10 +86,16 @@ export default function ItineraryDetailScreen() {
   }, []);
 
   const handleShowFoodStops = useCallback(
-    async (dayNumber: number, dayItems: ItineraryItem[]) => {
+    (dayNumber: number, dayItems: ItineraryItem[]) => {
+      console.log('1. Opening modal');
       setSelectedDayForFood(dayNumber);
       setFoodStopsVisible(true);
-      await fetchRouteWithFoodStops(dayItems, userLocation);
+
+      // Force a delay to let the modal render first
+      setTimeout(() => {
+        console.log('2. Starting fetch (after delay)');
+        fetchRouteWithFoodStops(dayItems, userLocation);
+      }, 500);
     },
     [fetchRouteWithFoodStops, userLocation]
   );

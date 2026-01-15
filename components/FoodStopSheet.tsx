@@ -1,26 +1,20 @@
 // components/FoodStopsSheet.tsx
 
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Animated,
-    Dimensions,
     Linking,
-    Modal,
     Platform,
     Pressable,
     ScrollView,
     Text,
-    TouchableOpacity,
     View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 
 import { FoodStop, RouteWithFoodStops } from "@/hooks/useFoodStopsAlongRoutes";
-
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.85;
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetView } from "@gorhom/bottom-sheet";
 
 interface FoodStopsSheetProps {
     visible: boolean;
@@ -30,7 +24,6 @@ interface FoodStopsSheetProps {
     dayNumber: number;
 }
 
-// Food type icons and colors
 const FOOD_TYPE_CONFIG: Record<
     FoodStop["type"],
     { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }
@@ -50,32 +43,39 @@ export const FoodStopsSheet: React.FC<FoodStopsSheetProps> = ({
     loading,
     dayNumber,
 }) => {
+    const bottomSheetRef = useRef<BottomSheet>(null);
     const mapRef = useRef<MapView>(null);
-    const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
     const [selectedStop, setSelectedStop] = useState<FoodStop | null>(null);
     const [activeFilter, setActiveFilter] = useState<FoodStop["type"] | "all">("all");
+    const [shouldRenderMap, setShouldRenderMap] = useState(false);
 
-    // Animate sheet in/out
+    const snapPoints = useMemo(() => ["85%"], []);
+    const focusHook = useCallback(() => { }, []);
+
+    // Control sheet visibility
     useEffect(() => {
         if (visible) {
-            Animated.spring(slideAnim, {
-                toValue: 0,
-                useNativeDriver: true,
-                tension: 65,
-                friction: 11,
-            }).start();
+            bottomSheetRef.current?.snapToIndex(0);
         } else {
-            Animated.timing(slideAnim, {
-                toValue: SHEET_HEIGHT,
-                duration: 250,
-                useNativeDriver: true,
-            }).start();
+            bottomSheetRef.current?.close();
+            setShouldRenderMap(false);
         }
     }, [visible]);
 
-    // Fit map to show entire route when data loads
+
+    // Render map after data loads
     useEffect(() => {
-        if (routeData && mapRef.current) {
+        if (visible && routeData && !loading) {
+            const timer = setTimeout(() => {
+                setShouldRenderMap(true);
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [visible, routeData, loading]);
+
+    // Fit map when ready
+    useEffect(() => {
+        if (shouldRenderMap && routeData && mapRef.current) {
             const allCoords = [
                 routeData.origin,
                 ...routeData.waypoints,
@@ -93,30 +93,26 @@ export const FoodStopsSheet: React.FC<FoodStopsSheetProps> = ({
                 });
             }, 300);
         }
-    }, [routeData]);
+    }, [shouldRenderMap, routeData]);
 
-    // Filter food stops
     const filteredStops =
         routeData?.foodStops.filter(
             (stop) => activeFilter === "all" || stop.type === activeFilter
         ) || [];
 
-    // Get unique food types for filter chips
     const availableTypes = Array.from(
         new Set(routeData?.foodStops.map((s) => s.type) || [])
     );
 
-    // Navigate to selected food stop
     const handleNavigateToStop = (stop: FoodStop) => {
-        const destination = `${stop.latitude},${stop.longitude}`;
         const label = encodeURIComponent(stop.name);
 
         const url = Platform.select({
-            ios: `maps://app?daddr=${destination}&q=${label}`,
-            android: `google.navigation:q=${destination}&mode=d`,
+            ios: `maps://app?daddr=${label}@${stop.latitude},${stop.longitude}`,
+            android: `geo:0,0?q=${stop.latitude},${stop.longitude}(${label})`,
         });
 
-        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${destination}`;
+        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${stop.latitude},${stop.longitude}`;
 
         if (url) {
             Linking.canOpenURL(url).then((supported) => {
@@ -129,304 +125,293 @@ export const FoodStopsSheet: React.FC<FoodStopsSheetProps> = ({
         }
     };
 
-    // Handle marker press
     const handleMarkerPress = (stop: FoodStop) => {
         setSelectedStop(stop);
-        mapRef.current?.animateToRegion(
-            {
-                latitude: stop.latitude,
-                longitude: stop.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-            },
-            300
-        );
+        if (shouldRenderMap) {
+            mapRef.current?.animateToRegion(
+                {
+                    latitude: stop.latitude,
+                    longitude: stop.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                },
+                300
+            );
+        }
     };
 
+    const handleSheetChanges = useCallback((index: number) => {
+        if (index === -1) {
+            onClose();
+        }
+    }, [onClose]);
+
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+                pressBehavior="close"
+            />
+        ),
+        []
+    );
+
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-            <View className="flex-1 bg-black/50">
-                {/* Backdrop */}
-                <Pressable className="flex-1" onPress={onClose} />
-
-                {/* Sheet */}
-                <Animated.View
-                    style={{
-                        transform: [{ translateY: slideAnim }],
-                        height: SHEET_HEIGHT,
-                    }}
-                    className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl overflow-hidden"
+        <BottomSheet
+            ref={bottomSheetRef}
+            index={-1}
+            snapPoints={snapPoints}
+            onChange={handleSheetChanges}
+            enablePanDownToClose={false}
+            enableDynamicSizing={false}
+            enableContentPanningGesture={false}
+            enableHandlePanningGesture={false}
+            animateOnMount={false}
+            backdropComponent={renderBackdrop}
+            handleIndicatorStyle={{ backgroundColor: "#D1D5DB", width: 40 }}
+            backgroundStyle={{ borderRadius: 24 }}
+        >
+            {/* Header - outside scrollable area */}
+            <View className="flex-row items-center justify-between px-5 pb-3">
+                <View>
+                    <Text className="text-xl font-onest-semibold text-black/90">
+                        Food Stops
+                    </Text>
+                    <Text className="text-sm font-onest text-black/50">
+                        Day {dayNumber} • {filteredStops.length} places found
+                    </Text>
+                </View>
+                <Pressable
+                    onPress={onClose}
+                    className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
                 >
-                    {/* Handle */}
-                    <View className="items-center pt-3 pb-2">
-                        <View className="w-10 h-1 bg-gray-300 rounded-full" />
-                    </View>
+                    <Ionicons name="close" size={20} color="#6B7280" />
+                </Pressable>
+            </View>
 
-                    {/* Header */}
-                    <View className="flex-row items-center justify-between px-5 pb-3">
-                        <View>
-                            <Text className="text-xl font-onest-semibold text-gray-800">
-                                Food Stops
-                            </Text>
-                            <Text className="text-sm font-onest text-gray-500">
-                                Day {dayNumber} • {filteredStops.length} places found
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={onClose}
-                            className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
-                        >
-                            <Ionicons name="close" size={20} color="#6B7280" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {loading ? (
-                        <View className="flex-1 items-center justify-center">
-                            <ActivityIndicator size="large" color="#4F46E5" />
-                            <Text className="mt-3 text-gray-500 font-onest">
-                                Finding food stops along your route...
-                            </Text>
-                        </View>
-                    ) : routeData ? (
-                        <>
-                            {/* Map */}
-                            <View className="h-64 mx-4 rounded-2xl overflow-hidden border border-gray-200">
-                                <MapView
-                                    ref={mapRef}
-                                    style={{ flex: 1 }}
-                                    provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-                                    showsUserLocation
-                                    showsMyLocationButton={false}
-                                >
-                                    {/* Route polyline */}
-                                    <Polyline
-                                        coordinates={routeData.polyline}
-                                        strokeColor="#4F46E5"
-                                        strokeWidth={4}
-                                    />
-
-                                    {/* Origin marker */}
+            {loading ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color="#4F46E5" />
+                    <Text className="mt-3 text-black/50 font-onest">
+                        Finding food stops along your route...
+                    </Text>
+                </View>
+            ) : routeData ? (
+                <BottomSheetScrollView
+                    contentContainerStyle={{ paddingBottom: 40 }}
+                    showsVerticalScrollIndicator={false}
+                    focusHook={focusHook}
+                >
+                    {/* Map */}
+                    <View className="h-64 mx-4 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100">
+                        {shouldRenderMap ? (
+                            <MapView
+                                ref={mapRef}
+                                style={{ flex: 1 }}
+                                provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+                                showsUserLocation
+                                showsMyLocationButton={false}
+                            >
+                                <Polyline
+                                    coordinates={routeData.polyline}
+                                    strokeColor="#4F46E5"
+                                    strokeWidth={4}
+                                />
+                                <Marker
+                                    coordinate={routeData.origin}
+                                    title="Start"
+                                    pinColor="#10B981"
+                                />
+                                {routeData.waypoints.map((wp, index) => (
                                     <Marker
-                                        coordinate={routeData.origin}
-                                        title="Start"
-                                        pinColor="#10B981"
+                                        key={`waypoint-${index}`}
+                                        coordinate={wp}
+                                        title={`Stop ${index + 1}`}
+                                        pinColor="#4F46E5"
                                     />
-
-                                    {/* Waypoint markers */}
-                                    {routeData.waypoints.map((wp, index) => (
+                                ))}
+                                <Marker
+                                    coordinate={routeData.destination}
+                                    title="End"
+                                    pinColor="#EF4444"
+                                />
+                                {filteredStops.map((stop) => {
+                                    const config = FOOD_TYPE_CONFIG[stop.type];
+                                    return (
                                         <Marker
-                                            key={`waypoint-${index}`}
-                                            coordinate={wp}
-                                            title={`Stop ${index + 1}`}
-                                            pinColor="#4F46E5"
-                                        />
-                                    ))}
-
-                                    {/* Destination marker */}
-                                    <Marker
-                                        coordinate={routeData.destination}
-                                        title="End"
-                                        pinColor="#EF4444"
-                                    />
-
-                                    {/* Food stop markers */}
-                                    {filteredStops.map((stop) => {
-                                        const config = FOOD_TYPE_CONFIG[stop.type];
-                                        return (
-                                            <Marker
-                                                key={stop.id}
-                                                coordinate={{
-                                                    latitude: stop.latitude,
-                                                    longitude: stop.longitude,
-                                                }}
-                                                onPress={() => handleMarkerPress(stop)}
+                                            key={stop.id}
+                                            coordinate={{
+                                                latitude: stop.latitude,
+                                                longitude: stop.longitude,
+                                            }}
+                                            onPress={() => handleMarkerPress(stop)}
+                                        >
+                                            <View
+                                                className="items-center justify-center rounded-full p-2"
+                                                style={{ backgroundColor: config.color }}
                                             >
-                                                <View
-                                                    className="items-center justify-center rounded-full p-2"
-                                                    style={{ backgroundColor: config.color }}
-                                                >
-                                                    <Ionicons name={config.icon} size={16} color="white" />
-                                                </View>
-                                            </Marker>
-                                        );
-                                    })}
-                                </MapView>
+                                                <Ionicons name={config.icon} size={16} color="white" />
+                                            </View>
+                                        </Marker>
+                                    );
+                                })}
+                            </MapView>
+                        ) : (
+                            <View className="flex-1 items-center justify-center">
+                                <ActivityIndicator size="small" color="#4F46E5" />
+                                <Text className="mt-2 text-black/50 font-onest text-sm">
+                                    Loading map...
+                                </Text>
                             </View>
+                        )}
+                    </View>
 
-                            {/* Filter chips */}
-                            {availableTypes.length > 1 && (
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    className="px-4 py-3"
-                                    contentContainerStyle={{ gap: 8 }}
+                    {/* Filter chips */}
+                    {availableTypes.length > 1 && (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            className="px-4 py-3"
+                            contentContainerStyle={{ gap: 8 }}
+                        >
+                            <Pressable
+                                className={`px-4 py-2 rounded-full flex-row items-center ${activeFilter === "all" ? "bg-gray-800" : "bg-gray-100"
+                                    }`}
+                                onPress={() => setActiveFilter("all")}
+                            >
+                                <Text
+                                    className={`font-onest-medium text-sm ${activeFilter === "all" ? "text-white" : "text-black/50"
+                                        }`}
                                 >
-                                    <TouchableOpacity
-                                        className={`px-4 py-2 rounded-full flex-row items-center ${activeFilter === "all" ? "bg-primary" : "bg-gray-100"
+                                    All
+                                </Text>
+                            </Pressable>
+
+                            {availableTypes.map((type) => {
+                                const config = FOOD_TYPE_CONFIG[type];
+                                const count = routeData.foodStops.filter(
+                                    (s) => s.type === type
+                                ).length;
+                                const isActive = activeFilter === type;
+
+                                return (
+                                    <Pressable
+                                        key={type}
+                                        className={`px-4 py-2 rounded-full flex-row items-center ${isActive ? "bg-gray-800" : "bg-gray-100"
                                             }`}
-                                        onPress={() => setActiveFilter("all")}
+                                        onPress={() => setActiveFilter(type)}
                                     >
+                                        <Ionicons
+                                            name={config.icon}
+                                            size={14}
+                                            color={isActive ? "white" : config.color}
+                                            style={{ marginRight: 6 }}
+                                        />
                                         <Text
-                                            className={`font-onest-medium text-sm ${activeFilter === "all" ? "text-white" : "text-gray-600"
+                                            className={`font-onest-medium text-sm ${isActive ? "text-white" : "text-black/50"
                                                 }`}
                                         >
-                                            All ({routeData.foodStops.length})
+                                            {config.label}
                                         </Text>
-                                    </TouchableOpacity>
+                                    </Pressable>
+                                );
+                            })}
+                        </ScrollView>
+                    )}
 
-                                    {availableTypes.map((type) => {
-                                        const config = FOOD_TYPE_CONFIG[type];
-                                        const count = routeData.foodStops.filter(
-                                            (s) => s.type === type
-                                        ).length;
-                                        const isActive = activeFilter === type;
+                    {/* Food stops list */}
+                    <View className="px-4">
+                        {filteredStops.length === 0 ? (
+                            <View className="items-center py-8">
+                                <Ionicons name="restaurant-outline" size={48} color="#D1D5DB" />
+                                <Text className="mt-3 text-black/50 font-onest text-center">
+                                    No food stops found along this route.{"\n"}
+                                    Try a different filter.
+                                </Text>
+                            </View>
+                        ) : (
+                            filteredStops.map((stop) => {
+                                const config = FOOD_TYPE_CONFIG[stop.type];
+                                const isSelected = selectedStop?.id === stop.id;
 
-                                        return (
-                                            <TouchableOpacity
-                                                key={type}
-                                                className={`px-4 py-2 rounded-full flex-row items-center ${isActive ? "bg-primary" : "bg-gray-100"
-                                                    }`}
-                                                onPress={() => setActiveFilter(type)}
+                                return (
+                                    <Pressable
+                                        key={stop.id}
+                                        className={`mb-3 py-4 rounded-2xl  ${isSelected
+                                            ? "border-primary "
+                                            : "border-gray-100"
+                                            }`}
+                                        onPress={() => handleMarkerPress(stop)}
+
+                                    >
+                                        <View className="flex-row items-start">
+                                            <View
+                                                className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                                                style={{ backgroundColor: `${config.color}15` }}
                                             >
                                                 <Ionicons
                                                     name={config.icon}
-                                                    size={14}
-                                                    color={isActive ? "white" : config.color}
-                                                    style={{ marginRight: 6 }}
+                                                    size={20}
+                                                    color={config.color}
                                                 />
+                                            </View>
+
+                                            <View className="flex-1">
                                                 <Text
-                                                    className={`font-onest-medium text-sm ${isActive ? "text-white" : "text-gray-600"
-                                                        }`}
+                                                    className="text-base font-onest-semibold text-black/90"
+                                                    numberOfLines={1}
                                                 >
-                                                    {config.label} ({count})
+                                                    {stop.name}
                                                 </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
-                            )}
-
-                            {/* Food stops list */}
-                            <ScrollView
-                                className="flex-1 px-4"
-                                contentContainerStyle={{ paddingBottom: 40 }}
-                            >
-                                {filteredStops.length === 0 ? (
-                                    <View className="items-center py-8">
-                                        <Ionicons name="restaurant-outline" size={48} color="#D1D5DB" />
-                                        <Text className="mt-3 text-gray-400 font-onest text-center">
-                                            No food stops found along this route.{"\n"}
-                                            Try a different filter.
-                                        </Text>
-                                    </View>
-                                ) : (
-                                    filteredStops.map((stop) => {
-                                        const config = FOOD_TYPE_CONFIG[stop.type];
-                                        const isSelected = selectedStop?.id === stop.id;
-
-                                        return (
-                                            <TouchableOpacity
-                                                key={stop.id}
-                                                className={`mb-3 p-4 rounded-2xl border ${isSelected
-                                                        ? "border-primary bg-indigo-50"
-                                                        : "border-gray-100 bg-white"
-                                                    }`}
-                                                onPress={() => handleMarkerPress(stop)}
-                                                activeOpacity={0.7}
-                                            >
-                                                <View className="flex-row items-start">
-                                                    {/* Icon */}
+                                                <View className="flex-row items-center mt-1">
                                                     <View
-                                                        className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                                                        className="px-2 py-0.5 rounded-md mr-2"
                                                         style={{ backgroundColor: `${config.color}15` }}
                                                     >
-                                                        <Ionicons
-                                                            name={config.icon}
-                                                            size={20}
-                                                            color={config.color}
-                                                        />
-                                                    </View>
-
-                                                    {/* Info */}
-                                                    <View className="flex-1">
                                                         <Text
-                                                            className="text-base font-onest-semibold text-gray-800"
-                                                            numberOfLines={1}
+                                                            className="text-xs font-onest-medium"
+                                                            style={{ color: config.color }}
                                                         >
-                                                            {stop.name}
+                                                            {config.label}
                                                         </Text>
-                                                        <View className="flex-row items-center mt-1">
-                                                            <View
-                                                                className="px-2 py-0.5 rounded-md mr-2"
-                                                                style={{ backgroundColor: `${config.color}15` }}
-                                                            >
-                                                                <Text
-                                                                    className="text-xs font-onest-medium"
-                                                                    style={{ color: config.color }}
-                                                                >
-                                                                    {config.label}
-                                                                </Text>
-                                                            </View>
-                                                            {stop.cuisine && (
-                                                                <Text className="text-xs text-gray-500 font-onest">
-                                                                    {stop.cuisine}
-                                                                </Text>
-                                                            )}
-                                                        </View>
-                                                        {stop.address && (
-                                                            <Text
-                                                                className="text-xs text-gray-400 font-onest mt-1"
-                                                                numberOfLines={1}
-                                                            >
-                                                                {stop.address}
-                                                            </Text>
-                                                        )}
                                                     </View>
 
-                                                    {/* Navigate button */}
-                                                    <TouchableOpacity
-                                                        className="w-10 h-10 rounded-xl bg-primary items-center justify-center"
-                                                        onPress={() => handleNavigateToStop(stop)}
-                                                    >
-                                                        <Ionicons name="navigate" size={18} color="white" />
-                                                    </TouchableOpacity>
                                                 </View>
 
-                                                {/* Opening hours if available */}
-                                                {stop.openingHours && (
-                                                    <View className="mt-3 pt-3 border-t border-gray-100 flex-row items-center">
-                                                        <Ionicons
-                                                            name="time-outline"
-                                                            size={14}
-                                                            color="#9CA3AF"
-                                                        />
-                                                        <Text className="text-xs text-gray-500 font-onest ml-1.5">
-                                                            {stop.openingHours}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                            </TouchableOpacity>
-                                        );
-                                    })
-                                )}
-                            </ScrollView>
-                        </>
-                    ) : (
-                        <View className="flex-1 items-center justify-center px-6">
-                            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-                            <Text className="mt-3 text-gray-600 font-onest text-center">
-                                Could not load food stops.{"\n"}Please try again.
-                            </Text>
-                            <TouchableOpacity
-                                className="mt-4 bg-primary px-6 py-3 rounded-xl"
-                                onPress={onClose}
-                            >
-                                <Text className="text-white font-onest-medium">Close</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </Animated.View>
-            </View>
-        </Modal>
+                                            </View>
+
+                                            <Pressable
+                                                className="w-10 h-10 rounded-xl bg-gray-800 items-center justify-center"
+                                                onPress={() => handleNavigateToStop(stop)}
+                                            >
+                                                <Ionicons name="navigate" size={18} color="#ffffffcc" />
+                                            </Pressable>
+                                        </View>
+
+
+                                    </Pressable>
+                                );
+                            })
+                        )}
+                    </View>
+                </BottomSheetScrollView>
+            ) : (
+                <BottomSheetView className="hidden" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                    <Text className="mt-3 text-black/50 font-onest text-center">
+                        Could not load food stops.{"\n"}Please try again.
+                    </Text>
+                    <Pressable
+                        className="mt-4 bg-primary px-6 py-3 rounded-xl"
+                        onPress={onClose}
+                    >
+                        <Text className="text-white font-onest-medium">Close</Text>
+                    </Pressable>
+                </BottomSheetView>
+            )}
+        </BottomSheet>
     );
 };

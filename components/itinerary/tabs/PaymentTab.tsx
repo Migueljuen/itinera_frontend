@@ -27,30 +27,33 @@ export function PaymentTab({ payments, onPayNow }: Props) {
         : `Pay ₱${summary.remainingBalance.toLocaleString()}`;
 
     return (
-        <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView
+            className="flex-1 px-6 mx-4 mt-6"
+            contentContainerStyle={{ paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+        >
             <PaymentStatusCard summary={summary} />
-            <PaymentBreakdownCard summary={summary} />
+
+            <PaymentBreakdownSection summary={summary} />
 
             {activityPayments.length > 0 && (
-                <View className="mx-4 mt-4">
-                    <Text className="text-base font-onest-medium text-gray-900 mb-3">
-                        Activity Breakdown
+                <View className="mt-12">
+                    <Text className="text-2xl text-onest text-black/90 mb-4">
+                        Payment Breakdown
                     </Text>
-                    <View className="bg-white rounded-xl overflow-hidden shadow-sm">
-                        {activityPayments.map((activity, index) => (
-                            <View
-                                key={activity.booking_id || index}
-                                className={index < activityPayments.length - 1 ? 'border-b border-gray-100' : ''}
-                            >
-                                <ActivityPaymentItem activity={activity} />
-                            </View>
-                        ))}
-                    </View>
+                    {activityPayments.map((activity, index) => (
+                        <View
+                            key={activity.booking_id || index}
+                            className={index < activityPayments.length - 1 ? 'mb-3' : ''}
+                        >
+                            <ActivityPaymentItem activity={activity} />
+                        </View>
+                    ))}
                 </View>
             )}
 
             {showPayButton && (
-                <View className="mx-4 mt-6">
+                <View className="mt-8">
                     <Pressable
                         className={`py-4 rounded-xl flex-row items-center justify-center ${summary.isFailed ? 'bg-red-500' : 'bg-primary'
                             }`}
@@ -82,10 +85,10 @@ function PaymentAwaitingState() {
             <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-4">
                 <Ionicons name="hourglass-outline" size={32} color="#9CA3AF" />
             </View>
-            <Text className="text-lg font-onest-medium text-gray-900 mb-2">
+            <Text className="text-lg font-onest-medium text-black/90 mb-2">
                 Awaiting Payment Details
             </Text>
-            <Text className="text-sm font-onest text-gray-400 text-center">
+            <Text className="text-sm font-onest text-black/50 text-center">
                 Payment information will appear here once your booking is confirmed.
             </Text>
         </View>
@@ -122,36 +125,39 @@ function PaymentStatusCard({
     const progressText = `${Math.round(progressPercentage)}% paid`;
 
     return (
-        <View className="mx-4 mt-4 bg-white rounded-xl p-5 shadow-sm">
-            <View className="flex-row items-center mb-4">
+        <View>
+            {/* Status Header */}
+            <View className="flex-row items-center mb-6">
                 <View className={`w-12 h-12 rounded-full ${statusColor} items-center justify-center mr-4`}>
                     <Ionicons name={statusIcon} size={24} color={statusIconColor} />
                 </View>
                 <View className="flex-1">
-                    <Text className="text-lg font-onest-semibold text-gray-900">
+                    <Text className="text-lg font-onest-semibold text-black/90">
                         {statusTitle}
                     </Text>
-                    <Text className="text-sm font-onest text-gray-400 mt-0.5">
+                    <Text className="text-sm font-onest text-black/50 mt-0.5">
                         {statusSubtitle}
                     </Text>
                 </View>
             </View>
 
-            <View className="flex-row items-end justify-between mb-3">
+            {/* Amount Display */}
+            <View className="flex-row items-end justify-between mb-4">
                 <View>
-                    <Text className="text-xs font-onest text-gray-400 mb-1">Total Paid</Text>
-                    <Text className="text-3xl font-onest-semibold text-gray-900">
+                    <Text className="text-xs font-onest text-black/50 mb-1">Total Paid</Text>
+                    <Text className="text-3xl font-onest-semibold text-black/90">
                         {`₱${totalPaid.toLocaleString()}`}
                     </Text>
                 </View>
                 <View className="items-end">
-                    <Text className="text-xs font-onest text-gray-400 mb-1">Total Cost</Text>
-                    <Text className="text-lg font-onest text-gray-500">
+                    <Text className="text-xs font-onest text-black/50 mb-1">Total Cost</Text>
+                    <Text className="text-lg font-onest text-black/50">
                         {`₱${totalAmount.toLocaleString()}`}
                     </Text>
                 </View>
             </View>
 
+            {/* Progress Bar */}
             {!isPaid && (
                 <View>
                     <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -160,7 +166,7 @@ function PaymentStatusCard({
                             style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                         />
                     </View>
-                    <Text className="text-xs font-onest text-gray-400 mt-2 text-right">
+                    <Text className="text-xs font-onest text-black/50 mt-2 text-right">
                         {progressText}
                     </Text>
                 </View>
@@ -169,7 +175,7 @@ function PaymentStatusCard({
     );
 }
 
-function PaymentBreakdownCard({
+function PaymentBreakdownSection({
     summary,
 }: {
     summary: NonNullable<ReturnType<typeof usePaymentSummary>>;
@@ -194,8 +200,8 @@ function PaymentBreakdownCard({
     }
 
     return (
-        <View className="mx-4 mt-4 bg-white rounded-xl p-4 shadow-sm">
-            <Text className="text-sm font-onest-medium text-gray-900 mb-3">
+        <View className="mt-12">
+            <Text className="text-2xl text-onest text-black/90 mb-4">
                 Payment Methods
             </Text>
             {breakdownItems.map((item, index) => (
@@ -205,12 +211,12 @@ function PaymentBreakdownCard({
                         }`}
                 >
                     <View className="flex-row items-center">
-                        <View className="w-8 h-8 rounded-full bg-gray-50 items-center justify-center mr-3">
-                            <Ionicons name={item.icon} size={16} color="#6B7280" />
+                        <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-3">
+                            <Ionicons name={item.icon} size={18} color="#6B7280" />
                         </View>
-                        <Text className="text-sm font-onest text-gray-600">{item.label}</Text>
+                        <Text className="text-sm font-onest text-black/80">{item.label}</Text>
                     </View>
-                    <Text className="text-sm font-onest-medium text-gray-900">
+                    <Text className="text-sm font-onest-medium text-black/90">
                         {`₱${item.amount.toLocaleString()}`}
                     </Text>
                 </View>
@@ -247,29 +253,27 @@ function PaymentHistorySection({ payment }: { payment: PaymentInfo }) {
     }
 
     return (
-        <View className="mx-4 mt-6 mb-4">
-            <Text className="text-base font-onest-medium text-gray-900 mb-3">
+        <View className="mt-12">
+            <Text className="text-2xl text-onest text-black/90 mb-4">
                 Payment History
             </Text>
-            <View className="bg-white rounded-xl p-4 shadow-sm">
-                {historyItems.map((item, index) => (
-                    <View
-                        key={index}
-                        className={`flex-row items-center py-3 ${index < historyItems.length - 1 ? 'border-b border-gray-100' : ''
-                            }`}
-                    >
-                        <View className="w-8 h-8 rounded-full bg-gray-50 items-center justify-center mr-3">
-                            <Ionicons name={item.icon} size={16} color="#6B7280" />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-sm font-onest text-gray-900">{item.label}</Text>
-                            <Text className="text-xs font-onest text-gray-400 mt-0.5">
-                                {formatDate(item.date)}
-                            </Text>
-                        </View>
+            {historyItems.map((item, index) => (
+                <View
+                    key={index}
+                    className={`flex-row items-center py-3 ${index < historyItems.length - 1 ? 'border-b border-gray-100' : ''
+                        }`}
+                >
+                    <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-3">
+                        <Ionicons name={item.icon} size={18} color="#6B7280" />
                     </View>
-                ))}
-            </View>
+                    <View className="flex-1">
+                        <Text className="text-sm font-onest text-black/90">{item.label}</Text>
+                        <Text className="text-xs font-onest text-black/50 mt-0.5">
+                            {formatDate(item.date)}
+                        </Text>
+                    </View>
+                </View>
+            ))}
         </View>
     );
 }

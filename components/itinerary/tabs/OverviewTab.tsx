@@ -25,7 +25,7 @@ export function OverviewTab({ itinerary, onAddToCalendar, onNavigateToTab }: Pro
         <ScrollView className="flex-1 px-6 mx-4 mt-6" contentContainerStyle={{ paddingBottom: 100 }}>
             <View className=' '>
                 <View className='flex justify-between  flex-row items-center'>
-                    <Text className='text-2xl font-onest-medium '>Itinerary Notes</Text>
+                    <Text className='text-2xl text-onest '>Itinerary Notes</Text>
                     <Pressable >
                         <Text className="text-sm font-onest text-primary">Edit</Text>
                     </Pressable>
@@ -207,7 +207,7 @@ function TripHeaderCard({ itinerary, stats }: { itinerary: Itinerary; stats: Tri
         <View className="mx-4 mt-4 hidden bg-white rounded-2xl p-5 shadow-sm">
             {/* <View className="flex-row justify-between items-start mb-3">
                 <View className={`px-3 py-1 rounded-full ${status.bg}`}>
-                    <Text className={`text-xs font-onest-medium ${status.text}`}>
+                    <Text className={`text-xs text-onest ${status.text}`}>
                         {status.label}
                     </Text>
                 </View>
@@ -285,7 +285,7 @@ function TripProgressSection({ itinerary, stats }: { itinerary: Itinerary; stats
 
     return (
         <View className="mx-4 mt-4 bg-white rounded-xl p-4 shadow-sm">
-            <Text className="text-sm font-onest-medium text-black/90 mb-3">Trip Progress</Text>
+            <Text className="text-sm text-onest text-black/90 mb-3">Trip Progress</Text>
 
             <View className="mb-3">
                 <View className="flex-row justify-between mb-1.5">
@@ -334,7 +334,7 @@ function PaymentPreviewCard({
 
     return (
         <>
-            <Text className="text-2xl mt-12  font-onest-medium text-black/90 ">Payment Details</Text>
+            <Text className="text-2xl mt-12  text-onest text-black/90 ">Payment Details</Text>
             <Pressable
                 onPress={onViewDetails}
                 className=" flex-row items-center justify-between mt-4"
@@ -348,7 +348,7 @@ function PaymentPreviewCard({
                         />
                     </View>
                     <View className="flex-1">
-                        <Text className="text-sm font-onest-medium text-black/90">
+                        <Text className="text-sm text-onest text-black/90">
                             {statusText}
                         </Text>
                         <Text className="text-xs font-onest text-black/50 mt-0.5">
@@ -374,7 +374,7 @@ function UpcomingSection({
     return (
         <View className="mt-12 ">
             <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-2xl font-onest-medium text-black/90">Coming Up</Text>
+                <Text className="text-2xl text-onest text-black/90">Coming Up</Text>
                 <Pressable onPress={onViewAll}>
                     <Text className="text-sm font-onest text-primary">View all</Text>
                 </Pressable>
@@ -419,7 +419,7 @@ function UpcomingSection({
 function HighlightsSection({ highlights }: { highlights: ItineraryItem[] }) {
     return (
         <View className="mt-12">
-            <Text className="text-2xl font-onest-medium text-black/90 mb-4">
+            <Text className="text-2xl text-onest text-black/90 mb-4">
                 Trip Highlights
             </Text>
             <ScrollView
@@ -439,7 +439,7 @@ function HighlightsSection({ highlights }: { highlights: ItineraryItem[] }) {
                                 resizeMode="cover"
                             />
                         )}
-                        <Text className="text-sm font-onest-medium text-black/90 mt-2" numberOfLines={1}>
+                        <Text className="text-sm text-onest text-black/90 mt-2" numberOfLines={1}>
                             {item.experience_name}
                         </Text>
                         <Text className="text-xs font-onest text-black/50" numberOfLines={1}>
@@ -469,7 +469,7 @@ function HighlightsSection({ highlights }: { highlights: ItineraryItem[] }) {
 
 //     return (
 //         <View className="mt-6 px-4 mb-4">
-//             <Text className="text-base font-onest-medium text-black/90 mb-3">Quick Actions</Text>
+//             <Text className="text-base text-onest text-black/90 mb-3">Quick Actions</Text>
 //             <View className="flex-row gap-3">
 //                 {actions.map((action, index) => (
 //                     <Pressable

@@ -47,13 +47,46 @@ export default function Login() {
       const result = await login(email, password);
 
       if (result.success) {
-        const firstName = result.user.first_name;
-        toast.success("Welcome back, " + firstName + "!");
+        const user = result.user;
 
-        if (result.user.role === "Traveler") router.replace("/(traveler)");
-        else if (result.user.role === "Creator") router.replace("/(creator)");
-        else toast.error("Invalid User Role - Unable to continue.");
-      } else {
+        // 🚫 Status gate
+        if (user.status !== "Approved" && user.role !== "Traveler") {
+          toast.error(
+            user.status === "Pending"
+              ? "Your account is still pending approval."
+              : "Your account has been rejected."
+          );
+          return;
+        }
+
+        toast.success(`Welcome back, ${user.first_name}!`);
+
+        switch (user.role) {
+          case "Traveler":
+            router.replace("/(traveler)");
+            break;
+
+          case "Creator":
+            router.replace("/(creator)");
+            break;
+
+          case "Guide":
+            router.replace("/(guide)");
+            break;
+
+          case "Driver":
+            router.replace("/(driver)");
+            break;
+
+          case "Admin":
+            router.replace("/(admin)");
+            break;
+
+          default:
+            toast.error("Invalid user role.");
+        }
+      }
+      else {
         toast.error(result.error || "Invalid email or password");
       }
     } catch (error) {

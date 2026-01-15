@@ -415,13 +415,13 @@ const Step1SelectLocation: React.FC<StepProps> = ({
 
             <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
               {/* Title Input Field */}
-              <View className="bg-white pb-4 z-10">
+              <View className=" pb-4 z-10">
                 <Text className="font-onest-medium py-2">
                   Itinerary Title
                 </Text>
                 <TextInput
                   className={`px-3 py-3 border ${title.trim() ? "border-primary" : "border-gray-300"
-                    } rounded-md bg-white text-base font-onest`}
+                    } rounded-md  text-base font-onest`}
                   placeholder="e.g., Summer Adventure in Bacolod"
                   placeholderTextColor="#9CA3AF"
                   value={title}
@@ -438,14 +438,14 @@ const Step1SelectLocation: React.FC<StepProps> = ({
               </View>
 
               {/* Custom Dropdown for City Selection */}
-              <View className="bg-white pb-4 z-10">
+              <View className=" pb-4 z-10">
                 <Text className="font-onest-medium py-2">
                   Select Available Destination
                 </Text>
                 {/* Dropdown Button */}
                 <TouchableOpacity
                   className={`flex-row items-center justify-between px-3 py-3 border ${dropdownOpen ? "border-primary" : "border-gray-300"
-                    } rounded-md bg-white`}
+                    } rounded-md `}
                   onPress={toggleDropdown}
                   activeOpacity={0.7}
                   disabled={loadingCities}
@@ -518,8 +518,8 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                           <TouchableOpacity
                             key={`${city.value}-${index}`}
                             className={`px-4 py-3 ${index < cities.length - 1
-                                ? "border-b border-gray-200"
-                                : ""
+                              ? "border-b border-gray-200"
+                              : ""
                               }`}
                             onPress={() => selectCity(city)}
                             activeOpacity={0.7}
@@ -544,11 +544,11 @@ const Step1SelectLocation: React.FC<StepProps> = ({
               </View>
 
               {/* Date Selection */}
-              <View className="bg-white pb-4 mt-4 z-9">
+              <View className=" pb-4 mt-4 z-9">
                 <Text className="font-onest-medium py-2">Travel Dates</Text>
                 <TouchableOpacity
                   className={`flex-row items-center justify-between px-3 py-3 border ${showCalendar ? "border-primary" : "border-gray-300"
-                    } rounded-md bg-white`}
+                    } rounded-md `}
                   onPress={toggleCalendar}
                   activeOpacity={0.7}
                 >
@@ -573,7 +573,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
 
                 {/* Calendar popup */}
                 {showCalendar && (
-                  <View className="bg-white border border-gray-200 rounded-md mt-1 shadow-sm z-20">
+                  <View className=" border border-gray-200 rounded-md mt-1 shadow-sm z-20">
                     <Calendar
                       onDayPress={handleDayPress}
                       markedDates={markedDates}

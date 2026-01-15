@@ -88,25 +88,37 @@ interface Accommodation {
 }
 
 interface TourGuide {
-  id: number;
+  guide_id: number;
+  user_id: number;
   name: string;
-  rating: number;
-  reviews: number;
-  languages: string[];
-  specialties: string[];
-  price_per_day: number;
-  avatar_url?: string;
-  bio: string;
+  languages: string[] | string;
+  bio: string | null;
+  areas_covered: string;
+  experience_years: number;
+  availability_days: string[] | string;
+  city: string;
+  price_per_day: string | number;
+  profile_pic?: string;
+  avg_rating: string | number;
+  review_count: number;
 }
 
 interface CarService {
-  id: number;
+  vehicle_id: number;
   vehicle_type: string;
+  brand: string;
   model: string;
-  capacity: number;
-  price_per_day: number;
-  features: string[];
-  image_url?: string;
+  year: number;
+  color: string;
+  passenger_capacity: number;
+  vehicle_photos?: string[] | string;
+  price_per_day: string | number;
+  city: string;
+  driver_name: string;
+  driver_id: number;
+  driver_user_id: number;
+  avg_rating: string | number;
+  review_count: number;
 }
 
 interface ItineraryFormData {
@@ -172,7 +184,7 @@ const GenerateItineraryForm: React.FC = () => {
     start_date: "",
     end_date: "",
     title: "",
-    notes: "Auto-generated based on preferences",
+    notes: "Add notes here...",
     city: "",
     items: [] as ItineraryItem[],
     preferences: {
@@ -234,10 +246,7 @@ const GenerateItineraryForm: React.FC = () => {
 
   // Calculate total cost including additional services
   const calculateTotalCost = (): number => {
-    const activityCost = calculateActivityCost();
-    const additionalCost =
-      formData.additionalServices?.totalAdditionalCost || 0;
-    return activityCost + additionalCost;
+    return calculateActivityCost(); // Only activities, services excluded
   };
 
   // Show loading spinner while auth is loading
@@ -318,7 +327,7 @@ const GenerateItineraryForm: React.FC = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-[#fff]">
       {/* <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <ProgressBar currentStep={step} totalSteps={stepCount} />
       </View> */}

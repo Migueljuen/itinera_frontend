@@ -385,7 +385,7 @@ const App = () => {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
         <ActivityIndicator size="large" color="#1f2937" />
-        <Text className="mt-4 text-gray-600 font-onest">
+        <Text className="mt-4 text-black/50 font-onest">
           Loading experiences...
         </Text>
       </View>

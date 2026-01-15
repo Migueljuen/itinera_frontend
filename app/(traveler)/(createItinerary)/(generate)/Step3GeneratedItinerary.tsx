@@ -5,18 +5,18 @@ import {
 } from "@/types/itineraryTypes";
 import { EnhancedError } from "@/types/types";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import API_URL from "../../../../constants/api";
 import AnimatedDots from "./components/AnimatedDots";
-import { CollapsibleFilter } from "./components/CollapsibleFilter";
 import { EnhancedErrorDisplay } from "./components/EnhancedErrorDisplay";
 import ExperienceCard from "./components/ExperienceCard";
 import UnderfilledNotice from "./components/Notice";
@@ -26,6 +26,14 @@ interface StepProps {
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
   onNext: () => void;
   onBack: () => void;
+}
+
+interface DayChipData {
+  dayNumber: number;
+  label: string;
+  subLabel: string;
+  itemCount: number;
+  isEmpty: boolean;
 }
 
 const INTENSITY_COLORS: Record<string, string> = {
@@ -38,9 +46,14 @@ const INTENSITY_COLORS: Record<string, string> = {
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("en-US", {
     weekday: "long",
-    year: "numeric",
     month: "long",
     day: "numeric",
+  });
+};
+
+const formatShortDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    weekday: "short",
   });
 };
 
@@ -69,6 +82,11 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   );
   const [isPreview, setIsPreview] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [selectedDayChip, setSelectedDayChip] = useState<number>(1);
+
+  const mainScrollRef = useRef<ScrollView>(null);
+  const chipScrollRef = useRef<ScrollView>(null);
+
   const MIN_LOADING_TIME = 1000;
 
   useEffect(() => {
@@ -100,6 +118,74 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     return count > 1 ? Math.round(totalCost / count) : totalCost;
   }, [totalCost, formData.preferences?.travelerCount]);
 
+  const totalDays = useMemo(() => {
+    if (!generatedItinerary) return 0;
+    const start = new Date(generatedItinerary.start_date);
+    const end = new Date(generatedItinerary.end_date);
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  }, [generatedItinerary]);
+
+  const groupedItems = useMemo(() => {
+    if (!generatedItinerary?.items) return {};
+    return groupItemsByDay(generatedItinerary.items);
+  }, [generatedItinerary?.items]);
+
+  const groupedItemsWithEmptyDays = useMemo(() => {
+    const grouped = groupItemsByDay(generatedItinerary?.items || []);
+    const allDays: Record<number, ItineraryItem[]> = {};
+
+    for (let day = 1; day <= totalDays; day++) {
+      allDays[day] = grouped[day] || [];
+    }
+
+    return allDays;
+  }, [generatedItinerary?.items, totalDays]);
+
+  // Generate day chips data
+  const dayChips: DayChipData[] = useMemo(() => {
+    if (!generatedItinerary) return [];
+
+    const startDate = new Date(generatedItinerary.start_date);
+
+    return Array.from({ length: totalDays }, (_, index) => {
+      const dayNumber = index + 1;
+      const dayDate = new Date(startDate);
+      dayDate.setDate(startDate.getDate() + index);
+
+      const items = groupedItemsWithEmptyDays[dayNumber] || [];
+
+      return {
+        dayNumber,
+        label: formatShortDate(dayDate.toISOString()),
+        subLabel: dayDate.getDate().toString(),
+        itemCount: items.length,
+        isEmpty: items.length === 0,
+      };
+    });
+  }, [generatedItinerary, totalDays, groupedItemsWithEmptyDays]);
+
+  // Get selected day's items
+  const selectedDayItems = useMemo(() => {
+    return groupedItemsWithEmptyDays[selectedDayChip] || [];
+  }, [groupedItemsWithEmptyDays, selectedDayChip]);
+
+  // Get selected day's date
+  const selectedDayDate = useMemo(() => {
+    if (!generatedItinerary) return null;
+    const startDate = new Date(generatedItinerary.start_date);
+    const dayDate = new Date(startDate);
+    dayDate.setDate(startDate.getDate() + selectedDayChip - 1);
+    return dayDate;
+  }, [generatedItinerary, selectedDayChip]);
+
+  const underfilledDays = useMemo(() => {
+    return Object.entries(groupedItemsWithEmptyDays)
+      .filter(([_, items]) => items.length <= 1)
+      .map(([day]) => Number(day));
+  }, [groupedItemsWithEmptyDays]);
+
+  const showUnderfilledNotice = underfilledDays.length > 0;
+
   const generateItineraryWithPreferences = async (
     preferencesToUse?: ItineraryFormData["preferences"]
   ) => {
@@ -126,7 +212,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         notes: formData.notes || "Auto-generated itinerary",
       };
 
-      // Handle travel companions
       if (currentPreferences?.travelCompanions?.length) {
         requestBody.travel_companions = currentPreferences.travelCompanions;
         requestBody.travel_companion = currentPreferences.travelCompanions[0];
@@ -146,20 +231,16 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle enhanced error with detailed breakdown
         if (data.error === "no_experiences_found" && data.details) {
           console.log("📊 Enhanced error received:", data);
           setEnhancedError(data);
           return;
         }
-
-        // Handle other API errors
         throw new Error(
           data.message || data.error || "Failed to generate itinerary"
         );
       }
 
-      // Validate response structure
       if (!data.itineraries || !Array.isArray(data.itineraries)) {
         throw new Error("Invalid response format from server");
       }
@@ -173,7 +254,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       if (data.itineraries[0]) {
         const itinerary = data.itineraries[0];
 
-        // Validate itinerary has items
         if (!itinerary.items || itinerary.items.length === 0) {
           throw new Error(
             "Generated itinerary has no activities. Please adjust your filters."
@@ -191,14 +271,14 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
           items: itinerary.items,
           ...(preferencesToUse && { preferences: preferencesToUse }),
         });
-        setRetryCount(0); // Reset retry count on success
+        setRetryCount(0);
+        setSelectedDayChip(1); // Reset to first day
       } else {
         throw new Error("No itinerary data in response");
       }
     } catch (err) {
       console.error("❌ Error generating itinerary:", err);
 
-      // Handle network errors
       if (err instanceof TypeError && err.message.includes("fetch")) {
         setError("Network error. Please check your connection and try again.");
       } else {
@@ -231,7 +311,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   };
 
   const handleModifyPreferences = () => {
-    // Go back to step 2 to modify preferences
     onBack();
   };
 
@@ -242,6 +321,10 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       ")"
     );
     generateItinerary();
+  };
+
+  const handleDayChipPress = (dayNumber: number) => {
+    setSelectedDayChip(dayNumber);
   };
 
   const removeItem = (itemToRemove: ItineraryItem) => {
@@ -264,7 +347,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                   )
               );
 
-              // Check if removing this item leaves us with no items
               if (updatedItems.length === 0) {
                 Alert.alert(
                   "Cannot Remove",
@@ -287,7 +369,6 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   };
 
   const handleContinue = () => {
-    // Validate we have items before continuing
     if (!generatedItinerary?.items || generatedItinerary.items.length === 0) {
       Alert.alert(
         "Cannot Continue",
@@ -296,56 +377,22 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
       );
       return;
     }
-
-    // Just move to next step - no saving here
     onNext();
   };
 
-  const totalDays = useMemo(() => {
-    if (!generatedItinerary) return 0;
-    const start = new Date(generatedItinerary.start_date);
-    const end = new Date(generatedItinerary.end_date);
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  }, [generatedItinerary]);
-
-  const groupedItemsWithEmptyDays = useMemo(() => {
-    const grouped = groupItemsByDay(generatedItinerary?.items || []);
-    const allDays: Record<number, ItineraryItem[]> = {};
-
-    for (let day = 1; day <= totalDays; day++) {
-      allDays[day] = grouped[day] || [];
-    }
-
-    return allDays;
-  }, [generatedItinerary?.items, totalDays]);
-
-  const groupedItems = useMemo(() => {
-    if (!generatedItinerary?.items) return {};
-    return groupItemsByDay(generatedItinerary.items);
-  }, [generatedItinerary?.items]);
-
-
-  const underfilledDays = useMemo(() => {
-    return Object.entries(groupedItemsWithEmptyDays)
-      .filter(([_, items]) => items.length <= 1) // includes 0 and 1
-      .map(([day]) => Number(day));
-  }, [groupedItemsWithEmptyDays]);
-
-  const showUnderfilledNotice = underfilledDays.length > 0;
   // Loading state
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center p-4 bg-gray-50">
+      <View className="flex-1 justify-center items-center p-4">
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text className="text-center text-lg font-onest-medium mt-4 mb-2">
+        <Text className="text-center text-lg font-onest-medium mt-4 mb-2 text-black/90">
           Generating your perfect itinerary
         </Text>
-
-        <Text className="text-center text-sm text-gray-500 font-onest px-6">
+        <Text className="text-center text-sm text-black/50 font-onest px-6">
           Your adventures are being lined up <AnimatedDots />
         </Text>
         {retryCount > 0 && (
-          <Text className="text-center text-xs text-gray-400 font-onest mt-2">
+          <Text className="text-center text-xs text-black/40 font-onest mt-2">
             Attempt {retryCount + 1}
           </Text>
         )}
@@ -353,7 +400,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
     );
   }
 
-  // Enhanced error state with detailed breakdown
+  // Enhanced error state
   if (enhancedError?.details) {
     return (
       <EnhancedErrorDisplay
@@ -368,17 +415,17 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   // No itinerary generated state
   if (!generatedItinerary) {
     return (
-      <View className="flex-1 justify-center items-center p-4 bg-gray-50">
-        <View className="bg-white rounded-xl p-6 border border-gray-200">
-          <View className="items-center mb-4">
-            <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
-            <Text className="text-center text-lg font-onest-medium mt-3">
-              No itinerary available
-            </Text>
-            <Text className="text-center text-sm text-gray-500 font-onest mt-2">
-              Unable to generate an itinerary with current settings
-            </Text>
+      <View className="flex-1 justify-center items-center p-4">
+        <View className="items-center">
+          <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-4">
+            <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
           </View>
+          <Text className="text-center text-lg font-onest-medium text-black/90 mb-2">
+            No itinerary available
+          </Text>
+          <Text className="text-center text-sm text-black/50 font-onest mb-6">
+            Unable to generate an itinerary with current settings
+          </Text>
           <TouchableOpacity
             onPress={handleRetry}
             className="bg-primary py-3 px-6 rounded-xl"
@@ -394,173 +441,236 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
-      {isPreview && (
-        <View className="bg-blue-50 border-b border-blue-200 px-4 py-3">
+    <View className="flex-1">
+      {/* Preview Banner */}
+      {/* {isPreview && (
+        <View className="px-4 py-3 border-b border-gray-100">
           <View className="flex-row items-center justify-center">
             <Ionicons name="eye-outline" size={16} color="#3B82F6" />
-            <Text className="ml-2 text-sm text-blue-700 font-onest-medium">
-              Preview Mode - You can remove activities you don't want
+            <Text className="ml-2 text-sm text-blue-600 font-onest-medium">
+              Preview Mode - Remove activities you don't want
             </Text>
           </View>
         </View>
-      )}
+      )} */}
 
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        <View className="px-2 py-4">
-          {/* Total Cost Card */}
-          <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-            <View className="flex-row justify-between items-start mb-2">
-              <View className="flex-1">
-                <Text className="text-gray-700 font-onest-medium text-sm mb-1">
-                  Estimated Total Cost
-                </Text>
-                <Text className="text-2xl font-onest-bold text-primary">
-                  ₱{totalCost.toLocaleString()}
-                </Text>
-              </View>
-              {formData.preferences?.travelerCount &&
-                formData.preferences.travelerCount > 1 && (
-                  <View className="bg-indigo-50 rounded-lg px-3 py-2">
-                    <Text className="text-indigo-700 font-onest-semibold text-xs">
-                      {formData.preferences.travelerCount} people
-                    </Text>
-                  </View>
-                )}
+
+
+      <ScrollView
+        ref={mainScrollRef}
+        showsVerticalScrollIndicator={false}
+        className="flex-1 "
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        {/* Summary Card */}
+        <View className="mt-6 border p-4 border-gray-200 rounded-xl">
+          <View className="flex-row justify-between items-start mb-4">
+            <View className="flex-1">
+              <Text className="text-black/50 font-onest text-sm mb-1">
+                Estimated Total Cost
+              </Text>
+              <Text className="text-3xl font-onest-bold text-black/90">
+                ₱{totalCost.toLocaleString()}
+              </Text>
             </View>
-            <Text className="text-gray-500 font-onest text-xs mt-1">
-              {formData.preferences?.travelerCount &&
-                formData.preferences.travelerCount > 1
-                ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
-                : "This is an estimate. Final total will be calculated after saving."}
+            {formData.preferences?.travelerCount &&
+              formData.preferences.travelerCount > 1 && (
+                <View className="bg-indigo-50 rounded-xl px-3 py-2">
+                  <Text className="text-indigo-700 font-onest-semibold text-xs">
+                    {formData.preferences.travelerCount} people
+                  </Text>
+                </View>
+              )}
+          </View>
+          <Text className="text-black/40 font-onest text-xs">
+            {formData.preferences?.travelerCount &&
+              formData.preferences.travelerCount > 1
+              ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
+              : "This is an estimate. Final total will be calculated after saving."}
+          </Text>
+
+          {/* Stats Row */}
+          <View className="flex-row justify-between items-center mt-6 pt-6 border-t border-gray-100">
+            <View className="items-center">
+              <Text className="text-2xl font-onest-bold text-primary">
+                {totalDays}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Days</Text>
+            </View>
+            <View className="items-center">
+              <Text className="text-2xl font-onest-bold text-primary">
+                {generatedItinerary.items.length}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Activities</Text>
+            </View>
+            <View className="items-center">
+              <Text
+                className={`text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
+                  formData.preferences?.activityIntensity?.toLowerCase() || ""
+                ] || "text-black/60"
+                  }`}
+              >
+                {formData.preferences?.activityIntensity || "N/A"}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Activity level</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Underfilled Notice */}
+        {showUnderfilledNotice && (
+          <View className="mt-6">
+            <UnderfilledNotice underfilledDays={underfilledDays} visible={showUnderfilledNotice} />
+          </View>
+        )}
+        {/* Horizontal Day Chips */}
+        {dayChips.length > 0 && (
+          <View className=" pt-4">
+            <ScrollView
+              ref={chipScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="flex-row"
+            >
+              {dayChips.map((chip) => {
+                const isSelected = selectedDayChip === chip.dayNumber;
+
+                return (
+                  <Pressable
+                    key={chip.dayNumber}
+                    style={{ width: 80 }}
+                    onPress={() => handleDayChipPress(chip.dayNumber)}
+                    className={`
+                    mr-2 py-3 rounded-xl items-center justify-center
+                    ${isSelected
+                        ? 'bg-blue-500'
+                        : chip.isEmpty
+                          ? 'bg-yellow-50'
+                          : 'bg-gray-50'
+                      }
+                  `}
+                  >
+                    <Text
+                      className={`
+                      text-sm font-onest
+                      ${isSelected
+                          ? 'text-white'
+                          : chip.isEmpty
+                            ? 'text-yellow-600'
+                            : 'text-black/80'
+                        }
+                    `}
+                    >
+                      {chip.label}
+                    </Text>
+                    <Text
+                      className={`
+                      text-xs font-onest mt-0.5
+                      ${isSelected
+                          ? 'text-white/80'
+                          : chip.isEmpty
+                            ? 'text-yellow-500'
+                            : 'text-black/50'
+                        }
+                    `}
+                    >
+                      {chip.subLabel}
+                    </Text>
+                    {!isSelected && (
+                      <Text
+                        className={`
+                        text-[10px] font-onest mt-1
+                        ${chip.isEmpty
+                            ? 'text-yellow-500'
+                            : 'text-black/40'
+                          }
+                      `}
+                      >
+                        {chip.itemCount} {chip.itemCount === 1 ? 'activity' : 'activities'}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Selected Day Content */}
+        <View className="mt-8">
+          {/* Day Header */}
+          <View className="flex-row items-center mb-4">
+            {/* <View className="bg-primary rounded-full w-10 h-10 items-center justify-center mr-3">
+              <Text className="text-white font-onest-bold text-sm">
+                {selectedDayChip}
+              </Text>
+            </View> */}
+            <View className="flex-1">
+              <Text className="font-onest-semibold text-lg text-black/90">
+                Day {selectedDayChip}
+              </Text>
+              {selectedDayDate && (
+                <Text className="text-black/70 font-onest ">
+                  {formatDate(selectedDayDate.toISOString())}
+                </Text>
+              )}
+            </View>
+            <Text className="text-black/40 font-onest text-sm">
+              {selectedDayItems.length}{" "}
+              {selectedDayItems.length !== 1 ? "activities" : "activity"}
             </Text>
           </View>
 
-          {/* Collapsible Filter */}
-          <CollapsibleFilter
-            preferences={formData.preferences}
-            city={formData.city}
-            startDate={formData.start_date}
-            endDate={formData.end_date}
-            onRegenerateWithNewFilters={handleRegenerateWithNewFilters}
-          />
-
-          {/* Stats */}
-          <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-            <View className="flex-row justify-between items-center">
-              {[
-                { value: totalDays, label: "Days" },
-                { value: generatedItinerary.items.length, label: "Activities" },
-                {
-                  value: formData.preferences?.activityIntensity || "N/A",
-                  label: "Intensity",
-                  className: `text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
-                    formData.preferences?.activityIntensity?.toLowerCase() ||
-                    ""
-                  ] || "text-gray-600"
-                    }`,
-                },
-              ].map((stat, index) => (
-                <View key={index} className="items-center">
-                  <Text
-                    className={
-                      stat.className || "text-2xl font-onest-bold text-primary"
-                    }
-                  >
-                    {stat.value}
-                  </Text>
-                  <Text className="text-xs text-gray-600 font-onest">
-                    {stat.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {showUnderfilledNotice && (
-            <UnderfilledNotice underfilledDays={underfilledDays} visible={showUnderfilledNotice} />
-          )}
-
-          {/* Itinerary Days */}
-          {Object.entries(groupedItems).map(([dayNumber, dayItems]) => {
-            const dayDate = new Date(generatedItinerary.start_date);
-            dayDate.setDate(dayDate.getDate() + parseInt(dayNumber) - 1);
-
-            return (
-              <View key={dayNumber} className="my-6">
-                {/* Day Header */}
-                <View className="flex-row items-center mb-3">
-                  <View className="bg-primary rounded-full w-8 h-8 items-center justify-center mr-3">
-                    <Text className="text-white font-onest-bold text-sm">
-                      {dayNumber}
-                    </Text>
-                  </View>
-                  <View className="flex-1">
-                    <Text className="font-onest-semibold text-lg">
-                      Day {dayNumber}
-                    </Text>
-                    <Text className="text-gray-600 font-onest text-sm">
-                      {formatDate(dayDate.toISOString())}
-                    </Text>
-                  </View>
-                  <Text className="text-gray-500 font-onest text-xs">
-                    {dayItems.length}{" "}
-                    {dayItems.length !== 1 ? "activities" : "activity"}
-                  </Text>
-                </View>
-
-                {/* Day Items */}
-                {dayItems.length > 0 ? (
-                  dayItems.map((item, index) => (
-                    <View key={`${dayNumber}-${index}`} className="mb-4">
-                      <ExperienceCard
-                        item={item}
-                        isPreview={isPreview}
-                        onRemove={() => removeItem(item)}
-                        travelerCount={formData.preferences?.travelerCount || 1}
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <View className="bg-gray-50 rounded-xl p-6 items-center">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={32}
-                      color="#9CA3AF"
-                    />
-                    <Text className="text-gray-500 font-onest text-sm mt-2">
-                      No activities scheduled for this day
-                    </Text>
-                  </View>
-                )}
+          {/* Day Items */}
+          {selectedDayItems.length > 0 ? (
+            selectedDayItems.map((item, index) => (
+              <View key={`${selectedDayChip}-${index}`} className="mb-4">
+                <ExperienceCard
+                  item={item}
+                  isPreview={isPreview}
+                  onRemove={() => removeItem(item)}
+                  travelerCount={formData.preferences?.travelerCount || 1}
+                />
               </View>
-            );
-          })}
+            ))
+          ) : (
+            <View className="py-12 items-center">
+              <View className="w-16 h-16 rounded-full bg-yellow-50 items-center justify-center mb-4">
+                <Ionicons name="calendar-outline" size={32} color="#D97706" />
+              </View>
+              <Text className="text-black/90 font-onest-medium text-base mb-1">
+                No activities scheduled
+              </Text>
+              <Text className="text-black/50 font-onest text-sm text-center px-8">
+                This day has no activities. Consider regenerating your itinerary.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
       {/* Navigation Buttons */}
-      <View className="px-4 bg-white border-t border-gray-200">
+      <View className="px-4 border-t border-gray-100">
         {isPreview ? (
           <View className="flex-row justify-between py-4">
             <TouchableOpacity
               onPress={onBack}
-              className="py-3 px-5 rounded-xl border border-gray-300"
+              className="py-3 px-5 rounded-xl border border-gray-200 bg-gray-50"
               activeOpacity={0.7}
               disabled={saving}
             >
-              <Text className="text-center font-onest-medium text-base text-gray-700">
+              <Text className="text-center font-onest-medium text-base text-black/70">
                 Back
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={generateItinerary}
-              className="py-3 px-5 rounded-xl border border-primary"
+              className="py-3 px-5 rounded-xl border border-gray-200 bg-gray-50"
               activeOpacity={0.7}
               disabled={saving}
             >
-              <Text className="text-center font-onest-medium text-base text-primary">
+              <Text className="text-center font-onest-medium  text-base text-black/70">
                 Regenerate
               </Text>
             </TouchableOpacity>
@@ -588,7 +698,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                 Itinerary saved successfully!
               </Text>
             </View>
-            <Text className="text-sm text-gray-500 font-onest text-center">
+            <Text className="text-sm text-black/50 font-onest text-center">
               Proceeding to next step...
             </Text>
           </View>
