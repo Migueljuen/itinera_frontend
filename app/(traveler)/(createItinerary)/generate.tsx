@@ -1,11 +1,10 @@
 // (traveler)/(createItinerary)/generate.tsx
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 // Step components
-import API_URL from "@/constants/api"; // Adjust path as needed
 import { useAuth } from "@/contexts/AuthContext";
 
 import MeetingPointStep from "./(generate)/MeetingPointStep";
@@ -181,17 +180,17 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(
   }
 );
 
+// Key changes to GenerateItineraryForm in generate.tsx
+
 const GenerateItineraryForm: React.FC = () => {
   const router = useRouter();
   const { user, token, loading: authLoading } = useAuth();
   const [step, setStep] = useState<number>(1);
-  const stepCount = 6; // Updated: 1-Location, 2-Preferences, 3-Itinerary, 4-Services, 5-MeetingPoint, 6-Payment
+  const stepCount = 5; // Updated: 1-Location, 2-Preferences, 3-Itinerary, 4-Services, 5-Payment
   const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
-
-  // Meeting point state
   const [meetingPoint, setMeetingPoint] = useState<LocationData | null>(null);
+  const [showMeetingPointModal, setShowMeetingPointModal] = useState(false);
 
-  // Form data state with default values
   const [formData, setFormData] = useState<ItineraryFormData>({
     traveler_id: 0,
     start_date: "",
@@ -206,7 +205,6 @@ const GenerateItineraryForm: React.FC = () => {
       travelCompanions: [],
     },
   });
-
   // Update traveler_id when user is available
   useEffect(() => {
     if (user?.user_id && formData.traveler_id !== user.user_id) {
@@ -217,92 +215,26 @@ const GenerateItineraryForm: React.FC = () => {
     }
   }, [user, formData.traveler_id]);
 
-  // Step navigation handlers
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // Handler for when meeting point is confirmed and itinerary should be saved
-  const handleItinerarySaved = async (location: LocationData) => {
-    console.log("Saving itinerary with meeting point:", location);
-
-    try {
-      // Build service assignments array
-      const serviceAssignments: Array<{
-        service_type: 'Guide' | 'Driver';
-        provider_id: number;
-        provider_profile_id: number;
-        price: number;
-      }> = [];
-
-      if (formData.tourGuide) {
-        const guideCost = Number(formData.tourGuide.price_per_day) * getTotalDays();
-        serviceAssignments.push({
-          service_type: 'Guide',
-          provider_id: formData.tourGuide.user_id,
-          provider_profile_id: formData.tourGuide.guide_id,
-          price: guideCost,
-        });
-      }
-
-      if (formData.carService) {
-        const carCost = Number(formData.carService.price_per_day) * getTotalDays();
-        serviceAssignments.push({
-          service_type: 'Driver',
-          provider_id: formData.carService.driver_user_id,
-          provider_profile_id: formData.carService.driver_id,
-          price: carCost,
-        });
-      }
-
-      // Build meeting point data
-      const meetingPointData = {
-        requested_name: location.name,
-        requested_address: location.address,
-        requested_latitude: location.latitude,
-        requested_longitude: location.longitude,
-      };
-
-      const response = await fetch(`${API_URL}/itinerary/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          traveler_id: formData.traveler_id,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
-          title: formData.title,
-          notes: formData.notes,
-          items: formData.items,
-          total_cost: calculateActivityCost(),
-          traveler_count: formData.preferences?.travelerCount || 1,
-          service_assignments: serviceAssignments,
-          meeting_point: meetingPointData,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Failed to save itinerary");
-      }
-
-      if (!data.itinerary_id) {
-        throw new Error("No itinerary ID returned from server");
-      }
-
-      console.log("Itinerary saved with ID:", data.itinerary_id);
-      setSavedItineraryId(data.itinerary_id);
-      setMeetingPoint(location);
-      handleNext(); // Move to payment confirmation step
-    } catch (error) {
-      console.error("Error saving itinerary:", error);
-      Alert.alert(
-        "Save Failed",
-        error instanceof Error ? error.message : "Failed to save itinerary. Please try again."
-      );
-    }
+  // Modified handler for Step3a - handles both with and without services
+  const handleStep3aSave = (itineraryId: number) => {
+    setSavedItineraryId(itineraryId);
+    setStep(5); // Go to payment step
   };
 
-  // Helper to calculate total days
+  const handleSelectMeetingPoint = () => {
+    // Navigate to meeting point selection (we'll use a modal or separate screen)
+    // For now, just show an alert - you can implement a modal or navigate
+    setShowMeetingPointModal(true);
+  };
+
+  const handleMeetingPointConfirmed = (location: LocationData) => {
+    setMeetingPoint(location);
+    setShowMeetingPointModal(false);
+  };
+
   const getTotalDays = () => {
     if (!formData.start_date || !formData.end_date) return 0;
     const start = new Date(formData.start_date);
@@ -311,23 +243,19 @@ const GenerateItineraryForm: React.FC = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  // Handler for final completion (after payment step)
   const handleFinalCompletion = () => {
     console.log("Itinerary process fully completed");
     router.replace("/");
   };
 
-  // Calculate total cost (activities only)
   const calculateActivityCost = (): number => {
     if (!formData.items || formData.items.length === 0) return 0;
-
     const travelerCount = formData.preferences?.travelerCount || 1;
 
     return formData.items.reduce((sum, item) => {
       const price = Number(item.price || 0);
       if (price <= 0) return sum;
 
-      // Multiply by traveler count for per-person pricing
       if (
         item.unit?.toLowerCase() === "entry" ||
         item.unit?.toLowerCase() === "person"
@@ -335,41 +263,14 @@ const GenerateItineraryForm: React.FC = () => {
         return sum + price * travelerCount;
       }
 
-      // Flat rate for packages, day, hour, etc.
       return sum + price;
     }, 0);
   };
 
-  // Calculate total cost including additional services
   const calculateTotalCost = (): number => {
-    return calculateActivityCost(); // Only activities, services excluded
+    return calculateActivityCost();
   };
 
-  // Show loading spinner while auth is loading
-  if (authLoading) {
-    return (
-      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
-        <ActivityIndicator size="large" color="#376a63" />
-        <Text className="mt-4 text-gray-600">Loading...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Show error/redirect if not authenticated
-  if (!user) {
-    return (
-      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
-        <Text className="text-lg text-red-600 text-center px-6">
-          You need to be logged in to generate an itinerary.
-        </Text>
-        <Text className="text-sm text-gray-600 text-center px-6 mt-2">
-          Please go back and log in first.
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Render current step component
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -403,22 +304,14 @@ const GenerateItineraryForm: React.FC = () => {
           <Step3aReviewServices
             formData={formData}
             setFormData={setFormData}
-            onNext={handleNext} // Move to meeting point step
+            onNext={handleStep3aSave}
             onBack={handleBack}
+            onSelectMeetingPoint={handleSelectMeetingPoint}
+            meetingPoint={meetingPoint}
           />
         );
+
       case 5:
-        return (
-          <MeetingPointStep
-            onConfirm={(location) => {
-              setMeetingPoint(location);
-              handleItinerarySaved(location);
-            }}
-            onBack={handleBack}
-            initialLocation={meetingPoint}
-          />
-        );
-      case 6:
         return (
           <Step4PaymentConfirmation
             formData={formData}
@@ -433,15 +326,45 @@ const GenerateItineraryForm: React.FC = () => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <ActivityIndicator size="large" color="#376a63" />
+        <Text className="mt-4 text-gray-600">Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <Text className="text-lg text-red-600 text-center px-6">
+          You need to be logged in to generate an itinerary.
+        </Text>
+        <Text className="text-sm text-gray-600 text-center px-6 mt-2">
+          Please go back and log in first.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-[#fff]">
-      {/* <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
-        <ProgressBar currentStep={step} totalSteps={stepCount} />
-      </View> */}
-
       <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
         {renderStep()}
       </View>
+      {/* Meeting Point Modal */}
+      <Modal
+        visible={showMeetingPointModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <MeetingPointStep
+          onConfirm={handleMeetingPointConfirmed}
+          onBack={() => setShowMeetingPointModal(false)}
+          initialLocation={meetingPoint}
+        />
+      </Modal>
     </SafeAreaView>
   );
 };

@@ -233,18 +233,18 @@ const Step2Preference: React.FC<StepProps> = ({
     label: string;
     description: string;
   }[] = [
-      { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
-      {
-        value: "Moderate",
-        label: "A moderate distance is fine",
-        description: "Within 20 km",
-      },
-      {
-        value: "Far",
-        label: "Willing to travel far",
-        description: "20 km or more",
-      },
-    ];
+    { value: "Nearby", label: "Nearby only", description: "Within 10 km" },
+    {
+      value: "Moderate",
+      label: "A moderate distance is fine",
+      description: "Within 20 km",
+    },
+    {
+      value: "Far",
+      label: "Willing to travel far",
+      description: "20 km or more",
+    },
+  ];
 
   // Toggle tag selection (multiple selection)
   const toggleTag = (tagId: number, tagName: string) => {
@@ -321,8 +321,9 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-          }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
+          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+        }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -336,8 +337,9 @@ const Step2Preference: React.FC<StepProps> = ({
             />
           )}
           <Text
-            className={`text-base font-onest ${isSelected ? " text-black/90" : "text-black/80"
-              }`}
+            className={`text-base font-onest ${
+              isSelected ? " text-black/90" : "text-black/80"
+            }`}
           >
             {option}
           </Text>
@@ -358,8 +360,9 @@ const Step2Preference: React.FC<StepProps> = ({
     return (
       <TouchableOpacity
         key={option.value}
-        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
-          }`}
+        className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
+          isSelected ? "border-primary bg-indigo-50" : "border-gray-300"
+        }`}
         onPress={onPress}
         activeOpacity={1}
       >
@@ -369,8 +372,8 @@ const Step2Preference: React.FC<StepProps> = ({
               option.value === "Nearby"
                 ? "location"
                 : option.value === "Moderate"
-                  ? "car"
-                  : "airplane"
+                ? "car"
+                : "airplane"
             }
             size={16}
             color={isSelected ? "#4F46E5" : "#1a1a1a"}
@@ -378,8 +381,9 @@ const Step2Preference: React.FC<StepProps> = ({
           />
           <View className="flex-1">
             <Text
-              className={`text-base font-onest ${isSelected ? " text-black/90" : " text-black/80"
-                }`}
+              className={`text-base font-onest ${
+                isSelected ? " text-black/90" : " text-black/80"
+              }`}
             >
               {option.label}
             </Text>
@@ -450,7 +454,7 @@ const Step2Preference: React.FC<StepProps> = ({
           keyboardShouldPersistTaps="handled"
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View className="flex-1 p-4">
+            <View className="flex-1 ">
               <View className="text-center py-2">
                 <Text className="text-center text-xl font-onest-semibold mb-2">
                   Tell us about your preferences
@@ -516,10 +520,11 @@ const Step2Preference: React.FC<StepProps> = ({
                           {/* Category button */}
                           <TouchableOpacity
                             activeOpacity={1}
-                            className={`p-4 border rounded-lg flex-row justify-between items-center relative ${isOpen || hasSelectedTag
+                            className={`p-4 border rounded-lg flex-row justify-between items-center relative ${
+                              isOpen || hasSelectedTag
                                 ? "border-primary bg-indigo-50"
                                 : "border-gray-300"
-                              }`}
+                            }`}
                           >
                             {/* Radio button */}
                             <Pressable
@@ -530,10 +535,11 @@ const Step2Preference: React.FC<StepProps> = ({
                               className=" absolute left-0 top-0 bottom-0 w-16 items-center justify-center"
                             >
                               <View
-                                className={`w-5 h-5 rounded-full border items-center justify-center ${allTagsSelected
+                                className={`w-5 h-5 rounded-full border items-center justify-center ${
+                                  allTagsSelected
                                     ? "border-primary bg-primary"
                                     : "border-gray-400"
-                                  }`}
+                                }`}
                               >
                                 {allTagsSelected && (
                                   <View className="w-2 h-2 rounded-full bg-white" />
@@ -553,10 +559,11 @@ const Step2Preference: React.FC<StepProps> = ({
                                 className="ml-3"
                               /> */}
                               <Text
-                                className={`text-base font-onest ${isOpen || hasSelectedTag
+                                className={`text-base font-onest ${
+                                  isOpen || hasSelectedTag
                                     ? "text-black/90"
                                     : "text-black/80"
-                                  }`}
+                                }`}
                               >
                                 {category.category_name}
                               </Text>
@@ -584,20 +591,22 @@ const Step2Preference: React.FC<StepProps> = ({
                               {category.tags.map((tag) => (
                                 <TouchableOpacity
                                   key={tag.tag_id}
-                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${isTagSelected(tag.tag_id)
+                                  className={`border rounded-lg py-3 px-2 mb-3 w-[48%] items-center ${
+                                    isTagSelected(tag.tag_id)
                                       ? "border-primary bg-indigo-50"
                                       : "border-gray-300"
-                                    }`}
+                                  }`}
                                   onPress={() =>
                                     toggleTag(tag.tag_id, tag.tag_name)
                                   }
                                   activeOpacity={1}
                                 >
                                   <Text
-                                    className={`text-base font-onest ${isTagSelected(tag.tag_id)
+                                    className={`text-base font-onest ${
+                                      isTagSelected(tag.tag_id)
                                         ? "text-black/90"
                                         : "text-black/80"
-                                      }`}
+                                    }`}
                                   >
                                     {tag.tag_name}
                                   </Text>
@@ -695,8 +704,8 @@ const Step2Preference: React.FC<StepProps> = ({
                         time === "Daytime"
                           ? "sunny"
                           : time === "Nighttime"
-                            ? "moon"
-                            : "time"
+                          ? "moon"
+                          : "time"
                       )
                     )}
                   </View>
@@ -732,8 +741,8 @@ const Step2Preference: React.FC<StepProps> = ({
                         intensity === "Low"
                           ? "leaf"
                           : intensity === "Moderate"
-                            ? "walk"
-                            : "flash"
+                          ? "walk"
+                          : "flash"
                       )
                     )}
                     {selectedActivityIntensity && (
@@ -781,8 +790,9 @@ const Step2Preference: React.FC<StepProps> = ({
 
                 <TouchableOpacity
                   onPress={handleNext}
-                  className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
-                    }`}
+                  className={`py-4 px-8 rounded-xl ${
+                    isValid() ? "bg-primary" : "bg-gray-200"
+                  }`}
                   disabled={!isValid()}
                   activeOpacity={1}
                 >
