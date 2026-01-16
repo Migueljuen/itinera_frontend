@@ -223,6 +223,15 @@ export default function ExperienceDetail() {
                 destination={experience.destination}
                 onPress={handleOpenMap}
               />
+              <View className="p-4 my-12">
+                <View className="flex-row items-center justify-center mb-2">
+
+
+                </View>
+                <Text className="text-sm font-onest text-center text-black/50 leading-5">
+                  All partners of Itinera have been carefully vetted and verified to ensure professional, safe, and quality service for your travels.
+                </Text>
+              </View>
             </View>
           ) : (
             <View className="py-4">
@@ -434,6 +443,7 @@ const LocationSection: React.FC<LocationSectionProps> = ({ destination }) => (
           </Text>
           <Text className="text-gray-400 font-onest">{destination.city}</Text>
         </View>
+
       </View>
     </View>
   </View>

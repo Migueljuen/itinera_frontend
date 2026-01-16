@@ -30,18 +30,20 @@ import { useItineraryNavigation } from '@/hooks/useNavigation';
 import { formatDate } from '@/utils/itinerary-utils';
 
 // Types
-import { Itinerary } from '@/types/itineraryDetails';
+import { Itinerary, MeetingPoint } from '@/types/itineraryDetails';
 
 type GuideTabType = 'overview' | 'tripplan' | 'earnings';
 
 interface GuideInfo {
   traveler_name: string;
+  traveler_user_id: string;
   traveler_contact: string;
   traveler_profile_pic: string | null;
   assignment_id: number;
   guide_fee: number;
   assignment_status: string;
   assigned_at: string;
+  meeting_points?: MeetingPoint[];
 }
 
 interface GuideItineraryResponse {
@@ -61,6 +63,7 @@ export default function GuideItineraryDetailScreen() {
   const [guideInfo, setGuideInfo] = useState<GuideInfo | null>(null);
   const [activeTab, setActiveTab] = useState<GuideTabType>('overview');
   const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
+  const [startingChat, setStartingChat] = useState(false);
 
   // Navigation hooks
   const {
@@ -119,11 +122,51 @@ export default function GuideItineraryDetailScreen() {
     }
   }, [guideInfo]);
 
-  const handleMessageTraveler = useCallback(() => {
-    if (itinerary?.traveler_id) {
-      router.push(`/(guide)/(conversations)`);
+  const handleStartConversation = async () => {
+    try {
+      if (!guideInfo?.traveler_user_id) {
+        Alert.alert("Error", "Traveler information missing");
+        return;
+      }
+
+      setStartingChat(true);
+
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.post(
+        `${API_URL}/conversations`,
+        {
+          participantId: guideInfo.traveler_user_id,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data.success) {
+        router.push({
+          pathname: "/(guide)/(conversations)/[id]",
+          params: {
+            id: String(response.data.data.id),
+            name: guideInfo.traveler_name,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      Alert.alert("Error", "Failed to start conversation");
+    } finally {
+      setStartingChat(false);
     }
-  }, [router, itinerary]);
+  };
+
+  const handleOpenLocation = useCallback((latitude: number, longitude: number, name: string) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Unable to open maps');
+    });
+  }, []);
 
   // Accept assignment handler
   const handleAcceptAssignment = useCallback(async (assignmentId: number) => {
@@ -146,6 +189,7 @@ export default function GuideItineraryDetailScreen() {
         [{ text: 'OK' }]
       );
     } catch (error) {
+
       console.error('Error accepting assignment:', error);
       Alert.alert('Error', 'Failed to accept the request. Please try again.');
     }
@@ -310,7 +354,7 @@ export default function GuideItineraryDetailScreen() {
 
             {/* Chat Button - Disabled when pending */}
             <Pressable
-              onPress={isPending ? undefined : handleMessageTraveler}
+              onPress={isPending ? undefined : handleStartConversation}
               disabled={isPending}
               className={`p-3 rounded-full ${isPending ? 'bg-gray-50' : 'bg-gray-100'}`}
             >
@@ -327,7 +371,6 @@ export default function GuideItineraryDetailScreen() {
             isPending ? (
               // Blurred/Locked state for pending
               <View className="flex-row items-center justify-center bg-gray-50 py-3 rounded-xl mt-2">
-
                 <Text className="font-onest text-gray-400 ml-2">
                   09{"******"} *****
                 </Text>
@@ -345,18 +388,153 @@ export default function GuideItineraryDetailScreen() {
               </Pressable>
             )
           )}
-
-          {/* Info banner for pending */}
-          {/* {isPending && (
-            <View className="flex-row items-center bg-yellow-50 rounded-xl p-3 mt-3">
-              <Ionicons name="information-circle-outline" size={18} color="#ca8a04" />
-              <Text className="font-onest text-yellow-700 text-xs ml-2 flex-1">
-                Accept this request to unlock contact info and messaging
-              </Text>
-            </View>
-          )} */}
         </View>
       </View>
+
+      {/* Meeting Points Section */}
+      {!isPending && guideInfo.meeting_points && guideInfo.meeting_points.length > 0 && (
+        <View className="mx-6 mt-8 p-4">
+
+          {guideInfo.meeting_points.map((meetingPoint) => {
+            const startDate = new Date(itinerary.start_date);
+            const meetingDate = new Date(startDate);
+            meetingDate.setDate(startDate.getDate() + meetingPoint.day_number - 1);
+
+            const hasGuideResponse = meetingPoint.guide_response !== null;
+            const isConfirmed = meetingPoint.status === 'confirmed';
+            const isPendingResponse = meetingPoint.status === 'pending';
+
+            return (
+              <View key={meetingPoint.id} className="rounded-xl py-4 mb-3">
+                <View className='flex flex-row justify-between items-baseline'>
+                  <Text className="text-2xl font-onest text-black/90 ">Where You'll Meet</Text>
+
+                  {/* Status Badge */}
+                  {/* {isConfirmed && (
+                    <View className="px-2 py-1 rounded-full">
+                      <Text className="text-xs font-onest text-green-700">Confirmed</Text>
+                    </View>
+                  )}
+                  {isPendingResponse && (
+                    <View className=" px-2 py-1 rounded-full">
+                      <Text className="text-xs font-onest text-yellow-700">Needs Response</Text>
+                    </View>
+                  )} */}
+                </View>
+                {/* Day Header */}
+
+
+                {/* Traveler's Requested Location */}
+                <View className="mb-3 ">
+                  <Text className="text-sm font-onest text-black/50 mb-2">Traveler requested to meetup in</Text>
+                  <View className="  py-3 ">
+                    <View>
+                      <Text className="font-onest-medium text-black/90 mb-1">
+                        {meetingPoint.requested.name}
+                      </Text>
+                      <Text className="text-sm font-onest text-black/60 mb-2">
+                        {meetingPoint.requested.address}
+                      </Text>
+                    </View>
+
+
+                    {/* {meetingPoint.requested.notes && (
+                      <View className="bg-blue-50 rounded-lg p-2 mb-2">
+                        <Text className="text-xs font-onest text-blue-700">
+                          Note: {meetingPoint.requested.notes}
+                        </Text>
+                      </View>
+                    )} */}
+
+
+                  </View>
+                  <View className='flex-row items-center justify-center py-3 rounded-xl mt-2'>
+                    {meetingPoint.requested.latitude && meetingPoint.requested.longitude && (
+                      <Pressable
+                        onPress={() => handleOpenLocation(
+                          meetingPoint.requested.latitude!,
+                          meetingPoint.requested.longitude!,
+                          meetingPoint.requested.name
+                        )}
+                        className="flex-row items-center gap-2"
+                      >
+                        <Ionicons name="map-outline" size={24} color="#4F46E5" />
+                        <Text className='font-onest-medium'>View on Map</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+
+                {/* Guide's Response (if exists) */}
+                {/* {hasGuideResponse && (
+                  <View>
+                    <Text className="text-xs font-onest text-black/50 mb-2">Your Response:</Text>
+                    <View className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                      {meetingPoint.guide_response!.type === 'confirmed' ? (
+                        <View className="flex-row items-center">
+                          <Ionicons name="checkmark-circle" size={16} color="#4F46E5" />
+                          <Text className="font-onest-medium text-primary ml-2">
+                            Location confirmed
+                          </Text>
+                        </View>
+                      ) : (
+                        <>
+                          <Text className="font-onest-medium text-black/90 mb-1">
+                            {meetingPoint.guide_response!.suggested_name}
+                          </Text>
+                          <Text className="text-sm font-onest text-black/60 mb-2">
+                            {meetingPoint.guide_response!.suggested_address}
+                          </Text>
+
+                          {meetingPoint.guide_response!.instructions && (
+                            <View className="bg-white rounded-lg p-2 mb-2">
+                              <Text className="text-xs font-onest text-black/70">
+                                {meetingPoint.guide_response!.instructions}
+                              </Text>
+                            </View>
+                          )}
+
+                          {meetingPoint.guide_response!.suggested_latitude &&
+                            meetingPoint.guide_response!.suggested_longitude && (
+                              <Pressable
+                                onPress={() => handleOpenLocation(
+                                  meetingPoint.guide_response!.suggested_latitude!,
+                                  meetingPoint.guide_response!.suggested_longitude!,
+                                  meetingPoint.guide_response!.suggested_name || 'Suggested location'
+                                )}
+                                className="flex-row items-center mt-1"
+                              >
+                                <Ionicons name="map-outline" size={14} color="#4F46E5" />
+                                <Text className="text-xs font-onest text-primary ml-1">
+                                  View suggested location
+                                </Text>
+                              </Pressable>
+                            )}
+                        </>
+                      )}
+                    </View>
+                  </View>
+                )} */}
+
+                {/* Action Button - Respond to meeting point */}
+                {/* {isPendingResponse && (
+                  <Pressable
+                    onPress={() => {
+                      // TODO: Navigate to meeting point response screen
+                      Alert.alert('Coming Soon', 'Meeting point response feature is being developed');
+                    }}
+                    className="bg-primary rounded-lg py-3 mt-3"
+                  >
+                    <Text className="text-white font-onest-medium text-center">
+                      Respond to Meeting Point
+                    </Text>
+                  </Pressable>
+                )} */}
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Trip Summary */}
       <View className="mx-6 mt-8 p-4">
@@ -460,7 +638,6 @@ export default function GuideItineraryDetailScreen() {
     <SafeAreaView className="flex-1 bg-[#fff]">
       {/* Header Section */}
       <View className="px-6 mt-12 pt-4 pb-4">
-
         {/* Title Row */}
         <View className="flex-row justify-between items-start">
           <View className="flex-1 px-4">

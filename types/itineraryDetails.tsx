@@ -58,6 +58,63 @@ export interface PaymentInfo {
     payment_complete_message?: string;
 }
 
+export interface MeetingPointRequested {
+    name: string;
+    address: string;
+    latitude: number | null;
+    longitude: number | null;
+    notes: string | null;
+    requested_at: string | null;
+}
+
+export interface MeetingPointGuideResponse {
+    type: 'confirmed' | 'suggested_alternative';
+    suggested_name: string | null;
+    suggested_address: string | null;
+    suggested_latitude: number | null;
+    suggested_longitude: number | null;
+    instructions: string | null;
+    responded_at: string | null;
+}
+
+export interface MeetingPoint {
+    id: number;
+    day_number: number;
+    requested: MeetingPointRequested;
+    guide_response: MeetingPointGuideResponse | null;
+    traveler_accepted: boolean;
+    traveler_responded_at: string | null;
+    status: 'pending' | 'confirmed' | 'negotiating';
+}
+
+export interface ServiceProvider {
+    provider_id: number;
+    provider_profile_id: number;
+    name: string;
+    mobile_number: string | null;
+    profile_pic: string | null;
+    bio: string | null;
+    years_of_experience: number | null;
+    // Driver-specific fields
+    vehicle_type?: string;
+    vehicle_model?: string;
+    vehicle_plate_number?: string;
+}
+
+export interface ServiceAssignment {
+    assignment_id: number;
+    service_type: 'Guide' | 'Driver';
+    status: 'Pending' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled';
+    decline_reason: 'Scheduling conflict' | 'Health reasons' | 'Overlapping booking' | 'Weather issues' | 'Other' | null;
+    price: number | null;
+    responded_at: string | null;
+    created_at: string;
+    provider: ServiceProvider;
+    meeting_points: MeetingPoint[];
+    has_pending_meeting_points: boolean;
+    all_meeting_points_confirmed: boolean;
+}
+
 export interface ItineraryItem {
     item_id: number;
     experience_id: number;
@@ -88,6 +145,7 @@ export interface Itinerary {
     status: "pending" | "upcoming" | "ongoing" | "completed" | "cancelled";
     items: ItineraryItem[];
     payments: PaymentInfo[];
+    service_assignments?: ServiceAssignment[];
 }
 
 export interface EditCapabilities {

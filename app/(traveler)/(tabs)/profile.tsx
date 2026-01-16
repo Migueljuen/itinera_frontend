@@ -11,6 +11,7 @@ import {
   Alert,
   Image,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   Switch,
@@ -47,6 +48,7 @@ interface SavedExperience {
   description?: string;
   price?: string;
   unit?: string;
+  location?: string;
   destination_name?: string;
   city?: string;
   images?: string[];
@@ -658,51 +660,66 @@ const ProfileScreen: React.FC = () => {
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className={horizontalScrollStyle}>
               {recentExperiences.map((item: SavedExperience) => (
-                <TouchableOpacity
+                <Pressable
                   key={item.id}
-                  className={`${cardStyle} mr-3 overflow-hidden w-72  border border-gray-200 `}
-                  style={shadowStyle}
                   onPress={() => router.push(`/(traveler)/(experience)/${item.experience_id}`)}
+                  className="mr-4"
+                  style={{ width: 240 }}
                 >
-                  <View className="w-full h-32 ">
-                    {item.images && item.images.length > 0 && item.images[0] ? (
-                      <Image
-                        source={{ uri: getFormattedImageUrl(item.images[0])! }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                        onError={() => console.log('Failed to load image:')}
-                      />
-                    ) : (
-                      <View className="w-full h-full items-center justify-center">
-                        <Ionicons name="image-outline" size={32} color="#9CA3AF" />
-                      </View>
-                    )}
-                  </View>
-                  <View className="p-3 flex justify-between h-28">
-                    <View>
-                      <Text className="font-onest-medium text-sm text-gray-800" numberOfLines={1}>
+                  <View
+                    className=""
+                    style={{
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 8,
+                      elevation: 3,
+                    }}
+                  >
+                    <View className="h-48 rounded-2xl overflow-hidden">
+                      {item.images && item.images.length > 0 && item.images[0] ? (
+                        <Image
+                          source={{ uri: getFormattedImageUrl(item.images[0])! }}
+                          className="w-full h-full"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-full h-full bg-gray-200 items-center justify-center">
+                          <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+                        </View>
+                      )}
+                    </View>
+
+                    <View className="py-3">
+                      <Text
+                        className="font-onest-semibold text-base text-black/90"
+                        numberOfLines={1}
+                      >
                         {item.title}
                       </Text>
-                      <Text className="text-xs text-gray-500 font-onest mt-1">
-                        {item.destination_name && item.city && `${item.destination_name}, ${item.city}`}
-                      </Text>
-                    </View>
-                    <View className='flex-row justify-between'>
-                      <Text className="text-xs text-gray-400 font-onest mt-1">
-                        Saved {new Date(item.saved_at).toLocaleDateString()}
-                      </Text>
-                      {item.price && (
-                        <Text className="text-sm font-onest-semibold text-primary mt-1">
-                          ₱{item.price} {item.unit}
+
+                      <View className="flex-row items-center mt-1">
+                        <Text
+                          className="text-black/60 font-onest text-sm"
+                          numberOfLines={1}
+                        >
+                          {item.city}, {item.destination_name}
+                        </Text>
+                      </View>
+
+                      {item.price && item.price !== "0" && (
+                        <Text className="text-black/60 font-onest text-sm mt-2">
+                          From ₱{parseFloat(item.price).toLocaleString()}
                         </Text>
                       )}
                     </View>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </ScrollView>
           </View>
         )}
+
 
         {/* Loading/Empty states */}
         {loadingSavedExperiences && recentExperiences.length === 0 && (

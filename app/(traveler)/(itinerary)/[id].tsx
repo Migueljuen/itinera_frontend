@@ -12,6 +12,8 @@ import { OverviewTab } from '@/components/itinerary/tabs/OverviewTab';
 import { PaymentTab } from '@/components/itinerary/tabs/PaymentTab';
 import { TripPlanTab } from '@/components/itinerary/tabs/TripPlanTab';
 
+import { GuideTab } from '@/components/itinerary/tabs/GuideTab';
+
 // Hooks
 import { useCalendarIntegration } from '@/hooks/useCalendar';
 import { useEditCapabilities } from '@/hooks/useEditCapabilities';
@@ -39,7 +41,8 @@ export default function ItineraryDetailScreen() {
   const [selectedDayForFood, setSelectedDayForFood] = useState<number>(1);
 
   // Hooks
-  const { loading, itinerary } = useItinerary(id);
+  const { itinerary, serviceAssignments, loading, accessLevel } = useItinerary(id);
+
   const { addItineraryToCalendar } = useCalendarIntegration();
   const { getEditCapabilities, getDayHeaderStyle } = useEditCapabilities(itinerary);
   const paymentSummary = usePaymentSummary(itinerary?.payments?.[0]);
@@ -140,17 +143,18 @@ export default function ItineraryDetailScreen() {
     );
   }
 
-  // Render active tab content
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
         return (
           <OverviewTab
             itinerary={itinerary}
+            serviceAssignments={serviceAssignments}
             onAddToCalendar={handleAddToCalendar}
             onNavigateToTab={handleNavigateToTab}
           />
         );
+
       case 'tripplan':
         return (
           <TripPlanTab
@@ -162,6 +166,13 @@ export default function ItineraryDetailScreen() {
             onNavigateSingle={handleSingleNavigation}
             onNavigateBetween={navigateBetweenItems}
             onShowFoodStops={handleShowFoodStops}
+          />
+        );
+      case 'guide':
+        return (
+          <GuideTab
+            serviceAssignments={serviceAssignments}
+            itineraryId={itinerary.itinerary_id}
           />
         );
       case 'payment':

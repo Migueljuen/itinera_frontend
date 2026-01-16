@@ -2,39 +2,60 @@
 
 import API_URL from '@/constants/api';
 import { usePaymentSummary } from '@/hooks/usePaymentSummary';
-import { Itinerary, ItineraryItem } from '@/types/itineraryDetails';
+import { Itinerary, ItineraryItem, ServiceAssignment } from '@/types/itineraryDetails';
 import { getImageUri } from '@/utils/itinerary-utils';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, Text, View, } from 'react-native';
 
 interface Props {
     itinerary: Itinerary;
+    serviceAssignments?: ServiceAssignment[];
     onAddToCalendar: () => void;
     onNavigateToTab: (tab: 'tripplan' | 'payment') => void;
 }
 
-export function OverviewTab({ itinerary, onAddToCalendar, onNavigateToTab }: Props) {
+export function OverviewTab({ itinerary, serviceAssignments = [], onAddToCalendar, onNavigateToTab }: Props) {
     const paymentSummary = usePaymentSummary(itinerary.payments?.[0]);
 
     const stats = calculateTripStats(itinerary);
     const upcomingActivities = getUpcomingActivities(itinerary, 2);
     const highlights = getHighlights(itinerary.items, 3);
 
+    // Separate assignments by type
+    const guideAssignments = serviceAssignments.filter(a => a.service_type === 'Guide');
+    const driverAssignments = serviceAssignments.filter(a => a.service_type === 'Driver');
+
     return (
         <ScrollView className="flex-1 px-6 mx-4 mt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-            <View className=' '>
-                <View className='flex justify-between  flex-row items-center'>
-                    <Text className='text-2xl text-onest '>Itinerary Notes</Text>
-                    <Pressable >
+            <View className=''>
+                <View className='flex justify-between flex-row items-center'>
+                    <Text className='text-2xl text-onest'>Itinerary Notes</Text>
+                    <Pressable>
                         <Text className="text-sm font-onest text-primary">Edit</Text>
                     </Pressable>
                 </View>
                 <Text className='text-black/50 mt-4'>{itinerary.notes}</Text>
             </View>
-            {/* <QuickStatsSection stats={stats} /> */}
-            {/* {itinerary.status === 'ongoing' && (
-                <TripProgressSection itinerary={itinerary} stats={stats} />
+
+            {/* Tour Guide Section */}
+            {/* {guideAssignments.length > 0 && (
+                <ServiceSection
+                    title="Tour Guide"
+                    assignments={guideAssignments}
+                    icon="map"
+                />
+            )} */}
+
+            {/* Transportation Section */}
+            {/* {driverAssignments.length > 0 && (
+                <ServiceSection
+                    title="Transportation"
+                    assignments={driverAssignments}
+                    icon="car"
+                />
             )} */}
 
             {upcomingActivities.length > 0 && (
@@ -44,6 +65,7 @@ export function OverviewTab({ itinerary, onAddToCalendar, onNavigateToTab }: Pro
                     onViewAll={() => onNavigateToTab('tripplan')}
                 />
             )}
+
             {highlights.length > 0 && (
                 <HighlightsSection highlights={highlights} />
             )}
@@ -54,16 +76,19 @@ export function OverviewTab({ itinerary, onAddToCalendar, onNavigateToTab }: Pro
                     onViewDetails={() => onNavigateToTab('payment')}
                 />
             )}
-            {/* <QuickActionsSection
-                onAddToCalendar={onAddToCalendar}
-                onShare={() => { }}
-                onDownload={() => { }}
-            /> */}
         </ScrollView>
     );
 }
 
 // ============ Helper Functions ============
+
+function getProfilePicUrl(profilePic: string | null): string | null {
+    if (!profilePic) return null;
+    if (profilePic.startsWith('http://') || profilePic.startsWith('https://')) {
+        return profilePic;
+    }
+    return `${API_URL}${profilePic.startsWith('/') ? '' : '/'}${profilePic}`;
+}
 
 function getDateForDayNumber(startDate: string, dayNumber: number): Date {
     const start = new Date(startDate);
@@ -188,132 +213,287 @@ function getHighlights(items: ItineraryItem[], limit: number): ItineraryItem[] {
 
 // ============ Sub-Components ============
 
-function TripHeaderCard({ itinerary, stats }: { itinerary: Itinerary; stats: TripStats }) {
-    const statusConfig = {
-        pending: { bg: 'bg-gray-100', text: 'text-black/60', label: 'Pending' },
-        upcoming: { bg: 'bg-indigo-100', text: 'text-primary', label: 'Upcoming' },
-        ongoing: { bg: 'bg-green-100', text: 'text-green-600', label: 'Ongoing' },
-        completed: { bg: 'bg-gray-100', text: 'text-black/50', label: 'Completed' },
-        cancelled: { bg: 'bg-red-100', text: 'text-red-500', label: 'Cancelled' },
+function ServiceSection({
+    title,
+    assignments,
+    icon
+}: {
+    title: string;
+    assignments: ServiceAssignment[];
+    icon: 'map' | 'car';
+}) {
+    const router = useRouter();
+    const [startingChat, setStartingChat] = useState<number | null>(null);
+
+
+    const getStatusConfig = (status: string) => {
+        switch (status) {
+            case 'Accepted':
+                return { bg: 'bg-green-100', text: 'text-green-600', icon: 'checkmark-circle' as const };
+            case 'Pending':
+                return { bg: 'bg-yellow-100', text: 'text-yellow-600', icon: 'time' as const };
+            case 'Declined':
+                return { bg: 'bg-red-100', text: 'text-red-600', icon: 'close-circle' as const };
+            case 'Expired':
+                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'hourglass' as const };
+            case 'Cancelled':
+                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'ban' as const };
+            default:
+                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'ellipse' as const };
+        }
     };
 
-    const status = statusConfig[itinerary.status] || statusConfig.pending;
+    const handleStartConversation = async (
+        providerId: number,
+        providerName: string,
+        assignmentId: number
+    ) => {
+        setStartingChat(assignmentId);
 
-    const durationText = stats.totalNights > 0
-        ? `${stats.totalDays} ${stats.totalDays === 1 ? 'day' : 'days'}, ${stats.totalNights} ${stats.totalNights === 1 ? 'night' : 'nights'}`
-        : `${stats.totalDays} ${stats.totalDays === 1 ? 'day' : 'days'}`;
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                Alert.alert('Error', 'Please log in to start a conversation');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/conversations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    participantId: providerId, // ✅ correct key
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(err);
+            }
+
+            const data = await response.json();
+            const conversationId = data.data.id; // ✅ correct shape
+
+            router.push({
+                pathname: '/(traveler)/(conversations)/[id]',
+                params: {
+                    id: String(conversationId),
+                    name: providerName,
+                },
+            });
+        } catch (error) {
+            console.error('Error starting conversation:', error);
+            Alert.alert('Error', 'Failed to start conversation. Please try again.');
+        } finally {
+            setStartingChat(null);
+        }
+    };
+
 
     return (
-        <View className="mx-4 mt-4 hidden bg-white rounded-2xl p-5 shadow-sm">
-            {/* <View className="flex-row justify-between items-start mb-3">
-                <View className={`px-3 py-1 rounded-full ${status.bg}`}>
-                    <Text className={`text-xs text-onest ${status.text}`}>
-                        {status.label}
-                    </Text>
-                </View>
-                {stats.currentDay !== undefined && (
-                    <Text className="text-xs font-onest text-black/50">
-                        {`Day ${stats.currentDay} of ${stats.totalDays}`}
-                    </Text>
-                )}
-            </View>
-
-            <Text className="text-2xl font-onest-semibold text-black/90 mb-1">
-                {itinerary.title}
+        <View className="mt-12">
+            <Text className="text-2xl text-onest text-black/90 mb-4">
+                {title}
             </Text>
 
-            <View className="flex-row items-center mt-2">
-                <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                <Text className="text-sm text-black/50 font-onest ml-2">
-                    {`${formatDate(itinerary.start_date)} — ${formatDate(itinerary.end_date)}`}
-                </Text>
-            </View>
+            {assignments.map((assignment, index) => {
+                const statusConfig = getStatusConfig(assignment.status);
+                const isDriver = assignment.service_type === 'Driver';
+                const isAccepted = assignment.status === 'Accepted';
+                const isPending = assignment.status === 'Pending';
 
-            <View className="flex-row items-center mt-1.5">
-                <Ionicons name="time-outline" size={16} color="#6B7280" />
-                <Text className="text-sm text-black/50 font-onest ml-2">
-                    {durationText}
-                </Text>
-            </View>
+                return (
+                    <View
+                        key={assignment.assignment_id}
+                        className={`rounded-xl py-4 ${index < assignments.length - 1 ? 'mb-3' : ''}`}
+                    >
+                        {/* Header Row */}
+                        <View className="flex-row items-start mb-3">
+                            {/* Profile Picture */}
+                            {assignment.provider.profile_pic ? (
+                                <Image
+                                    source={{ uri: getProfilePicUrl(assignment.provider.profile_pic)! }}
+                                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                                />
+                            ) : (
+                                <View
+                                    style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 20,
+                                        backgroundColor: "#E5E7EB",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <Ionicons name="person" size={24} color="#9CA3AF" />
+                                </View>
+                            )}
 
-            {stats.uniqueDestinations.length > 0 && (
-                <View className="flex-row items-center mt-1.5">
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text className="text-sm text-black/50 font-onest ml-2" numberOfLines={1}>
-                        {stats.uniqueDestinations.join(' • ')}
-                    </Text>
-                </View>
-            )} */}
-        </View>
-    );
-}
+                            {/* Name and Vehicle Info */}
+                            <View className="ml-3 flex-1">
+                                <Text className="text-base font-onest-semibold text-black/90">
+                                    {assignment.provider.name}
 
-function QuickStatsSection({ stats }: { stats: TripStats }) {
-    const statItems = [
-        { icon: 'calendar-outline' as const, value: stats.totalDays, label: 'Days' },
-        { icon: 'flag-outline' as const, value: stats.totalActivities, label: 'Activities' },
-        { icon: 'location-outline' as const, value: stats.uniqueDestinations.length, label: 'Places' },
-    ];
+                                </Text>
+                                {isDriver && assignment.provider.vehicle_type ? (
+                                    <Text className="text-xs font-onest text-black/50 mt-0.5">
+                                        {assignment.provider.vehicle_type}
+                                        {assignment.provider.vehicle_model && ` ${assignment.provider.vehicle_model}`}
+                                    </Text>
+                                ) : (
+                                    <Text className="text-xs font-onest text-gray-400 mt-0.5">
+                                        {assignment.service_type}
+                                    </Text>
+                                )}
+                            </View>
 
-    return (
-        <View className="flex-row mx-4 mt-4 gap-3">
-            {statItems.map((item, index) => (
-                <View
-                    key={index}
-                    className="flex-1 bg-white rounded-xl p-4 items-center shadow-sm"
-                >
-                    <View className="w-10 h-10 rounded-full bg-indigo-50 items-center justify-center mb-2">
-                        <Ionicons name={item.icon} size={20} color="#4F46E5" />
+                            {/* Status Badge or Chat Button */}
+                            {isAccepted ? (
+                                <Pressable
+                                    onPress={() => handleStartConversation(
+                                        assignment.provider.provider_id,
+                                        assignment.provider.name,
+                                        assignment.assignment_id
+                                    )}
+                                    disabled={startingChat === assignment.assignment_id}
+                                    className="bg-gray-100 p-3 rounded-full"
+                                >
+                                    {startingChat === assignment.assignment_id ? (
+                                        <ActivityIndicator size="small" color="#1f2937" />
+                                    ) : (
+                                        <Ionicons
+                                            name="chatbubble-ellipses-outline"
+                                            size={20}
+                                            color="#1f2937"
+                                        />
+                                    )}
+                                </Pressable>
+                            ) : (
+                                <View className={`px-3 py-1 rounded-full ${statusConfig.bg}`}>
+                                    <Text className={`text-xs font-onest ${statusConfig.text}`}>
+                                        {assignment.status}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <Pressable
+                            onPress={() => {
+                                if (assignment.provider.mobile_number) {
+                                    Linking.openURL(`tel:${assignment.provider.mobile_number}`);
+                                }
+                            }}
+
+                            className="flex-row items-center justify-center bg-green-50 py-3 rounded-xl mt-2"
+                        >
+                            <Ionicons name="call-outline" size={18} color="#16a34a" />
+                            <Text className="font-onest-medium text-green-700 ml-2">
+                                {assignment.provider.mobile_number}
+                            </Text>
+                        </Pressable>
+
+                        {/* Provider Details - Accepted Status */}
+                        {/* {isAccepted && (
+                            <View className="border-t border-gray-100 pt-3">
+                                {assignment.provider.mobile_number && (
+                                    <View className="flex-row items-center mb-2">
+                                        <Ionicons name="call-outline" size={14} color="#6B7280" />
+                                        <Text className="text-sm font-onest text-black/70 ml-2">
+                                            {assignment.provider.mobile_number}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {assignment.provider.years_of_experience && (
+                                    <View className="flex-row items-center mb-2">
+                                        <Ionicons name="trophy-outline" size={14} color="#6B7280" />
+                                        <Text className="text-sm font-onest text-black/70 ml-2">
+                                            {assignment.provider.years_of_experience} years experience
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {isDriver && assignment.provider.vehicle_plate_number && (
+                                    <View className="flex-row items-center mb-2">
+                                        <Ionicons name="document-text-outline" size={14} color="#6B7280" />
+                                        <Text className="text-sm font-onest text-black/70 ml-2">
+                                            Plate: {assignment.provider.vehicle_plate_number}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {assignment.price && (
+                                    <View className="flex-row items-center">
+                                        <Ionicons name="cash-outline" size={14} color="#6B7280" />
+                                        <Text className="text-sm font-onest text-black/70 ml-2">
+                                            ₱{assignment.price.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )} */}
+
+                        {/* Meeting Points Status - Guide Only */}
+                        {!isDriver && isAccepted && assignment.meeting_points.length > 0 && (
+                            <View className="border-t border-gray-100 pt-3 mt-3">
+                                <View className="flex-row items-center justify-between">
+                                    <View className="flex-row items-center">
+                                        <Ionicons name="location-outline" size={14} color="#6B7280" />
+                                        <Text className="text-sm font-onest text-black/70 ml-2">
+                                            Meeting Points
+                                        </Text>
+                                    </View>
+                                    {assignment.has_pending_meeting_points ? (
+                                        <View className="flex-row items-center">
+                                            <View className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+                                            <Text className="text-xs font-onest text-yellow-600">
+                                                Pending confirmation
+                                            </Text>
+                                        </View>
+                                    ) : assignment.all_meeting_points_confirmed ? (
+                                        <View className="flex-row items-center">
+                                            <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                                            <Text className="text-xs font-onest text-green-600 ml-1">
+                                                All confirmed
+                                            </Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Message CTA - Accepted Status */}
+                        {/* {isAccepted && (
+                            <View className="border-t border-gray-100 pt-3 mt-3">
+                                <Text className="text-xs font-onest text-primary text-center">
+                                    Message your {isDriver ? 'driver' : 'guide'}!
+                                </Text>
+                            </View>
+                        )} */}
+
+                        {/* Decline Reason */}
+                        {assignment.status === 'Declined' && assignment.decline_reason && (
+                            <View className="border-t border-gray-100 pt-3 mt-3">
+                                <Text className="text-xs font-onest text-black/50">
+                                    Reason: {assignment.decline_reason}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* Pending Notice */}
+                        {isPending && (
+                            <View className="border-t border-gray-100 pt-3 mt-3">
+                                <Text className="text-xs font-onest text-black/50">
+                                    Waiting for {isDriver ? 'driver' : 'guide'} to accept your request
+                                </Text>
+                            </View>
+                        )}
                     </View>
-                    <Text className="text-xl font-onest-semibold text-black/90">
-                        {item.value}
-                    </Text>
-                    <Text className="text-xs font-onest text-black/50 mt-0.5">
-                        {item.label}
-                    </Text>
-                </View>
-            ))}
-        </View>
-    );
-}
-
-function TripProgressSection({ itinerary, stats }: { itinerary: Itinerary; stats: TripStats }) {
-    const progress = stats.currentDay ? (stats.currentDay / stats.totalDays) * 100 : 0;
-    const activityProgress = stats.totalActivities > 0
-        ? (stats.completedActivities / stats.totalActivities) * 100
-        : 0;
-
-    return (
-        <View className="mx-4 mt-4 bg-white rounded-xl p-4 shadow-sm">
-            <Text className="text-sm text-onest text-black/90 mb-3">Trip Progress</Text>
-
-            <View className="mb-3">
-                <View className="flex-row justify-between mb-1.5">
-                    <Text className="text-xs font-onest text-black/50">
-                        {`Day ${stats.currentDay} of ${stats.totalDays}`}
-                    </Text>
-                    <Text className="text-xs font-onest text-primary">
-                        {`${Math.round(progress)}%`}
-                    </Text>
-                </View>
-                <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <View className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
-                </View>
-            </View>
-
-            <View>
-                <View className="flex-row justify-between mb-1.5">
-                    <Text className="text-xs font-onest text-black/50">
-                        {`${stats.completedActivities} of ${stats.totalActivities} activities done`}
-                    </Text>
-                    <Text className="text-xs font-onest text-green-600">
-                        {`${Math.round(activityProgress)}%`}
-                    </Text>
-                </View>
-                <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <View className="h-full bg-green-500 rounded-full" style={{ width: `${activityProgress}%` }} />
-                </View>
-            </View>
+                );
+            })}
         </View>
     );
 }
@@ -334,10 +514,10 @@ function PaymentPreviewCard({
 
     return (
         <>
-            <Text className="text-2xl mt-12  text-onest text-black/90 ">Payment Details</Text>
+            <Text className="text-2xl mt-12 text-onest text-black/90">Payment Details</Text>
             <Pressable
                 onPress={onViewDetails}
-                className=" flex-row items-center justify-between mt-4"
+                className="flex-row items-center justify-between mt-4"
             >
                 <View className="flex-row items-center flex-1">
                     <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${isPaid ? 'bg-green-100' : 'bg-yellow-100'}`}>
@@ -372,7 +552,7 @@ function UpcomingSection({
     onViewAll: () => void;
 }) {
     return (
-        <View className="mt-12 ">
+        <View className="mt-12">
             <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-2xl text-onest text-black/90">Coming Up</Text>
                 <Pressable onPress={onViewAll}>
@@ -381,13 +561,10 @@ function UpcomingSection({
             </View>
 
             {activities.map((activity, index) => {
-                const isToday = isItemToday(itinerary, activity);
-                const timeDisplay = activity.start_time ? activity.start_time.slice(0, 5) : '';
-
                 return (
                     <View
                         key={activity.item_id}
-                        className={` flex-row items-center ${index < activities.length - 1 ? 'mb-3' : ''}`}
+                        className={`flex-row items-center ${index < activities.length - 1 ? 'mb-3' : ''}`}
                     >
                         {activity.primary_image ? (
                             <Image
@@ -408,7 +585,6 @@ function UpcomingSection({
                                 {activity.destination_name}
                             </Text>
                         </View>
-
                     </View>
                 );
             })}
@@ -451,41 +627,3 @@ function HighlightsSection({ highlights }: { highlights: ItineraryItem[] }) {
         </View>
     );
 }
-
-// function QuickActionsSection({
-//     onAddToCalendar,
-//     onShare,
-//     onDownload,
-// }: {
-//     onAddToCalendar: () => void;
-//     onShare: () => void;
-//     onDownload: () => void;
-// }) {
-//     const actions = [
-//         { icon: 'calendar-outline' as const, label: 'Add to Calendar', onPress: onAddToCalendar },
-//         { icon: 'share-outline' as const, label: 'Share Trip', onPress: onShare },
-//         { icon: 'download-outline' as const, label: 'Download PDF', onPress: onDownload },
-//     ];
-
-//     return (
-//         <View className="mt-6 px-4 mb-4">
-//             <Text className="text-base text-onest text-black/90 mb-3">Quick Actions</Text>
-//             <View className="flex-row gap-3">
-//                 {actions.map((action, index) => (
-//                     <Pressable
-//                         key={index}
-//                         onPress={action.onPress}
-//                         className="flex-1 bg-white rounded-xl p-4 items-center shadow-sm"
-//                     >
-//                         <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mb-2">
-//                             <Ionicons name={action.icon} size={20} color="#4F46E5" />
-//                         </View>
-//                         <Text className="text-xs font-onest text-black/60 text-center">
-//                             {action.label}
-//                         </Text>
-//                     </Pressable>
-//                 ))}
-//             </View>
-//         </View>
-//     );
-// }
