@@ -1,11 +1,14 @@
+// (traveler)/(createItinerary)/generate.tsx
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
 // Step components
+import API_URL from "@/constants/api"; // Adjust path as needed
 import { useAuth } from "@/contexts/AuthContext";
 
+import MeetingPointStep from "./(generate)/MeetingPointStep";
 import Step2Preference from "./(generate)/Step2Preference";
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
 import Step3aReviewServices from "./(generate)/Step3aReviewServices";
@@ -47,6 +50,7 @@ interface Step3aProps {
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
   onNext: (itineraryId: number) => void; // Accepts itinerary ID after saving
   onBack: () => void;
+  initialMeetingPoint?: string; // Add this to pass meeting point from params
 }
 
 interface Step4Props {
@@ -57,7 +61,12 @@ interface Step4Props {
   onBack: () => void;
 }
 
-const router = useRouter();
+interface LocationData {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
 
 interface ItineraryItem {
   experience_id: number;
@@ -173,10 +182,14 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(
 );
 
 const GenerateItineraryForm: React.FC = () => {
+  const router = useRouter();
   const { user, token, loading: authLoading } = useAuth();
   const [step, setStep] = useState<number>(1);
-  const stepCount = 5; // Updated to 5 steps (added Step3a)
+  const stepCount = 6; // Updated: 1-Location, 2-Preferences, 3-Itinerary, 4-Services, 5-MeetingPoint, 6-Payment
   const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
+
+  // Meeting point state
+  const [meetingPoint, setMeetingPoint] = useState<LocationData | null>(null);
 
   // Form data state with default values
   const [formData, setFormData] = useState<ItineraryFormData>({
@@ -208,11 +221,94 @@ const GenerateItineraryForm: React.FC = () => {
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // Handler for when itinerary is saved (called from Step3a)
-  const handleItinerarySaved = (itineraryId: number) => {
-    console.log("Itinerary saved with ID:", itineraryId);
-    setSavedItineraryId(itineraryId);
-    handleNext(); // Move to payment confirmation step
+  // Handler for when meeting point is confirmed and itinerary should be saved
+  const handleItinerarySaved = async (location: LocationData) => {
+    console.log("Saving itinerary with meeting point:", location);
+
+    try {
+      // Build service assignments array
+      const serviceAssignments: Array<{
+        service_type: 'Guide' | 'Driver';
+        provider_id: number;
+        provider_profile_id: number;
+        price: number;
+      }> = [];
+
+      if (formData.tourGuide) {
+        const guideCost = Number(formData.tourGuide.price_per_day) * getTotalDays();
+        serviceAssignments.push({
+          service_type: 'Guide',
+          provider_id: formData.tourGuide.user_id,
+          provider_profile_id: formData.tourGuide.guide_id,
+          price: guideCost,
+        });
+      }
+
+      if (formData.carService) {
+        const carCost = Number(formData.carService.price_per_day) * getTotalDays();
+        serviceAssignments.push({
+          service_type: 'Driver',
+          provider_id: formData.carService.driver_user_id,
+          provider_profile_id: formData.carService.driver_id,
+          price: carCost,
+        });
+      }
+
+      // Build meeting point data
+      const meetingPointData = {
+        requested_name: location.name,
+        requested_address: location.address,
+        requested_latitude: location.latitude,
+        requested_longitude: location.longitude,
+      };
+
+      const response = await fetch(`${API_URL}/itinerary/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          traveler_id: formData.traveler_id,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          title: formData.title,
+          notes: formData.notes,
+          items: formData.items,
+          total_cost: calculateActivityCost(),
+          traveler_count: formData.preferences?.travelerCount || 1,
+          service_assignments: serviceAssignments,
+          meeting_point: meetingPointData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Failed to save itinerary");
+      }
+
+      if (!data.itinerary_id) {
+        throw new Error("No itinerary ID returned from server");
+      }
+
+      console.log("Itinerary saved with ID:", data.itinerary_id);
+      setSavedItineraryId(data.itinerary_id);
+      setMeetingPoint(location);
+      handleNext(); // Move to payment confirmation step
+    } catch (error) {
+      console.error("Error saving itinerary:", error);
+      Alert.alert(
+        "Save Failed",
+        error instanceof Error ? error.message : "Failed to save itinerary. Please try again."
+      );
+    }
+  };
+
+  // Helper to calculate total days
+  const getTotalDays = () => {
+    if (!formData.start_date || !formData.end_date) return 0;
+    const start = new Date(formData.start_date);
+    const end = new Date(formData.end_date);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
   // Handler for final completion (after payment step)
@@ -298,7 +394,7 @@ const GenerateItineraryForm: React.FC = () => {
           <Step3GeneratedItinerary
             formData={formData}
             setFormData={setFormData}
-            onNext={handleNext} // Just move to next step
+            onNext={handleNext}
             onBack={handleBack}
           />
         );
@@ -307,11 +403,22 @@ const GenerateItineraryForm: React.FC = () => {
           <Step3aReviewServices
             formData={formData}
             setFormData={setFormData}
-            onNext={handleItinerarySaved} // Save happens here
+            onNext={handleNext} // Move to meeting point step
             onBack={handleBack}
           />
         );
       case 5:
+        return (
+          <MeetingPointStep
+            onConfirm={(location) => {
+              setMeetingPoint(location);
+              handleItinerarySaved(location);
+            }}
+            onBack={handleBack}
+            initialLocation={meetingPoint}
+          />
+        );
+      case 6:
         return (
           <Step4PaymentConfirmation
             formData={formData}

@@ -1,4 +1,3 @@
-import { LocationPickerModal } from "@/components/LocationPickerModal";
 import { ItineraryFormData } from "@/types/itineraryTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
@@ -9,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -18,23 +16,8 @@ import API_URL from "../../../../constants/api";
 interface Step3aProps {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: (itineraryId: number) => void;
+  onNext: () => void; // Just move to next step (meeting point)
   onBack: () => void;
-}
-
-interface LocationData {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-}
-
-interface MeetingPointData {
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  notes: string;
 }
 
 interface TourGuide {
@@ -110,29 +93,10 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
   const [selectedCar, setSelectedCar] = useState<CarService | null>(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showCarModal, setShowCarModal] = useState(false);
-  const [showMeetingPointModal, setShowMeetingPointModal] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [guides, setGuides] = useState<TourGuide[]>([]);
   const [vehicles, setVehicles] = useState<CarService[]>([]);
   const [loadingGuides, setLoadingGuides] = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
-
-  // Meeting point state
-  const [meetingPoint, setMeetingPoint] = useState<MeetingPointData>({
-    name: '',
-    address: '',
-    latitude: null,
-    longitude: null,
-    notes: '',
-  });
-  const [tempMeetingPoint, setTempMeetingPoint] = useState<MeetingPointData>({
-    name: '',
-    address: '',
-    latitude: null,
-    longitude: null,
-    notes: '',
-  });
 
   const fetchGuides = async () => {
     setLoadingGuides(true);
@@ -202,10 +166,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
   const availableVehicles = vehicles.filter((car) => car.passenger_capacity >= travelerCount);
   const totalActivities = formData.items?.length || 0;
 
-  // Check if any service is selected (guide or driver)
-  const hasSelectedService = selectedGuide !== null || selectedCar !== null;
-  const hasMeetingPoint = meetingPoint.name.trim() !== '' || meetingPoint.address.trim() !== '';
-
   const handleGuideSelect = (guide: TourGuide) => {
     setSelectedGuide(guide);
     setShowGuideModal(false);
@@ -232,144 +192,21 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
     }
   };
 
-  const openMeetingPointModal = () => {
-    setTempMeetingPoint({ ...meetingPoint });
-    setShowMeetingPointModal(true);
-  };
+  const handleContinue = () => {
+    // Update formData with selected services before moving to next step
+    const updatedFormData = {
+      ...formData,
+      tourGuide: selectedGuide,
+      carService: selectedCar,
+      additionalServices: {
+        guideCost,
+        carCost,
+        totalAdditionalCost: additionalCost,
+      },
+    };
 
-  const handleLocationSelected = (location: LocationData) => {
-    setTempMeetingPoint(prev => ({
-      ...prev,
-      name: location.name,
-      address: location.address,
-      latitude: location.latitude,
-      longitude: location.longitude,
-    }));
-  };
-
-  const saveMeetingPoint = () => {
-    if (!tempMeetingPoint.name.trim() && !tempMeetingPoint.address.trim()) {
-      Alert.alert('Required', 'Please enter a location name or address');
-      return;
-    }
-    setMeetingPoint({ ...tempMeetingPoint });
-    setShowMeetingPointModal(false);
-  };
-
-  const clearMeetingPoint = () => {
-    setMeetingPoint({
-      name: '',
-      address: '',
-      latitude: null,
-      longitude: null,
-      notes: '',
-    });
-  };
-
-  const handleContinue = async () => {
-    if (saving) return;
-
-    if (!formData.items || formData.items.length === 0) {
-      Alert.alert(
-        "Cannot Save",
-        "Your itinerary has no activities. Please go back to adjust your preferences.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      // Build service assignments array
-      const serviceAssignments: Array<{
-        service_type: 'Guide' | 'Driver';
-        provider_id: number;
-        provider_profile_id: number;
-        price: number;
-      }> = [];
-
-      if (selectedGuide) {
-        serviceAssignments.push({
-          service_type: 'Guide',
-          provider_id: selectedGuide.user_id,
-          provider_profile_id: selectedGuide.guide_id,
-          price: guideCost,
-        });
-      }
-
-      if (selectedCar) {
-        serviceAssignments.push({
-          service_type: 'Driver',
-          provider_id: selectedCar.driver_user_id,
-          provider_profile_id: selectedCar.driver_id,
-          price: carCost,
-        });
-      }
-
-      // Build meeting point data (only if service selected and meeting point provided)
-      const meetingPointData = hasSelectedService && hasMeetingPoint ? {
-        requested_name: meetingPoint.name,
-        requested_address: meetingPoint.address,
-        requested_latitude: meetingPoint.latitude,
-        requested_longitude: meetingPoint.longitude,
-        requested_notes: meetingPoint.notes,
-      } : null;
-
-      const response = await fetch(`${API_URL}/itinerary/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          traveler_id: formData.traveler_id,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
-          title: formData.title,
-          notes: formData.notes,
-          items: formData.items,
-          total_cost: totalActivityCost,
-          traveler_count: formData.preferences?.travelerCount || 1,
-          service_assignments: serviceAssignments,
-          meeting_point: meetingPointData,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Failed to save itinerary");
-      }
-
-      if (!data.itinerary_id) {
-        throw new Error("No itinerary ID returned from server");
-      }
-
-      const updatedFormData = {
-        ...formData,
-        tourGuide: selectedGuide,
-        carService: selectedCar,
-        meetingPoint: meetingPoint,
-        additionalServices: {
-          guideCost,
-          carCost,
-          totalAdditionalCost: additionalCost,
-        },
-      };
-
-      setFormData(updatedFormData);
-      setTimeout(() => onNext(data.itinerary_id), 500);
-    } catch (err) {
-      console.error("Error saving itinerary:", err);
-      Alert.alert(
-        "Save Failed",
-        err instanceof Error ? err.message : "Failed to save itinerary. Please try again.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Retry", onPress: handleContinue },
-        ]
-      );
-    } finally {
-      setSaving(false);
-    }
+    setFormData(updatedFormData);
+    onNext();
   };
 
   return (
@@ -592,93 +429,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                 )}
               </View>
             </View>
-
-            {/* Meeting Point Section - Only show if guide or driver selected */}
-            {hasSelectedService && (
-              <View className="mb-6 rounded-lg overflow-hidden">
-                <Pressable className="border-b border-gray-100">
-                  <View className="p-4">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center flex-1">
-                        <View className="flex-1">
-                          <Text className="text-base font-onest-semibold text-gray-900">
-                            Meeting Point
-                          </Text>
-                          <Text className="text-xs text-gray-500 font-onest">
-                            {hasMeetingPoint
-                              ? meetingPoint.name || meetingPoint.address
-                              : "Where should your guide/driver meet you?"}
-                          </Text>
-                        </View>
-                      </View>
-                      {hasMeetingPoint && (
-                        <View className="bg-green-100 rounded-full px-3 py-1.5 flex-row items-center">
-                          <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                          <Text className="text-xs font-onest-medium text-green-700 ml-1">
-                            Set
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </Pressable>
-
-                <View className="p-4">
-                  {hasMeetingPoint ? (
-                    <View className="rounded-lg p-4 border border-gray-200">
-                      <View className="flex-row justify-between items-start">
-                        <View className="flex-1">
-                          <View className="flex-row items-start">
-                            <Ionicons name="location" size={20} color="#6366F1" style={{ marginTop: 2 }} />
-                            <View className="ml-2 flex-1">
-                              {meetingPoint.name ? (
-                                <Text className="text-base font-onest-semibold text-gray-900 mb-1">
-                                  {meetingPoint.name}
-                                </Text>
-                              ) : null}
-                              {meetingPoint.address ? (
-                                <Text className="text-sm text-gray-600 font-onest">
-                                  {meetingPoint.address}
-                                </Text>
-                              ) : null}
-                              {meetingPoint.notes ? (
-                                <View className="mt-2 bg-gray-50 rounded-lg p-2">
-                                  <Text className="text-xs text-gray-500 font-onest">
-                                    "{meetingPoint.notes}"
-                                  </Text>
-                                </View>
-                              ) : null}
-                            </View>
-                          </View>
-                        </View>
-                        <View className="flex-row ml-2">
-                          <TouchableOpacity onPress={openMeetingPointModal} className="mr-3">
-                            <Text className="text-primary font-onest-medium text-sm">Edit</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={clearMeetingPoint}>
-                            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={openMeetingPointModal}
-                      className="rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="location-outline" size={32} color="#9CA3AF" />
-                      <Text className="text-gray-600 font-onest-medium mt-2">
-                        Set Meeting Point
-                      </Text>
-                      <Text className="text-gray-400 font-onest text-xs mt-1 text-center">
-                        Help your guide/driver find you easily
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
           </View>
 
           {/* Cost Summary */}
@@ -841,139 +591,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         </View>
       </Modal>
 
-      {/* Meeting Point Modal */}
-      <Modal visible={showMeetingPointModal} animationType="slide" transparent={true} onRequestClose={() => setShowMeetingPointModal(false)}>
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-[#fff] rounded-t-3xl">
-            <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-xl font-onest-bold text-gray-900">Set Meeting Point</Text>
-              <TouchableOpacity onPress={() => setShowMeetingPointModal(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView className="p-4">
-              <Text className="text-sm text-gray-500 font-onest mb-4">
-                Let your guide or driver know where to meet you on the first day of your trip.
-              </Text>
-
-              {/* Pick from Map Button */}
-              <TouchableOpacity
-                onPress={() => setShowLocationPicker(true)}
-                className="flex-row items-center justify-center bg-primary/10 rounded-xl py-4 mb-4"
-                activeOpacity={0.7}
-              >
-                <Ionicons name="map" size={20} color="#6366F1" />
-                <Text className="font-onest-medium text-primary ml-2">
-                  {tempMeetingPoint.latitude ? 'Change Location on Map' : 'Pick Location on Map'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Show selected location from map */}
-              {tempMeetingPoint.latitude && tempMeetingPoint.longitude && (
-                <View className="bg-green-50 rounded-xl p-3 mb-4 flex-row items-center">
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                  <Text className="font-onest text-green-700 text-sm ml-2 flex-1">
-                    Location pinned on map
-                  </Text>
-                </View>
-              )}
-
-              <View className="flex-row items-center my-3">
-                <View className="flex-1 h-px bg-gray-200" />
-                <Text className="px-3 text-gray-400 font-onest text-sm">or enter manually</Text>
-                <View className="flex-1 h-px bg-gray-200" />
-              </View>
-
-              {/* Location Name */}
-              <View className="mb-4">
-                <Text className="text-sm font-onest-medium text-gray-700 mb-2">
-                  Location Name *
-                </Text>
-                <TextInput
-                  className="border border-gray-300 rounded-xl px-4 py-3 font-onest text-gray-900"
-                  placeholder="e.g., Seda Hotel Capitol Central"
-                  placeholderTextColor="#9CA3AF"
-                  value={tempMeetingPoint.name}
-                  onChangeText={(text) => setTempMeetingPoint(prev => ({ ...prev, name: text }))}
-                />
-              </View>
-
-              {/* Address */}
-              <View className="mb-4">
-                <Text className="text-sm font-onest-medium text-gray-700 mb-2">
-                  Address
-                </Text>
-                <TextInput
-                  className="border border-gray-300 rounded-xl px-4 py-3 font-onest text-gray-900"
-                  placeholder="e.g., Lacson St, Bacolod City"
-                  placeholderTextColor="#9CA3AF"
-                  value={tempMeetingPoint.address}
-                  onChangeText={(text) => setTempMeetingPoint(prev => ({ ...prev, address: text }))}
-                />
-              </View>
-
-              {/* Notes/Instructions */}
-              <View className="mb-6">
-                <Text className="text-sm font-onest-medium text-gray-700 mb-2">
-                  Additional Instructions
-                </Text>
-                <TextInput
-                  className="border border-gray-300 rounded-xl px-4 py-3 font-onest text-gray-900"
-                  placeholder="e.g., I'll be waiting at the hotel lobby near reception"
-                  placeholderTextColor="#9CA3AF"
-                  value={tempMeetingPoint.notes}
-                  onChangeText={(text) => setTempMeetingPoint(prev => ({ ...prev, notes: text }))}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  style={{ minHeight: 80 }}
-                />
-              </View>
-
-              {/* Info Note */}
-              <View className="bg-blue-50 rounded-xl p-4 mb-6">
-                <View className="flex-row">
-                  <Ionicons name="information-circle" size={20} color="#3B82F6" />
-                  <Text className="text-sm text-blue-700 font-onest ml-2 flex-1">
-                    Your guide/driver will confirm this location or suggest an alternative if needed.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Save Button */}
-              <TouchableOpacity
-                onPress={saveMeetingPoint}
-                className="bg-primary rounded-xl py-4 items-center mb-4"
-                activeOpacity={0.7}
-              >
-                <Text className="text-white font-onest-semibold text-base">
-                  Save Meeting Point
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Location Picker Modal */}
-      <LocationPickerModal
-        visible={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        onSelectLocation={handleLocationSelected}
-        initialLocation={
-          tempMeetingPoint.latitude && tempMeetingPoint.longitude
-            ? {
-              name: tempMeetingPoint.name,
-              address: tempMeetingPoint.address,
-              latitude: tempMeetingPoint.latitude,
-              longitude: tempMeetingPoint.longitude,
-            }
-            : null
-        }
-        title="Select Meeting Point"
-      />
-
       {/* Floating Action Buttons */}
       <View className="px-6 py-4 border-t border-gray-200">
         <View className="flex-row justify-between">
@@ -981,7 +598,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             onPress={onBack}
             className="py-3 px-5 rounded-xl border border-gray-300"
             activeOpacity={0.7}
-            disabled={saving}
           >
             <Text className="text-center font-onest-medium text-base text-gray-700">Back</Text>
           </TouchableOpacity>
@@ -990,15 +606,10 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             onPress={handleContinue}
             className="py-3 px-5 rounded-xl bg-primary"
             activeOpacity={0.7}
-            disabled={saving}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text className="text-center font-onest-semibold text-base text-white">
-                Save & Continue
-              </Text>
-            )}
+            <Text className="text-center font-onest-semibold text-base text-white">
+              Continue
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
