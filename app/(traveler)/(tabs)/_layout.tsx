@@ -252,7 +252,8 @@ const _layout = () => {
                 />
                 <View
                   style={{
-                    backgroundColor: "#7dcb80",
+                    backgroundColor: "#191313",
+                    //  backgroundColor: "#7dcb80",
                     borderRadius: 28,
                     width: 56,
                     height: 56,
@@ -382,7 +383,7 @@ const _layout = () => {
                 onPress={dismissTooltip}
                 activeOpacity={0.8}
                 style={{
-                  backgroundColor: "#1f2937",
+                  backgroundColor: "#191313",
                   borderRadius: 12,
                   paddingVertical: 12,
                   paddingHorizontal: 24,

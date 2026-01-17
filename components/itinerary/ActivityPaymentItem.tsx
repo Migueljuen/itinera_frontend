@@ -28,12 +28,12 @@ export function ActivityPaymentItem({ activity }: Props) {
 
             {/* Activity Info */}
             <View className="flex-1 mr-3">
-                <Text className="text-sm font-onest-medium text-black/90" numberOfLines={1}>
+                <Text className="text-sm font-onest text-black/90 capitalize" numberOfLines={1}>
                     {activity.activity_name}
                 </Text>
-                <Text className="text-xs font-onest text-black/50 mt-0.5">
+                {/* <Text className="text-xs font-onest text-black/50 mt-0.5">
                     {activity.creator_name}
-                </Text>
+                </Text> */}
             </View>
 
             {/* Amount */}

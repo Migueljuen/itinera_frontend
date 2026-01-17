@@ -188,11 +188,12 @@ export default function GuideItineraryDetailScreen() {
         'You have successfully accepted this trip request.',
         [{ text: 'OK' }]
       );
-    } catch (error) {
-
-      console.error('Error accepting assignment:', error);
-      Alert.alert('Error', 'Failed to accept the request. Please try again.');
+    } catch (error: any) {
+      console.log('STATUS:', error.response?.status);
+      console.log('DATA:', error.response?.data);
+      console.log('HEADERS:', error.response?.headers);
     }
+
   }, []);
 
   // Decline assignment handler

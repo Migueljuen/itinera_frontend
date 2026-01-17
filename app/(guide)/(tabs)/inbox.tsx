@@ -462,8 +462,8 @@ const InboxScreen = () => {
                             numberOfLines={1}
                             ellipsizeMode="tail"
                             className={`font-onest-semibold text-base flex-1 mr-2 ${!notification.is_read
-                                ? "text-black/90"
-                                : "text-black/50"
+                              ? "text-black/90"
+                              : "text-black/50"
                               }`}
                           >
                             {notification.title}
@@ -526,7 +526,7 @@ const InboxScreen = () => {
           ) : (
             <>
               <Ionicons name="checkmark-done" size={20} color="#E5E7EB" />
-              <Text className="ml-2 text-black/40 font-onest">
+              <Text className="ml-2 text-white/90 font-onest">
                 Mark all read
               </Text>
             </>

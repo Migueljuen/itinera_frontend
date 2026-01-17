@@ -109,7 +109,7 @@ export const hasEnoughTimeBetween = (
     if (gapMinutes < travelTime) {
         return {
             hasTime: false,
-            message: `⚠️ Only ${Math.round(gapMinutes)} min gap, ~${travelTime} min travel time`,
+            message: ` Only ${Math.round(gapMinutes)} min gap, ~${travelTime} min travel time`,
         };
     }
 

@@ -1,6 +1,5 @@
 // components/itinerary/TravelIndicator.tsx
 
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
@@ -17,25 +16,34 @@ interface Props {
 
 export function TravelIndicator({ timeCheck, canNavigate, onNavigate }: Props) {
     const hasTimeConflict = timeCheck && !timeCheck.hasTime;
-    const message = timeCheck?.message || 'Travel to next activity';
+    const message = timeCheck?.message || '';
 
     return (
-        <View className=" py-3 my-4  flex-row items-start ">
-            <View className="flex-row items-center gap-3 flex-1">
-                <View className=" flex items-center gap-2 justify-center w-fit">
-                    {/* Use border instead of width for thin lines */}
-                    <View className="h-8 border-l border-gray-300" />
-                    <View className=''>
-                        <Ionicons name="car-outline" size={16} color="#000000cc" />
-                    </View>
-                    <View className="h-8 border-l border-gray-300" />
+        <View className="flex-row">
+            {/* Timeline Column - continues the line */}
+            <View className="w-6 items-center mr-3">
+                <View
+                    style={{
+                        width: 1,
+                        height: 100, // Fixed height instead of 100%
+                        backgroundColor: '#d1d5db',
+                    }}
+                />
+            </View>
+
+            {/* Content Column */}
+            <View className="flex-1 h-24 pt-8">
+                <View className="flex-row items-center gap-3">
+
+                    {/* <Ionicons name="car-outline" size={16} color="#6B7280" /> */}
+                    <Text
+                        className={`text-sm font-onest ${hasTimeConflict ? 'text-amber-600' : 'text-black/50'
+                            }`}
+                    >
+
+                        {message}
+                    </Text>
                 </View>
-                <Text
-                    className={`text-sm font-onest ${hasTimeConflict ? 'text-orange-600' : 'text-black/50'
-                        }`}
-                >
-                    {message}
-                </Text>
             </View>
         </View>
     );

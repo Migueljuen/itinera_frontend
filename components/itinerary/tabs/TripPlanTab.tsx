@@ -256,7 +256,7 @@ export function TripPlanTab({
             <ScrollView
                 ref={mainScrollRef}
                 className="flex-1 px-6 mx-4"
-                contentContainerStyle={{ paddingBottom: 120 }} // Extra padding for action bar
+                contentContainerStyle={{ paddingBottom: 180 }} // Extra padding for action bar
                 showsVerticalScrollIndicator={false}
             >
                 {selectedDay ? (

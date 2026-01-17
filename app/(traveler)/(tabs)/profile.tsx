@@ -105,10 +105,10 @@ const ProfileScreen: React.FC = () => {
     elevation: 3,
   };
 
-  const cardStyle = "bg-white rounded-2xl";
-  const sectionTitleStyle = "text-xl font-onest-semibold text-gray-800";
+  const cardStyle = " rounded-2xl";
+  const sectionTitleStyle = "text-xl font-onest-semibold text-black/90";
   const horizontalScrollStyle = "px-4";
-  const statCardStyle = "bg-white rounded-2xl p-5 mr-3 w-32";
+  const statCardStyle = " rounded-2xl p-5 mr-3 w-32";
   const iconBgColors = ['bg-indigo-50', 'bg-green-50', 'bg-red-50', 'bg-blue-50'];
   const iconColors = ['#4F46E5', '#10B981', '#EF4444', '#3B82F6'];
   const iconNames = ['map-outline', 'checkmark-circle-outline', 'heart-outline', 'calendar-outline'];
@@ -507,8 +507,8 @@ const ProfileScreen: React.FC = () => {
       <View className={`${iconBgColor} rounded-full w-12 h-12 items-center justify-center mb-3`}>
         <Ionicons name={iconName as any} size={24} color={iconColor} />
       </View>
-      <Text className="text-2xl font-onest-bold text-gray-800">{value}</Text>
-      <Text className="text-xs text-gray-500 font-onest mt-1">{label}</Text>
+      <Text className="text-2xl font-onest-bold text-black/90">{value}</Text>
+      <Text className="text-xs text-black/50 font-onest mt-1">{label}</Text>
     </View>
   );
 
@@ -520,8 +520,8 @@ const ProfileScreen: React.FC = () => {
   }) => (
     <View className="p-4 flex-row justify-between items-center border-b border-gray-100 last:border-b-0">
       <View className="flex-1 mr-4">
-        <Text className="font-onest-medium text-gray-800">{title}</Text>
-        <Text className="text-xs text-gray-500 font-onest mt-1">{description}</Text>
+        <Text className="font-onest-medium text-black/90">{title}</Text>
+        <Text className="text-xs text-black/50 font-onest mt-1">{description}</Text>
       </View>
       <Switch
         trackColor={{ false: "#e5e7eb", true: "#4F46E5" }}
@@ -574,8 +574,8 @@ const ProfileScreen: React.FC = () => {
         {/* Header */}
         <View className="flex-row justify-between items-center p-6">
           <View>
-            <Text className="text-3xl font-onest-semibold text-gray-800">My Profile</Text>
-            <Text className="text-gray-400 font-onest">Member since {formatDate(userData.created_at)}</Text>
+            <Text className="text-3xl font-onest-semibold text-black/90">My Profile</Text>
+            <Text className="text-black/50 font-onest">Member since {formatDate(userData.created_at)}</Text>
           </View>
           <TouchableOpacity onPress={handleLogout} className="bg-gray-100 p-3 rounded-full">
             <Ionicons name="log-out-outline" size={24} color="#1f2937" />
@@ -616,10 +616,10 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <Text className="text-2xl font-onest-semibold mt-3 text-gray-800">
+            <Text className="text-2xl font-onest-semibold mt-3 text-black/90">
               {userData.first_name} {userData.last_name}
             </Text>
-            <Text className="text-sm text-gray-500 font-onest mt-1">{userData.email}</Text>
+            <Text className="text-sm text-black/50 font-onest mt-1">{userData.email}</Text>
           </View>
 
           <TouchableOpacity
@@ -627,12 +627,12 @@ const ProfileScreen: React.FC = () => {
             onPress={() => router.push('/(traveler)/(profile)/edit')}
           >
             <Ionicons name="create-outline" size={20} color="#1f2937" />
-            <Text className="ml-2 text-gray-800 font-onest-medium">Edit Profile</Text>
+            <Text className="ml-2 text-black/90 font-onest-medium">Edit Profile</Text>
           </TouchableOpacity>
         </View>
 
         {/* Travel Stats */}
-        <View className="mb-6">
+        {/* <View className="mb-6">
           <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Travel Activity</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className={`${horizontalScrollStyle} py-2`}>
             {statsData.map((stat, index) => (
@@ -646,7 +646,7 @@ const ProfileScreen: React.FC = () => {
               />
             ))}
           </ScrollView>
-        </View>
+        </View> */}
 
         {/* Recent Saved Experiences */}
         {recentExperiences.length > 0 && (
@@ -727,7 +727,7 @@ const ProfileScreen: React.FC = () => {
             <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Recent Saves</Text>
             <View className={horizontalScrollStyle}>
               <View className={`${cardStyle} p-4 items-center justify-center h-32`}>
-                <Text className="text-gray-500 font-onest">Loading saved experiences...</Text>
+                <Text className="text-black/50 font-onest">Loading saved experiences...</Text>
               </View>
             </View>
           </View>
@@ -737,17 +737,11 @@ const ProfileScreen: React.FC = () => {
           <View className="mb-6">
             <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Recent Saves</Text>
             <View className={`mx-4 ${cardStyle} p-6 items-center`}>
-              <Ionicons name="heart-outline" size={48} color="#9CA3AF" />
-              <Text className="text-gray-500 font-onest-medium mt-2">No saved experiences yet</Text>
-              <Text className="text-gray-400 font-onest text-sm text-center mt-1">
+
+              <Text className="text-black/50 font-onest-medium mt-2">No saved experiences yet</Text>
+              <Text className="text-black/50 font-onest text-sm text-center mt-1">
                 Start exploring and save experiences you love
               </Text>
-              <TouchableOpacity
-                className="bg-primary rounded-xl px-4 py-2 mt-3"
-                onPress={() => router.push('/(traveler)/(home)')}
-              >
-                <Text className="text-white font-onest-medium text-sm">Explore Experiences</Text>
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -790,7 +784,7 @@ const ProfileScreen: React.FC = () => {
             onPress={() => router.push('/(traveler)/(support)')}
           >
             <Ionicons name="help-circle-outline" size={20} color="#6B7280" />
-            <Text className="ml-2 text-gray-700 font-onest-medium">Help & Support</Text>
+            <Text className="ml-2 text-black/90 font-onest-medium">Help & Support</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

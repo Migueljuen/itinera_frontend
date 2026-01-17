@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Toaster } from "sonner-native"; // ← NEW
+import { Toaster } from "sonner-native";
 
 import { AuthProvider } from "../contexts/AuthContext";
 import { RefreshProvider } from "../contexts/RefreshContext";

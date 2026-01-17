@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext"; // Adjust path as needed
 import { Experience } from "@/types/experienceDetails";
 import { getUserId } from "@/utils/formatters";
 import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { toast } from "sonner-native";
 
 type UseExperienceResult = {
     experience: Experience | null;
@@ -61,10 +61,7 @@ export const useExperience = (experienceId: number): UseExperienceResult => {
             const userId = await getUserId(user?.user_id);
 
             if (!userId) {
-                Alert.alert(
-                    "Authentication Required",
-                    "Please login to save experiences"
-                );
+                toast.error("Please login to save experiences");
                 return;
             }
 
@@ -79,21 +76,28 @@ export const useExperience = (experienceId: number): UseExperienceResult => {
                 }),
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                setIsSaved(data.action === "saved");
-            } else {
+            if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || "Failed to update saved status");
             }
+
+            const data = await response.json();
+
+            const saved = data.action === "saved";
+            setIsSaved(saved);
+
+
+            if (saved) {
+                toast.success("Experience saved");
+            } else {
+                toast("Removed from saved");
+            }
         } catch (err) {
             console.error("Error saving experience:", err);
-            Alert.alert(
-                "Error",
-                "Failed to save experience. Please check your connection."
-            );
+            toast.error("Failed to save experience. Please check your connection.");
         }
     };
+
 
     return {
         experience,

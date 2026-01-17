@@ -2,16 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Calendar from "../../../assets/icons/calendar.svg";
@@ -51,22 +50,12 @@ interface ApiResponse {
   itineraries: Itinerary[];
 }
 
-const ITEMS_PER_PAGE = 5;
-
 export default function TripScreen() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-
-  // Separate initial load from subsequent fetches
   const [initialLoading, setInitialLoading] = useState(true);
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
-  const [activeTab, setActiveTab] = useState<
-    "ongoing" | "upcoming" | "pending" | "completed"
-  >("ongoing");
   const [userName, setUserName] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const filters = ["Ongoing", "Upcoming", "Pending", "Completed"];
 
   useFocusEffect(
     React.useCallback(() => {
@@ -74,11 +63,6 @@ export default function TripScreen() {
       fetchUserData();
     }, [])
   );
-
-  // Reset to first page when tab changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
 
   const fetchUserData = async () => {
     try {
@@ -93,9 +77,7 @@ export default function TripScreen() {
   };
 
   const fetchItineraries = async () => {
-    // Don't set loading state here - it causes the blink
     try {
-      // Get user ID and token
       const user = await AsyncStorage.getItem("user");
       const token = await AsyncStorage.getItem("token");
 
@@ -108,7 +90,6 @@ export default function TripScreen() {
       const parsedUser = JSON.parse(user);
       const travelerId = parsedUser.user_id;
 
-      // Fetch user's itineraries
       const response = await fetch(
         `${API_URL}/itinerary/traveler/${travelerId}`,
         {
@@ -118,17 +99,12 @@ export default function TripScreen() {
         }
       );
 
-      // Handle 404 as a valid response (user has no itineraries)
       if (response.status === 404) {
-        console.log(
-          "No itineraries found for user - this is normal for new users"
-        );
         setItineraries([]);
         setInitialLoading(false);
         return;
       }
 
-      // Handle other error statuses
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -143,58 +119,21 @@ export default function TripScreen() {
     }
   };
 
-  const filteredItineraries = itineraries.filter(
-    (item) => item.status === activeTab
+  // Filter for active trips only (ongoing + upcoming + pending)
+  const activeItineraries = itineraries.filter(
+    (item) => item.status === "ongoing" || item.status === "upcoming" || item.status === "pending"
   );
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredItineraries.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedItineraries = filteredItineraries.slice(startIndex, endIndex);
-
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxPagesToShow = 5;
-
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push("...");
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        pages.push(1);
-        pages.push("...");
-        pages.push(currentPage - 1);
-        pages.push(currentPage);
-        pages.push(currentPage + 1);
-        pages.push("...");
-        pages.push(totalPages);
-      }
-    }
-
-    return pages;
-  };
+  // Count completed trips for the history button
+  const completedCount = itineraries.filter(
+    (item) => item.status === "completed"
+  ).length;
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await fetchItineraries();
       await fetchUserData();
-      setCurrentPage(1);
     } finally {
       setRefreshing(false);
     }
@@ -214,31 +153,26 @@ export default function TripScreen() {
     }
   };
 
-  // Enhanced status display with emojis and better descriptions
   const getStatusDisplay = (
     status: "upcoming" | "ongoing" | "completed" | "pending"
   ) => {
     const statusConfig = {
       upcoming: {
-        emoji: "📅",
         text: "Upcoming",
         bgColor: "bg-blue-50",
         textColor: "text-blue-600",
       },
       ongoing: {
-        emoji: "✈️",
         text: "Ongoing",
         bgColor: "bg-green-50",
         textColor: "text-green-600",
       },
       completed: {
-        emoji: "✅",
         text: "Completed",
         bgColor: "bg-gray-50",
         textColor: "text-black/50",
       },
       pending: {
-        emoji: "⏳",
         text: "Pending",
         bgColor: "bg-yellow-50",
         textColor: "text-yellow-600",
@@ -248,17 +182,14 @@ export default function TripScreen() {
     const config = statusConfig[status];
 
     return (
-      <View className={`px-3 py-1.5 rounded-full ml-3 ${config.bgColor}`}>
-        <View className="flex-row items-center">
-          <Text className={`text-xs font-onest-medium ${config.textColor}`}>
-            {config.text}
-          </Text>
-        </View>
+      <View className={`px-3 py-1.5 rounded-full ${config.bgColor}`}>
+        <Text className={`text-xs font-onest-medium ${config.textColor}`}>
+          {config.text}
+        </Text>
       </View>
     );
   };
 
-  // Smart preview text based on status and current time
   const getSmartPreviewText = (itinerary: Itinerary) => {
     if (!itinerary.items || itinerary.items.length === 0) {
       return { title: "No activities planned", subtitle: "" };
@@ -284,14 +215,12 @@ export default function TripScreen() {
         };
 
       case "ongoing":
-        // Find current or next activity based on current time
         const startDate = new Date(itinerary.start_date);
         const currentDay =
           Math.floor(
             (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
           ) + 1;
 
-        // Try to find current activity
         const currentActivity = sortedItems.find((item) => {
           if (item.day_number !== currentDay) return false;
 
@@ -320,7 +249,6 @@ export default function TripScreen() {
           };
         }
 
-        // Find next activity
         const nextActivity = sortedItems.find((item) => {
           if (item.day_number < currentDay) return false;
           if (item.day_number > currentDay) return true;
@@ -352,16 +280,6 @@ export default function TripScreen() {
           subtitle: "All activities completed",
         };
 
-      case "completed":
-        const lastActivity = sortedItems[sortedItems.length - 1];
-        return {
-          title: `Ended with: ${lastActivity.experience_name}`,
-          subtitle: `Day ${lastActivity.day_number} • ${formatTimeRange(
-            lastActivity.start_time,
-            lastActivity.end_time
-          )}`,
-        };
-
       case "pending":
         const pendingActivity = sortedItems[0];
         return {
@@ -383,7 +301,6 @@ export default function TripScreen() {
     }
   };
 
-  // Enhanced time formatting function
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
@@ -392,123 +309,62 @@ export default function TripScreen() {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  // Updated to work with items and use actual API images
   const getItineraryImage = (itinerary: Itinerary) => {
-    // Use the primary_image from the first item if available
     if (itinerary.items && itinerary.items.length > 0) {
       const firstItem = itinerary.items[0];
       if (firstItem.primary_image) {
-        // Construct full URL for your API
         return { uri: `${API_URL}${firstItem.primary_image}` };
       }
-      // If no primary_image, check if images array exists and has items
       if (firstItem.images && firstItem.images.length > 0) {
         return { uri: `${API_URL}${firstItem.images[0]}` };
       }
     }
-
-    // Fallback to default image
     return require("../../../assets/images/balay.jpg");
   };
 
-  // Updated to work with items and use actual destination data from API
-  const getItineraryDestination = (itinerary: Itinerary) => {
-    if (itinerary.items && itinerary.items.length > 0) {
-      // Get unique cities from the items
-      const cities = new Set(
-        itinerary.items
-          .map((item) => item.destination_city)
-          .filter((city) => city) // Remove null/undefined values
-      );
-
-      if (cities.size === 1) {
-        return Array.from(cities)[0];
-      } else if (cities.size > 1) {
-        return (
-          Array.from(cities).slice(0, 2).join(" & ") +
-          (cities.size > 2 ? " +" : "")
-        );
-      }
-    }
-
-    return "Philippines"; // Default fallback
-  };
-
-  // Helper function to get unique experiences count
   const getExperiencesCount = (itinerary: Itinerary) => {
     if (!itinerary.items) return 0;
-
-    // Count unique experiences
     const uniqueExperiences = new Set(
       itinerary.items.map((item) => item.experience_id)
     );
     return uniqueExperiences.size;
   };
 
-  // Helper function to format time display
   const formatTimeRange = (startTime: string, endTime: string) => {
     return `${formatTime(startTime)} - ${formatTime(endTime)}`;
   };
 
-  // Empty state component for better UX
   const renderEmptyState = () => {
-    const emptyMessages = {
-      upcoming: {
-        title: "No upcoming trips",
-        subtitle: "Plan your next adventure!",
-        showCreateButton: true,
-      },
-      ongoing: {
-        title: "No active trips",
-        subtitle: "You don't have any trips in progress",
-        showCreateButton: false,
-      },
-      completed: {
-        title: "No completed trips",
-        subtitle: "Your adventure history will appear here",
-        showCreateButton: false,
-      },
-      pending: {
-        title: "No pending trips",
-        subtitle: "Trips awaiting confirmation will appear here",
-        showCreateButton: false,
-      },
-    };
-
-    const config = emptyMessages[activeTab];
-
     return (
       <View className="py-16 items-center">
-        <Text className="text-center text-black/90 font-onest text-lg">
-          {config.title}
+        <Ionicons name="airplane-outline" size={64} color="#D1D5DB" />
+        <Text className="text-center text-black/90 font-onest-semibold text-xl mt-6">
+          Build your dream itinerary
         </Text>
-        <Text className="text-center text-black/50 px-8 mt-2 font-onest text-sm leading-5">
-          {config.subtitle}
+        <Text className="text-center text-black/50 px-8 mt-2 font-onest text-base leading-5">
+          Explore local activities. Your bookings will appear here.
         </Text>
 
-        {config.showCreateButton && (
-          <TouchableOpacity
-            className="mt-8 bg-primary rounded-full px-8 py-4 flex-row items-center"
-            style={{
-              shadowColor: "#4F46E5",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 12,
-              elevation: 6,
-            }}
-            onPress={() => router.push("/(createItinerary)/selectionScreen")}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#E5E7EB" />
-            <Text className="text-black/40 font-onest-medium ml-2">
-              Create New Trip
-            </Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          className="mt-8 bg-[#191313] rounded-full px-8 py-4 flex-row items-center"
+          style={{
+            shadowColor: "#4F46E5",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 12,
+            elevation: 6,
+          }}
+          onPress={() => router.push("/(createItinerary)/selectionScreen")}
+        >
+
+          <Text className="text-white/90 font-onest-medium ">
+            Create New Trip
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
 
-  // Only show full-screen loader on initial load
   if (initialLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
@@ -537,205 +393,101 @@ export default function TripScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View className="p-6">
+          <View className="p-6 pb-4">
             <Text className="text-3xl font-onest-semibold text-normal">
               My Trips
             </Text>
-            <Text className="text-black/40 font-onest">
+            <Text className="text-black/50 font-onest">
               Manage your travel itineraries
             </Text>
           </View>
 
-          {/* Scrollable Horizontal Filters */}
-          <View className="mb-6">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="flex-row px-6"
-            >
-              {filters.map((filter) => {
-                const filterValue = filter.toLowerCase() as
-                  | "upcoming"
-                  | "ongoing"
-                  | "completed"
-                  | "pending";
-                return (
-                  <Pressable
-                    key={filter}
-                    onPress={() => setActiveTab(filterValue)}
-                    className={`px-6 py-2 rounded-full mr-3 ${activeTab === filterValue ? "bg-gray-800" : "bg-white"
-                      }`}
-                  >
-                    <Text
-                      className={`text-base font-onest-medium ${activeTab === filterValue
-                        ? "text-white"
-                        : "text-black/40"
-                        }`}
-                    >
-                      {filter}
+          {/* Trip History Button - Only show if there are completed trips */}
+          {/* {completedCount > 0 && (
+            <View className="px-6 mb-4">
+              <TouchableOpacity
+                onPress={() => router.push("/(itinerary)/history")}
+                className="bg-white rounded-xl p-4 flex-row justify-between items-center border border-gray-100"
+              >
+                <View className="flex-row items-center">
+                  <View className="bg-gray-50 p-2 rounded-full">
+                    <Ionicons name="time-outline" size={20} color="#6B7280" />
+                  </View>
+                  <View className="ml-3">
+                    <Text className="text-base font-onest-medium text-black/90">
+                      Trip History
                     </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+                    <Text className="text-sm text-black/50 font-onest">
+                      {completedCount} completed {completedCount === 1 ? "trip" : "trips"}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          )} */}
 
-          {/* Itineraries List */}
+          {/* Active Itineraries List */}
           <View className="px-6">
-            {filteredItineraries.length === 0 ? (
+            {activeItineraries.length === 0 ? (
               renderEmptyState()
             ) : (
-              <>
-                {paginatedItineraries.map((itinerary, index) => {
-                  const previewInfo = getSmartPreviewText(itinerary);
-                  return (
-                    <TouchableOpacity
-                      key={itinerary.itinerary_id}
-                      onPress={() =>
-                        router.push(`/(itinerary)/${itinerary.itinerary_id}`)
-                      }
-                      className="mb-6"
-                    >
-                      <Image
-                        source={getItineraryImage(itinerary)}
-                        className="w-full h-60 rounded-xl"
-                        resizeMode="cover"
-                      />
-                      <View className="pt-4">
-                        <View className="flex-row justify-between items-start mb-2">
-                          <Text className="text-lg font-onest-medium text-black/90 flex-1 mr-3">
-                            {itinerary.title}
-                          </Text>
-                          {getStatusDisplay(itinerary.status)}
-                        </View>
-
-                        {/* <View className="flex-row items-center mb-2">
-                          <Globe />
-                          <Text className="text-sm text-black/50 font-onest ml-2">
-                            {getItineraryDestination(itinerary)}
-                          </Text>
-                        </View> */}
-
-                        <View className="flex-row items-center mb-3">
-                          <Calendar />
-                          <Text className="text-sm text-black/90 font-onest ml-2">
-                            {formatDateRange(
-                              itinerary.start_date,
-                              itinerary.end_date
-                            )}
-                          </Text>
-                        </View>
-
-                        {/* Enhanced smart preview section */}
-                        {itinerary.items && itinerary.items.length > 0 && (
-                          <View className="pt-3 ">
-                            <Text className="text-sm text-black/80 font-onest">
-                              {previewInfo.title}
-                            </Text>
-                            {/* <Text className="text-sm text-black/50 font-onest">
-                              {previewInfo.subtitle}
-                            </Text> */}
-                          </View>
-                        )}
-
-                        {/* Show number of experiences */}
-                        <View className="pt-3 mt-3 border-t border-gray-100 flex-row justify-between items-center">
-                          <Text className="text-sm text-black/50 font-onest">
-                            {getExperiencesCount(itinerary)}{" "}
-                            {getExperiencesCount(itinerary) !== 1
-                              ? "activities"
-                              : "activity"}
-                          </Text>
-                          <Text className="text-sm text-primary font-onest-medium">
-                            View details →
-                          </Text>
-                        </View>
+              activeItineraries.map((itinerary) => {
+                const previewInfo = getSmartPreviewText(itinerary);
+                return (
+                  <TouchableOpacity
+                    key={itinerary.itinerary_id}
+                    onPress={() =>
+                      router.push(`/(itinerary)/${itinerary.itinerary_id}`)
+                    }
+                    className="mb-6"
+                  >
+                    <Image
+                      source={getItineraryImage(itinerary)}
+                      className="w-full h-60 rounded-xl"
+                      resizeMode="cover"
+                    />
+                    <View className="pt-4">
+                      <View className="flex-row justify-between items-start mb-2">
+                        <Text className="text-lg font-onest-medium text-black/90 flex-1 mr-3">
+                          {itinerary.title}
+                        </Text>
+                        {getStatusDisplay(itinerary.status)}
                       </View>
-                    </TouchableOpacity>
-                  );
-                })}
 
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <View className="mt-6 mb-4">
-                    {/* Results Info */}
-                    <Text className="text-center text-black/50 text-sm mb-4 font-onest">
-                      Showing {startIndex + 1}-
-                      {Math.min(endIndex, filteredItineraries.length)} of{" "}
-                      {filteredItineraries.length} trips
-                    </Text>
+                      <View className="flex-row items-center mb-3">
+                        <Calendar />
+                        <Text className="text-sm text-black/90 font-onest ml-2">
+                          {formatDateRange(
+                            itinerary.start_date,
+                            itinerary.end_date
+                          )}
+                        </Text>
+                      </View>
 
-                    {/* Pagination Buttons */}
-                    <View className="flex-row justify-center items-center">
-                      {/* Previous Button */}
-                      <TouchableOpacity
-                        onPress={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
-                        disabled={currentPage === 1}
-                        className={`px-3 py-2 mr-2 rounded-xl ${currentPage === 1 ? "bg-gray-100" : "bg-black/90"
-                          }`}
-                      >
-                        <Ionicons
-                          name="chevron-back"
-                          size={20}
-                          color={currentPage === 1 ? "#9CA3AF" : "#FFFFFF"}
-                        />
-                      </TouchableOpacity>
-
-                      {/* Page Numbers */}
-                      {getPageNumbers().map((page, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          onPress={() =>
-                            typeof page === "number" && setCurrentPage(page)
-                          }
-                          disabled={page === "..."}
-                          className={`px-3 py-2 mx-1 rounded-xl ${page === currentPage
-                            ? "bg-primary"
-                            : page === "..."
-                              ? "bg-transparent"
-                              : "bg-gray-50"
-                            }`}
-                        >
-                          <Text
-                            className={`font-onest-medium ${page === currentPage
-                              ? "text-white"
-                              : page === "..."
-                                ? "text-black/30"
-                                : "text-black/80"
-                              }`}
-                          >
-                            {page}
+                      {itinerary.items && itinerary.items.length > 0 && (
+                        <View className="pt-3">
+                          <Text className="text-sm text-black/80 font-onest">
+                            {previewInfo.title}
                           </Text>
-                        </TouchableOpacity>
-                      ))}
+                        </View>
+                      )}
 
-                      {/* Next Button */}
-                      <TouchableOpacity
-                        onPress={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1)
-                          )
-                        }
-                        disabled={currentPage === totalPages}
-                        className={`px-3 py-2 ml-2 rounded-xl ${currentPage === totalPages
-                          ? "bg-gray-100"
-                          : "bg-black/90"
-                          }`}
-                      >
-                        <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color={
-                            currentPage === totalPages ? "#9CA3AF" : "#FFFFFF"
-                          }
-                        />
-                      </TouchableOpacity>
+                      <View className="pt-3 mt-3 border-t border-gray-100 flex-row justify-between items-center">
+                        <Text className="text-sm text-black/50 font-onest">
+                          {getExperiencesCount(itinerary)}{" "}
+                          {getExperiencesCount(itinerary) !== 1
+                            ? "activities"
+                            : "activity"}
+                        </Text>
+                        <Text className="text-sm text-primary font-onest-medium">
+                          View details →
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                )}
-              </>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         </ScrollView>
