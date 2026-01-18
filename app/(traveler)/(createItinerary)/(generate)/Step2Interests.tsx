@@ -278,11 +278,11 @@ const Step2Interests: React.FC<StepProps> = ({
                           onPress={() =>
                             setOpenCategory(isOpen ? null : category.category_name)
                           }
-                          className={`border rounded-2xl bg-gray-100 px-4 py-4 flex-row items-center ${cardSelected ? "border-primary" : "border-gray-200"
+                          className={`border rounded-2xl bg-gray-50 px-4 py-4 flex-row items-center ${cardSelected ? "border-primary" : "border-gray-200"
                             }`}
                         >
                           {/* Image */}
-                          <View className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-100 items-center justify-center">
+                          <View className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-50 items-center justify-center">
                             {imageSrc ? (
                               <Image
                                 source={imageSrc}

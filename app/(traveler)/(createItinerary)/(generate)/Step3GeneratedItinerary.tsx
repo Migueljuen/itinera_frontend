@@ -45,7 +45,7 @@ const INTENSITY_COLORS: Record<string, string> = {
 // Utility functions
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("en-US", {
-    weekday: "long",
+
     month: "long",
     day: "numeric",
   });
@@ -87,7 +87,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const mainScrollRef = useRef<ScrollView>(null);
   const chipScrollRef = useRef<ScrollView>(null);
 
-  const MIN_LOADING_TIME = 1000;
+  const MIN_LOADING_TIME = 100;
 
   useEffect(() => {
     generateItinerary();
@@ -463,10 +463,10 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* Summary Card */}
-        <View className="mt-6 border p-4 border-gray-200 rounded-xl">
+        <View className="mt-6 border-b py-4 border-gray-200 rounded-xl">
           <View className="flex-row justify-between items-start mb-4">
             <View className="flex-1">
-              <Text className="text-black/50 font-onest text-sm mb-1">
+              <Text className="text-black/90 font-onest text-sm mb-1">
                 Estimated Total Cost
               </Text>
               <Text className="text-3xl font-onest-bold text-black/90">
@@ -482,7 +482,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                 </View>
               )}
           </View>
-          <Text className="text-black/40 font-onest text-xs">
+          <Text className="text-black/50 font-onest text-sm">
             {formData.preferences?.travelerCount &&
               formData.preferences.travelerCount > 1
               ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
@@ -490,39 +490,20 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
           </Text>
 
           {/* Stats Row */}
-          <View className="flex-row justify-between items-center mt-6 pt-6 border-t border-gray-100">
-            <View className="items-center">
-              <Text className="text-2xl font-onest-bold text-primary">
-                {totalDays}
+          <View className="flex-row justify-between items-center mt-6 pt-6  border-gray-100">
+
+            <View className="items-center flex flex-row ">
+              <Ionicons name={"calendar-outline"}></Ionicons>
+              <Text className="text-sm text-black/90 font-onest ml-2">
+                {formatDate(generatedItinerary.start_date)} - {formatDate(generatedItinerary.end_date)}
               </Text>
-              <Text className="text-xs text-black/50 font-onest">Days</Text>
+
             </View>
-            <View className="items-center">
-              <Text className="text-2xl font-onest-bold text-primary">
-                {generatedItinerary.items.length}
-              </Text>
-              <Text className="text-xs text-black/50 font-onest">Activities</Text>
-            </View>
-            <View className="items-center">
-              <Text
-                className={`text-sm font-onest-medium capitalize ${INTENSITY_COLORS[
-                  formData.preferences?.activityIntensity?.toLowerCase() || ""
-                ] || "text-black/60"
-                  }`}
-              >
-                {formData.preferences?.activityIntensity || "N/A"}
-              </Text>
-              <Text className="text-xs text-black/50 font-onest">Activity level</Text>
-            </View>
+
           </View>
         </View>
 
-        {/* Underfilled Notice */}
-        {showUnderfilledNotice && (
-          <View className="mt-6">
-            <UnderfilledNotice underfilledDays={underfilledDays} visible={showUnderfilledNotice} />
-          </View>
-        )}
+
         {/* Horizontal Day Chips */}
         {dayChips.length > 0 && (
           <View className=" pt-4">
@@ -647,6 +628,12 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
             </View>
           )}
         </View>
+        {/* Underfilled Notice */}
+        {showUnderfilledNotice && (
+          <View className="mt-6">
+            <UnderfilledNotice underfilledDays={underfilledDays} visible={showUnderfilledNotice} />
+          </View>
+        )}
       </ScrollView>
 
       {/* Navigation Buttons */}

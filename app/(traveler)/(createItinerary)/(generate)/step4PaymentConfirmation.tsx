@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -62,6 +62,10 @@ interface StepProps {
     end_date: string;
     title: string;
     items: ItineraryItem[];
+    // ✅ FIX: add preferences so we can compute per-person pricing correctly
+    preferences?: {
+      travelerCount: number;
+    };
     tourGuide?: TourGuide | null;
     carService?: CarService | null;
     additionalServices?: {
@@ -71,10 +75,12 @@ interface StepProps {
     };
   };
   itineraryId: number;
-  totalCost: number;
+  totalCost: number; // you can keep passing this, but we'll compute from breakdown for accuracy
   onNext: () => void;
   onBack: () => void;
 }
+
+const MIN_ENTER_LOADING_MS = 450;
 
 const Step4PaymentConfirmation: React.FC<StepProps> = ({
   formData,
@@ -85,6 +91,13 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
 }) => {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // ✅ Minimum loading time on entry (prevents UI flicker)
+  const [enterLoading, setEnterLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setEnterLoading(false), MIN_ENTER_LOADING_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -103,18 +116,12 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
       "Pay Later",
       "Your booking will remain pending until payment is completed.",
       [
-        {
-          text: "Go to Home",
-          onPress: () => router.replace("/"),
-        },
+        { text: "Go to Home", onPress: () => router.replace("/") },
         {
           text: "View Itinerary",
           onPress: () => {
-            if (itineraryId) {
-              router.replace(`/(traveler)/(itinerary)/${itineraryId}`);
-            } else {
-              router.replace("/");
-            }
+            if (itineraryId) router.replace(`/(traveler)/(itinerary)/${itineraryId}`);
+            else router.replace("/");
           },
         },
       ]
@@ -122,10 +129,10 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
   };
 
   const activityCount = formData.items?.length || 0;
+
   const duration =
     Math.ceil(
-      (new Date(formData.end_date).getTime() -
-        new Date(formData.start_date).getTime()) /
+      (new Date(formData.end_date).getTime() - new Date(formData.start_date).getTime()) /
       (1000 * 60 * 60 * 24)
     ) + 1;
 
@@ -134,25 +141,71 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
   const pendingServicesCost = guideCost + carCost;
   const hasPendingServices = pendingServicesCost > 0;
 
-  // totalCost passed in is already just activities (from Option A)
-  const activitiesCost = totalCost;
+  // ✅ Breakdown computation
+  const travelerCount = formData.preferences?.travelerCount || 1;
+
+  const { paidActivities, computedActivitiesCost } = useMemo(() => {
+    const getItemCost = (item: ItineraryItem) => {
+      const price = Number(item.price || 0);
+      if (price <= 0) return 0;
+
+      const unit = (item.unit || "").toLowerCase();
+      const isPerPerson = unit === "entry" || unit === "person";
+
+      return isPerPerson ? price * travelerCount : price;
+    };
+
+    const breakdown = (formData.items || []).map((item) => {
+      const basePrice = Number(item.price || 0);
+      const unit = (item.unit || "").toLowerCase();
+      const isPerPerson = unit === "entry" || unit === "person";
+      const cost = getItemCost(item);
+
+      return {
+        key: `${item.day_number}-${item.experience_id}-${item.start_time}-${item.end_time}`,
+        name: item.experience_name || `Activity #${item.experience_id}`,
+        cost,
+        note: isPerPerson ? `₱${basePrice.toLocaleString()} × ${travelerCount}` : null,
+      };
+    });
+
+    const paid = breakdown.filter((b) => b.cost > 0);
+    const total = paid.reduce((sum, b) => sum + b.cost, 0);
+
+    return { paidActivities: paid, computedActivitiesCost: total };
+  }, [formData.items, travelerCount]);
+
+  // ✅ Use computed total (more reliable than prop totalCost)
+  const activitiesCost = computedActivitiesCost || totalCost;
+
+  // ✅ Minimum entry loading view
+  if (enterLoading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text className="mt-3 text-sm font-onest text-black/50">
+          Preparing your summary...
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <View className="flex-1 ">
+    <View className="flex-1">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        <View className="px-6 pt-6">
+        <View className="pt-6">
           {/* Success Header */}
-          <View className="items-center mb-8">
+          <View className="items-start mb-8">
             <View className="w-16 h-16 rounded-full bg-green-50 items-center justify-center mb-4">
               <Ionicons name="checkmark" size={32} color="#22C55E" />
             </View>
-            <Text className="text-xl font-onest-semibold text-black/90 text-center mb-1">
+            <Text className="text-2xl font-onest-semibold text-black/90 mb-1">
               Itinerary Created!
             </Text>
-            <Text className="text-sm font-onest text-black/50 text-center">
+            <Text className="text-base font-onest text-black/50 text-center">
               Your trip has been saved successfully
             </Text>
           </View>
@@ -163,7 +216,8 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
               {formData.title || "My Trip"}
             </Text>
             <Text className="text-sm font-onest text-black/50">
-              {formatDate(formData.start_date)} - {formatDate(formData.end_date)} • {duration} {duration === 1 ? "day" : "days"}
+              {formatDate(formData.start_date)} - {formatDate(formData.end_date)} •{" "}
+              {duration} {duration === 1 ? "day" : "days"}
             </Text>
           </View>
 
@@ -239,29 +293,44 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
 
           {/* Cost Breakdown */}
           <View className="mb-6">
-            <Text className="text-sm font-onest-medium text-black/70 mb-3">
+            <Text className="text-lg font-onest-medium text-black/70 z">
               Payment Summary
             </Text>
 
-            <View className="flex-row justify-between items-center py-2">
-              <Text className="text-sm font-onest text-black/50">
-                Activities ({activityCount})
-              </Text>
-              <Text className="text-sm font-onest-medium text-black/80">
-                ₱{activitiesCost.toLocaleString()}
-              </Text>
-            </View>
+
+
+            {/* ✅Activity list */}
+            {paidActivities.length > 0 && (
+              <View className="mt-2 rounded-xl py-3">
+                {paidActivities.map((a) => (
+                  <View
+                    key={a.key}
+                    className="flex-row items-start justify-between py-2 border-b border-black/5"
+                  >
+                    <View className="flex-1 pr-3">
+                      <Text className="text-sm font-onest-medium text-black/80">
+                        {a.name}
+                      </Text>
+                      {!!a.note && (
+                        <Text className="text-xs font-onest text-black/40 mt-0.5">
+                          {a.note}
+                        </Text>
+                      )}
+                    </View>
+                    <Text className="text-sm font-onest-medium text-black/80">
+                      ₱{a.cost.toLocaleString()}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {hasPendingServices && (
-              <View className="flex-row justify-between items-center py-2">
+              <View className="flex-row justify-between items-center py-2 mt-2">
                 <View className="flex-row items-center">
-                  <Text className="text-sm font-onest text-black/30">
-                    Services
-                  </Text>
-                  <View className="ml-2 bg- rounded-full px-2 py-0.5">
-                    <Text className="text-xs font-onest text-amber-600">
-                      Pending
-                    </Text>
+                  <Text className="text-sm font-onest text-black/30">Services</Text>
+                  <View className="ml-2 rounded-full px-2 py-0.5">
+                    <Text className="text-xs font-onest text-amber-600">Pending</Text>
                   </View>
                 </View>
                 <Text className="text-sm font-onest text-black/30 line-through">
@@ -309,7 +378,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
       </ScrollView>
 
       {/* Bottom Actions */}
-      <View className="absolute bottom-0 left-0 right-0  border-t border-black/5 px-6 py-4">
+      <View className="absolute bottom-0 left-0 right-0 border-t bg-[#fff] border-black/5 px-6 py-4">
         <TouchableOpacity
           onPress={handlePayNow}
           className="bg-primary py-4 rounded-xl flex-row items-center justify-center mb-3"
@@ -334,9 +403,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
           activeOpacity={0.7}
           disabled={isProcessing}
         >
-          <Text className="text-black/50 font-onest-medium text-sm">
-            Pay Later
-          </Text>
+          <Text className="text-black/50 font-onest-medium text-sm">Pay Later</Text>
         </TouchableOpacity>
       </View>
     </View>

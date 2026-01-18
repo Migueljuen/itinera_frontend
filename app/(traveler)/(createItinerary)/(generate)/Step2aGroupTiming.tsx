@@ -3,7 +3,6 @@ import { ExploreTime, TravelCompanion } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Image, // ✅ add this
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,20 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const COMPANION_IMAGES: Record<TravelCompanion, any> = {
-  Solo: require("@/assets/images/category.png"),
-  Partner: require("@/assets/images/category.png"),
-  Friends: require("@/assets/images/category.png"),
-  Family: require("@/assets/images/category.png"),
-  Any: require("@/assets/images/category.png"),
-};
-
-const EXPLORE_TIME_IMAGES: Record<ExploreTime, any> = {
-  Daytime: require("@/assets/images/category.png"),
-  Nighttime: require("@/assets/images/category.png"),
-  Both: require("@/assets/images/category.png"),
-};
 
 // Itinerary interfaces (minimal: only what we touch here)
 interface ItineraryFormData {
@@ -62,6 +47,7 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
     () => ["Solo", "Partner", "Friends", "Family", "Any"],
     []
   );
+
   const exploreTimeOptions: ExploreTime[] = useMemo(
     () => ["Daytime", "Nighttime", "Both"],
     []
@@ -124,38 +110,29 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
     subtitle?: string;
     selected: boolean;
     onPress: () => void;
-    image?: any;
-    fallbackIcon?: keyof typeof Ionicons.glyphMap;
   }) => {
-    const { keyProp, title, subtitle, selected, onPress, image, fallbackIcon } =
-      params;
+    const { keyProp, title, subtitle, selected, onPress } = params;
 
     return (
       <Pressable
         key={keyProp}
         onPress={onPress}
-        className={` rounded-2xl px-4 py-4 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-100"
+        className={`border rounded-2xl px-4 py-4 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"
           }`}
       >
-        <View className="items-start pl-2">
-          <View className="w-12 h-12 rounded-2xl overflow-hidden bg-gray-100 items-center justify-center">
-            {image ? (
-              <Image
-                source={image}
-                style={{ width: 56, height: 56 }}
-                resizeMode="contain"
-              />
-            ) : (
-              <Ionicons name={fallbackIcon ?? "help"} size={22} color="#6B7280" />
+        <View>
+          <View className="flex flex-row items-center justify-between">
+            <Text className="text-lg font-onest text-black/90">
+              {title}
+            </Text>
+            {selected && (
+              <View className="">
+                <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
+              </View>
             )}
           </View>
-
-          <Text className="text-lg font-onest text-black/90 mt-3 text-center">
-            {title}
-          </Text>
-
           {!!subtitle && (
-            <Text className="text-xs text-gray-500 font-onest mt-1 text-center">
+            <Text className="text-xs text-gray-500 font-onest mt-1">
               {subtitle}
             </Text>
           )}
@@ -178,14 +155,7 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         >
           <View className="py-2">
-            {/* <Text className="font-onest-semibold text-2xl text-black/90 mb-2">
-              Group & timing
-            </Text>
-            <Text className="text-base text-black/50 font-onest mb-8">
-              Tell us who you’re traveling with and when you prefer to explore.
-            </Text> */}
-
-            <View className="">
+            <View>
               {/* Companion */}
               <View className="mb-8">
                 <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
@@ -212,17 +182,6 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
                                 : "We’ll adapt",
                       selected: selectedCompanion === companion,
                       onPress: () => selectCompanion(companion),
-                      image: COMPANION_IMAGES[companion],
-                      fallbackIcon:
-                        companion === "Solo"
-                          ? "person"
-                          : companion === "Partner"
-                            ? "heart"
-                            : companion === "Friends"
-                              ? "people"
-                              : companion === "Family"
-                                ? "home"
-                                : "sparkles",
                     })
                   )}
                 </View>
@@ -282,7 +241,7 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
 
               {/* Explore time */}
               <View className="mb-6">
-                <Text className="font-onest-medium text-base mb-3">
+                <Text className="font-onest-medium text-2xl mb-8">
                   When do you prefer to explore?
                 </Text>
 
@@ -299,13 +258,6 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
                             : "We’ll mix both",
                       selected: selectedExploreTime === time,
                       onPress: () => setSelectedExploreTime(time),
-                      image: EXPLORE_TIME_IMAGES[time],
-                      fallbackIcon:
-                        time === "Daytime"
-                          ? "sunny"
-                          : time === "Nighttime"
-                            ? "moon"
-                            : "time",
                     })
                   )}
                 </View>

@@ -458,7 +458,7 @@ const InclusionsSection: React.FC<InclusionsSectionProps> = ({ inclusions }) => 
 
   return (
     <View className="border-b border-gray-200 py-12">
-      <Text className="text-2xl font-onest-semibold mb-4 text-black/90">
+      <Text className="text-2xl font-onest-semibold mb-8 text-black/90">
         What's Included
       </Text>
       <View className="space-y-3">
@@ -504,7 +504,7 @@ const StepsSection: React.FC<StepsSectionProps> = ({ steps }) => {
 
   return (
     <View className="border-b border-gray-200 py-12">
-      <Text className="text-2xl font-onest-semibold mb-3 text-black/90">
+      <Text className="text-2xl font-onest-semibold mb-8 text-black/90">
         What You'll Do
       </Text>
       {steps.map((step, index) => (
@@ -514,7 +514,7 @@ const StepsSection: React.FC<StepsSectionProps> = ({ steps }) => {
               <Text className="font-onest-medium text-lg text-black/90 mb-1">
                 {step.title}
               </Text>
-              <Text className="text-black/60 font-onest">{step.description}</Text>
+              <Text className="text-black/40 font-onest mb-2">{step.description}</Text>
             </View>
           </View>
           {index < steps.length - 1 && (
