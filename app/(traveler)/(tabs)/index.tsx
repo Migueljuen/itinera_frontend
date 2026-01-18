@@ -368,7 +368,7 @@ const App = () => {
           />
         ) : (
           <View className="px-6">
-            <View className="bg-gray-100 rounded-xl p-6 items-center">
+            <View className="rounded-xl p-6 items-center">
               <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
               <Text className="text-black/50 font-onest mt-2 text-center">
                 {emptyMessage}

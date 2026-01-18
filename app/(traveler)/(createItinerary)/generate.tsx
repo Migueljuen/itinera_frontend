@@ -8,7 +8,10 @@ import StepIndicator from "react-native-step-indicator";
 import { useAuth } from "@/contexts/AuthContext";
 
 import MeetingPointStep from "./(generate)/MeetingPointStep";
-import Step2Preference from "./(generate)/Step2Preference";
+import Step2Interests from "./(generate)/Step2Interests";
+import Step2aGroupTiming from "./(generate)/Step2aGroupTiming";
+import Step2bPaceConstraints from "./(generate)/Step2bPaceConstraints";
+
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
 import Step3aReviewServices from "./(generate)/Step3aReviewServices";
 import Step4PaymentConfirmation from "./(generate)/step4PaymentConfirmation";
@@ -23,42 +26,9 @@ import {
   TravelDistance,
 } from "@/types/experienceTypes";
 
-// Component prop interfaces
-interface Step1Props {
-  formData: ItineraryFormData;
-  setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: () => void;
-}
 
-interface Step2Props {
-  formData: ItineraryFormData;
-  setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: () => void;
-  onBack: () => void;
-}
 
-interface Step3Props {
-  formData: ItineraryFormData;
-  setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: () => void; // Now just moves to next step without saving
-  onBack: () => void;
-}
 
-interface Step3aProps {
-  formData: ItineraryFormData;
-  setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
-  onNext: (itineraryId: number) => void; // Accepts itinerary ID after saving
-  onBack: () => void;
-  initialMeetingPoint?: string; // Add this to pass meeting point from params
-}
-
-interface Step4Props {
-  formData: ItineraryFormData;
-  itineraryId: number;
-  totalCost: number;
-  onNext: () => void;
-  onBack: () => void;
-}
 
 interface LocationData {
   name: string;
@@ -139,6 +109,7 @@ interface ItineraryFormData {
   items: ItineraryItem[];
   accommodation?: Accommodation;
   preferences?: {
+    experienceIds?: number[];
     experiences: Experience[];
     travelerCount: number;
     travelCompanion?: TravelCompanion;
@@ -186,7 +157,8 @@ const GenerateItineraryForm: React.FC = () => {
   const router = useRouter();
   const { user, token, loading: authLoading } = useAuth();
   const [step, setStep] = useState<number>(1);
-  const stepCount = 5; // Updated: 1-Location, 2-Preferences, 3-Itinerary, 4-Services, 5-Payment
+  const stepCount = 7;
+
   const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
   const [meetingPoint, setMeetingPoint] = useState<LocationData | null>(null);
   const [showMeetingPointModal, setShowMeetingPointModal] = useState(false);
@@ -221,7 +193,8 @@ const GenerateItineraryForm: React.FC = () => {
   // Modified handler for Step3a - handles both with and without services
   const handleStep3aSave = (itineraryId: number) => {
     setSavedItineraryId(itineraryId);
-    setStep(5); // Go to payment step
+    setStep(7);
+
   };
 
   const handleSelectMeetingPoint = () => {
@@ -281,16 +254,38 @@ const GenerateItineraryForm: React.FC = () => {
             onNext={handleNext}
           />
         );
+
       case 2:
         return (
-          <Step2Preference
+          <Step2Interests
             formData={formData}
             setFormData={setFormData}
             onNext={handleNext}
             onBack={handleBack}
           />
         );
+
       case 3:
+        return (
+          <Step2aGroupTiming
+            formData={formData}
+            setFormData={setFormData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+
+      case 4:
+        return (
+          <Step2bPaceConstraints
+            formData={formData}
+            setFormData={setFormData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+
+      case 5:
         return (
           <Step3GeneratedItinerary
             formData={formData}
@@ -299,7 +294,8 @@ const GenerateItineraryForm: React.FC = () => {
             onBack={handleBack}
           />
         );
-      case 4:
+
+      case 6:
         return (
           <Step3aReviewServices
             formData={formData}
@@ -311,7 +307,7 @@ const GenerateItineraryForm: React.FC = () => {
           />
         );
 
-      case 5:
+      case 7:
         return (
           <Step4PaymentConfirmation
             formData={formData}
@@ -321,10 +317,12 @@ const GenerateItineraryForm: React.FC = () => {
             onBack={handleBack}
           />
         );
+
       default:
         return null;
     }
   };
+
 
   if (authLoading) {
     return (
