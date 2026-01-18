@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -336,8 +335,12 @@ export default function TripScreen() {
 
   const renderEmptyState = () => {
     return (
-      <View className="py-16 items-center">
-        <Ionicons name="airplane-outline" size={64} color="#D1D5DB" />
+      <View className=" items-center">
+        <Image
+          source={require('../../../assets/images/empty.png')}
+          className="h-[280px] w-[100%]"
+          resizeMode="contain"
+        />
         <Text className="text-center text-black/90 font-onest-semibold text-xl mt-6">
           Build your dream itinerary
         </Text>
@@ -377,7 +380,7 @@ export default function TripScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-[#fff]">
       <View className="w-full h-full">
         <ScrollView
           refreshControl={

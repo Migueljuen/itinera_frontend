@@ -394,7 +394,7 @@ const App = () => {
 
   // ============ MAIN RENDER ============
   return (
-    <SafeAreaView className="bg-gray-50 flex-1">
+    <SafeAreaView className="bg-[#fff] flex-1">
       <ScrollView
         refreshControl={
           <RefreshControl

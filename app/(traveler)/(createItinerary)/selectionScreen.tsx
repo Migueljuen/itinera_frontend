@@ -1,8 +1,10 @@
+
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Animated,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -14,8 +16,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Option1 from "../../../assets/images/option1.svg";
-import Option2 from "../../../assets/images/option2.svg";
 
 type TooltipType = "manual" | "generate" | null;
 
@@ -151,8 +151,12 @@ const SelectionScreen = () => {
                     className="size-80 rounded-2xl bg-primary flex-col justify-center items-center gap-2 w-full"
                     activeOpacity={0.8}
                   >
-                    <Option1 width={100} height={100} />
-                    <Text className="mt-8 font-onest-semibold text-gray-50 text-base">
+                    <Image
+                      source={require('../../../assets/images/undraw.png')}
+                      className="h-[120px] w-[100%]"
+                      resizeMode="contain"
+                    />
+                    <Text className="mt-8 font-onest-medium text-gray-50 text-base">
                       Create My Own Itinerary
                     </Text>
                   </TouchableOpacity>
@@ -178,8 +182,12 @@ const SelectionScreen = () => {
                     className="size-80 rounded-2xl bg-yellow-200 flex-col justify-center items-center gap-2 w-full"
                     activeOpacity={0.8}
                   >
-                    <Option2 width={100} height={100} />
-                    <Text className="mt-8 font-onest-semibold text-black/70 text-base">
+                    <Image
+                      source={require('../../../assets/images/undraw1.png')}
+                      className="h-[120px] w-[100%]"
+                      resizeMode="contain"
+                    />
+                    <Text className="mt-8 font-onest-medium text-black/70 text-base">
                       Generate Itinerary
                     </Text>
                   </TouchableOpacity>
