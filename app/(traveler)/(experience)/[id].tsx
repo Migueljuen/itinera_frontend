@@ -13,7 +13,7 @@ import {
   Platform,
   Pressable,
   Text,
-  TouchableOpacity,
+
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -150,12 +150,12 @@ export default function ExperienceDetail() {
         <Text className="text-gray-400 font-onest text-center mt-2 px-8">
           The experience you're looking for doesn't exist or has been removed.
         </Text>
-        <TouchableOpacity
+        <Pressable
           className="mt-6 bg-primary rounded-full px-8 py-3"
           onPress={() => router.back()}
         >
           <Text className="text-white font-onest-medium">Go Back</Text>
-        </TouchableOpacity>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -182,6 +182,7 @@ export default function ExperienceDetail() {
           <ExperienceHeader
             title={experience.title}
             description={experience.description}
+            tags={experience.tags}
             expanded={expanded}
             onToggleExpanded={() => setExpanded(!expanded)}
           />
@@ -278,10 +279,10 @@ export default function ExperienceDetail() {
 
 
 // ============ EXISTING COMPONENTS (unchanged) ============
-
 type ExperienceHeaderProps = {
   title: string;
   description: string;
+  tags?: string[];
   expanded: boolean;
   onToggleExpanded: () => void;
 };
@@ -289,6 +290,7 @@ type ExperienceHeaderProps = {
 const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
   title,
   description,
+  tags = [],
   expanded,
   onToggleExpanded,
 }) => (
@@ -308,11 +310,24 @@ const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
     </Text>
 
     {description?.length > 100 && (
-      <TouchableOpacity onPress={onToggleExpanded}>
-        <Text className="text-primary mt-2 font-onest-medium">
+      <Pressable onPress={onToggleExpanded}>
+        <Text className="text-black/90 mt-2 font-onest-medium">
           {expanded ? "Read Less" : "Read More"}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
+    )}
+
+    {!!tags?.length && (
+      <View className="flex-row flex-wrap mt-4">
+        {tags.map((tag, idx) => (
+          <View
+            key={`${tag}-${idx}`}
+            className="bg-blue-50 rounded-full px-3 py-1 mr-2 mb-2"
+          >
+            <Text className="text-blue-500 font-onest text-sm">{tag}</Text>
+          </View>
+        ))}
+      </View>
     )}
   </View>
 );
@@ -390,7 +405,7 @@ const CreatorSection: React.FC<CreatorSectionProps> = ({ creator }) => {
             </View>
           )}
           <View className="ml-3 flex-1">
-            <Text className="font-onest-semibold text-black/90 mb-1">
+            <Text className="font-onest-semibold text-black/90 mb-1 capitalize">
               {creator.full_name}
             </Text>
             <Text className="text-gray-400 font-onest">Itinera Partner</Text>
