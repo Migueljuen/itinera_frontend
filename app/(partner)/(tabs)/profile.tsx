@@ -650,7 +650,7 @@ const ProfileScreen: React.FC = () => {
         <View className="px-4 mb-6">
           <TouchableOpacity
             className="bg-primary rounded-2xl py-4 flex-row items-center justify-center mb-3"
-            onPress={() => router.push('/(traveler)/(profile)/account-settings')}
+            onPress={() => router.push('/(guide)/(profile)/settings')}
             style={{
               shadowColor: '#4F46E5',
               shadowOffset: { width: 0, height: 4 },

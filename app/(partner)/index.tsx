@@ -6,7 +6,7 @@ export default function GuideIndex() {
     const router = useRouter();
 
     useEffect(() => {
-        router.replace('/(guide)/(tabs)');
+        router.replace('/(partner)/(tabs)');
     }, []);
 
     return null;

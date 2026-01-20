@@ -110,15 +110,6 @@ export default function Login() {
       if (result.success) {
         const user = result.user;
 
-        // 🚫 Status gate (Travelers can login regardless; others must be Approved)
-        if (user.status !== "Approved" && user.role !== "Traveler") {
-          toast.error(
-            user.status === "Pending"
-              ? "Your account is still pending approval."
-              : "Your account has been rejected."
-          );
-          return;
-        }
 
         toast.success(`Welcome back, ${user.first_name}!`);
 
@@ -130,10 +121,10 @@ export default function Login() {
             router.replace("/(creator)");
             break;
           case "Guide":
-            router.replace("/(guide)");
+            router.replace("/(partner)");
             break;
           case "Driver":
-            router.replace("/(driver)");
+            router.replace("/(partner)");
             break;
           case "Admin":
             router.replace("/(admin)");
@@ -239,7 +230,7 @@ export default function Login() {
           >
             <Image
               source={require("@/assets/images/plane.png")}
-              className="w-20 h-20"
+              className="w-16 h-16"
               resizeMode="contain"
             />
             <View>

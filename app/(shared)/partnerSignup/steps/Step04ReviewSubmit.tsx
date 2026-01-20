@@ -1,4 +1,5 @@
 // app/(auth)/steps/Step04ReviewSubmit.tsx
+import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -7,7 +8,7 @@ import {
   Pressable,
   ScrollView,
   Text,
-  View
+  View,
 } from "react-native";
 
 import type { PartnerOnboardingFormData } from "../partnerOnboardingForm";
@@ -25,10 +26,15 @@ export default function Step04ReviewSubmit({
   onBack,
   isSubmitting = false,
 }: Props) {
-  const logo = useMemo(
-    () => require("../../../../assets/images/logo.png"),
-    []
-  );
+  const logo = useMemo(() => require("../../../../assets/images/logo.png"), []);
+
+  const shadowStyle = {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  };
 
   const getCategoryName = (id: number | null) => {
     const categories: Record<number, string> = {
@@ -41,6 +47,32 @@ export default function Step04ReviewSubmit({
     if (!id) return "—";
     return categories[id] || "—";
   };
+
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <View className="flex-row justify-between gap-4">
+      <Text className="text-sm text-black/60 font-onest">{label}</Text>
+      <Text className="text-sm text-black/90 font-onest-medium flex-1 text-right">
+        {value}
+      </Text>
+    </View>
+  );
+
+  const Dot = () => <View className="w-2 h-2 rounded-full bg-blue-500" />;
+
+  const Section = ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) => (
+    <View className="rounded-2xl py-4">
+      <Text className="text-base font-onest-semibold text-black/90 mb-4">
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
 
   const renderRoleSummary = () => {
     const role = formData.creator_role;
@@ -96,8 +128,8 @@ export default function Step04ReviewSubmit({
 
     if (role === "Creator") {
       return (
-        <Text className="text-sm text-black/60">
-          You can start creating experiences after your account is approved.
+        <Text className="text-sm text-black/60 font-onest">
+          You can start listing activities after your account is approved.
         </Text>
       );
     }
@@ -105,7 +137,124 @@ export default function Step04ReviewSubmit({
     return null;
   };
 
-  const Dot = () => <View className="w-2 h-2 rounded-full bg-green-500" />;
+  const renderVehicleSummary = () => {
+    if (formData.creator_role !== "Driver") return null;
+
+    const hasVehicle =
+      !!formData.vehicle_plate_number?.trim() ||
+      !!formData.vehicle_type?.trim() ||
+      !!formData.or_cr_document?.uri ||
+      (formData.vehicle_photos?.length || 0) > 0;
+
+    if (!hasVehicle) return null;
+
+    return (
+      <Section title="Vehicle Information">
+        <View className="gap-3">
+          <Row label="Plate Number" value={formData.vehicle_plate_number || "—"} />
+          <Row label="Vehicle Type" value={formData.vehicle_type || "—"} />
+          <Row label="Brand" value={formData.vehicle_brand || "—"} />
+          <Row label="Model" value={formData.vehicle_model || "—"} />
+          <Row label="Year" value={formData.vehicle_year || "—"} />
+          <Row label="Color" value={formData.vehicle_color || "—"} />
+          <Row
+            label="Passenger Capacity"
+            value={formData.vehicle_passenger_capacity || "—"}
+          />
+          <Row
+            label="Price per day"
+            value={
+              formData.vehicle_price_per_day
+                ? `₱${Number(formData.vehicle_price_per_day || 0).toFixed(2)}`
+                : "—"
+            }
+          />
+        </View>
+
+        <View className="mt-4 gap-2">
+          {/* OR/CR */}
+          {!!formData.or_cr_document?.uri && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">OR/CR Document</Text>
+            </View>
+          )}
+
+          {/* Photos */}
+          {!!formData.vehicle_photos?.length && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">
+                Vehicle Photos ({formData.vehicle_photos.length})
+              </Text>
+            </View>
+          )}
+
+          {!formData.or_cr_document?.uri && !formData.vehicle_photos?.length ? (
+            <Text className="text-sm text-black/45 font-onest">
+              No vehicle files uploaded
+            </Text>
+          ) : null}
+        </View>
+      </Section>
+    );
+  };
+
+  const renderVerificationSummary = () => {
+    const hasAny =
+      !!formData.profile_pic ||
+      !!formData.id_document ||
+      !!formData.selfie_document ||
+      !!formData.license_document ||
+      !!formData.guide_certificate_document;
+
+    return (
+      <Section title="Verification Documents">
+        <View className="gap-2">
+          {formData.profile_pic && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">Profile Picture</Text>
+            </View>
+          )}
+
+          {formData.selfie_document && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">Selfie Verification</Text>
+            </View>
+          )}
+
+          {formData.id_document && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">Government ID</Text>
+            </View>
+          )}
+
+          {formData.creator_role === "Driver" && formData.license_document && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">Driver&apos;s License</Text>
+            </View>
+          )}
+
+          {formData.creator_role === "Guide" && formData.guide_certificate_document && (
+            <View className="flex-row items-center gap-2">
+              <Dot />
+              <Text className="text-sm text-black/60 font-onest">
+                Tour Guide Certificate / License
+              </Text>
+            </View>
+          )}
+
+          {!hasAny && (
+            <Text className="text-sm text-black/45 font-onest">No documents uploaded</Text>
+          )}
+        </View>
+      </Section>
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -113,115 +262,87 @@ export default function Step04ReviewSubmit({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView className="px-10" contentContainerStyle={{ paddingBottom: 28 }}>
-
-        {/* main */}
         <View className="mt-24">
           <Text className="text-3xl font-onest-semibold text-black/90">
             Review & Submit
           </Text>
           <Text className="mt-2 text-base text-black/60">
-            Please review your details before submitting your partner
-            application.
+            Please review your details before submitting your partner application.
           </Text>
 
           <View className="mt-6 gap-4">
-            {/* Personal Information */}
-            <Card title="Personal Information">
+            <Section title="Personal Information">
               <View className="gap-3">
                 <Row
                   label="Full Name"
-                  value={`${formData.first_name || ""} ${formData.last_name || ""}`.trim() || "—"}
+                  value={
+                    `${formData.first_name || ""} ${formData.last_name || ""}`.trim() ||
+                    "—"
+                  }
                 />
                 <Row label="Email" value={formData.email || "—"} />
                 <Row label="Mobile Number" value={formData.mobile_number || "—"} />
-                <Row label="Short description" value={formData.short_description || "—"} />
+                <Row label="Bio" value={formData.short_description || "—"} />
               </View>
-            </Card>
+            </Section>
 
-            {/* Verification Documents */}
-            <Card title="Verification Documents">
-              <View className="gap-2">
-                {formData.profile_pic && (
-                  <View className="flex-row items-center gap-2">
-                    <Dot />
-                    <Text className="text-sm text-black/60 font-onest">
-                      Profile Picture
-                    </Text>
-                  </View>
-                )}
-                {formData.id_document && (
-                  <View className="flex-row items-center gap-2">
-                    <Dot />
-                    <Text className="text-sm text-black/60 font-onest">
-                      Government ID
-                    </Text>
-                  </View>
-                )}
-                {formData.license_document && (
-                  <View className="flex-row items-center gap-2">
-                    <Dot />
-                    <Text className="text-sm text-black/60 font-onest">
-                      Driver&apos;s License
-                    </Text>
-                  </View>
-                )}
+            {renderVerificationSummary()}
 
-                {!formData.profile_pic &&
-                  !formData.id_document &&
-                  !formData.license_document && (
-                    <Text className="text-sm text-black/45 font-onest">
-                      No documents uploaded
-                    </Text>
-                  )}
+            <Section title="Other Details">{renderRoleSummary()}</Section>
+
+            {/* Driver Vehicle Summary (only for Driver, only if data exists) */}
+            {renderVehicleSummary()}
+
+            <View style={shadowStyle} className="mt-10 p-4 rounded-2xl bg-white">
+              <View className="flex-row items-start">
+                <Ionicons
+                  name="information-circle-outline"
+                  size={18}
+                  color="#3B82F6"
+                />
+                <Text className="text-sm text-gray-700 font-onest ml-2 flex-1">
+                  <Text className="font-onest-semibold">Note:</Text> your application will be reviewed by our team. You&apos;ll receive an
+                  email notification once your account is approved.
+                </Text>
               </View>
-            </Card>
-
-            {/* Role-specific */}
-            <Card title="Other Details">{renderRoleSummary()}</Card>
-
-            {/* Notice */}
-            <View className="p-4 rounded-2xl border border-blue-200 bg-blue-50">
-              <Text className="text-sm text-blue-900">
-                <Text className="font-onest-semibold">Note:</Text> Your
-                application will be reviewed by our team. You&apos;ll receive an
-                email notification once your account is approved, typically
-                within 1–3 business days.
-              </Text>
             </View>
           </View>
 
-          {/* Buttons */}
-          <View className="flex-row justify-between mt-10">
+          <Text className="mt-12 font-onest text-sm text-black/90">
+            By selecting Agree and continue, I indicate my agreement to Itinera&apos;s{" "}
+            <Text className="text-blue-500 underline font-onest-medium">
+              Terms of Service
+            </Text>
+          </Text>
+
+          <View className="flex-row mt-6 gap-3">
             <Pressable
               onPress={onBack}
               disabled={isSubmitting}
               className={[
-                "px-6 py-3 rounded-xl",
-                isSubmitting ? "bg-black/10 opacity-50" : "bg-black/10",
+                "px-8 py-4 rounded-xl flex-1",
+                isSubmitting ? "bg-gray-200 opacity-50" : "bg-black/10",
               ].join(" ")}
             >
-              <Text className="text-black/70 font-onest-medium">Back</Text>
+              <Text className="text-black/70 text-center font-onest-medium">
+                Back
+              </Text>
             </Pressable>
 
             <Pressable
               onPress={onSubmit}
               disabled={isSubmitting}
               className={[
-                "px-6 py-3 rounded-xl bg-black flex-row items-center gap-2",
+                "px-8 py-4 rounded-xl flex-1 bg-[#191313] items-center justify-center",
                 isSubmitting ? "opacity-60" : "opacity-100",
               ].join(" ")}
               style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
             >
               {isSubmitting ? (
-                <>
-                  <ActivityIndicator color="#fff" />
-                  <Text className="text-white font-onest-medium">
-                    Submitting...
-                  </Text>
-                </>
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text className="text-white font-onest-medium">
-                  Submit Application
+                <Text className="text-white/90 text-center font-onest-medium">
+                  Continue
                 </Text>
               )}
             </Pressable>
@@ -229,59 +350,5 @@ export default function Step04ReviewSubmit({
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-/** --- Small UI helpers --- */
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View className=" rounded-2xl py-4">
-      <Text className="text-base font-onest-semibold text-black/90 mb-4">
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row justify-between gap-4">
-      <Text className="text-sm text-black/60 font-onest">{label}:</Text>
-      <Text className="text-sm text-black/90 font-onest-medium flex-1 text-right">
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function InfoRow({
-  icon,
-  title,
-  subtitle,
-  strong,
-}: {
-  icon: string;
-  title: string;
-  subtitle: string;
-  strong: string;
-}) {
-  return (
-    <View className="flex-row gap-3 items-start">
-      <View className="w-10 h-10 rounded-xl border border-black/10 items-center justify-center bg-white">
-        <Text className="text-lg">{icon}</Text>
-      </View>
-
-      <View className="flex-1">
-        <Text className="text-base font-onest-semibold text-black/90">
-          {title}
-        </Text>
-        <Text className="text-sm text-black/60 mt-0.5">{subtitle}</Text>
-        <Text className="text-sm font-onest-semibold text-black/80 mt-2">
-          {strong}
-        </Text>
-      </View>
-    </View>
   );
 }

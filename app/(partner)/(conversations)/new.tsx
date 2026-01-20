@@ -140,7 +140,7 @@ const NewConversationScreen = () => {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
+        <SafeAreaView className="flex-1 ">
             {/* Header */}
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
                 <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">

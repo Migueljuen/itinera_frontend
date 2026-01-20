@@ -27,12 +27,12 @@ export default function Step00RoleSelection({
   onNext,
 }: Props) {
   const roles: RoleItem[] = [
-    {
-      role_id: "Creator",
-      name: "Share Activity",
-      description: "Offer activities and experiences to travelers",
-      image: require("../../../../assets/images/category.png"),
-    },
+    // {
+    //   role_id: "Creator",
+    //   name: "Share Activity",
+    //   description: "Offer activities and experiences to travelers",
+    //   image: require("../../../../assets/images/category.png"),
+    // },
     {
       role_id: "Guide",
       name: "Tour Guide",
@@ -70,7 +70,7 @@ export default function Step00RoleSelection({
       </View>
 
       {/* Role Grid */}
-      <View className="flex-row flex-wrap justify-between gap-4">
+      <View className="flex-col justify-between gap-4">
         {roles.map((role) => {
           const selected = formData.creator_role === role.role_id;
 
@@ -80,11 +80,11 @@ export default function Step00RoleSelection({
               from={{ opacity: 0, translateY: 10 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 250 }}
-              style={{ width: "48%" }} // 2-column grid; tweak if you want 1-column
+              style={{ width: "90%", marginHorizontal: "auto" }}
             >
               <Pressable
                 onPress={() => handleRoleSelect(role)}
-                className="rounded-2xl p-5 bg-[#fff]"
+                className="rounded-2xl p-12 bg-[#fff]"
                 style={{
                   shadowColor: "#000",
                   shadowOpacity: 0.08,
@@ -102,11 +102,11 @@ export default function Step00RoleSelection({
                     />
                   </View>
 
-                  <Text className="text-lg font-onest-medium text-black/90 text-center">
+                  <Text className="text-xl font-onest-medium text-black/90 text-center">
                     {role.name}
                   </Text>
 
-                  <Text className="text-sm text-black/50 text-center mt-2">
+                  <Text className="text-base text-black/50 text-center mt-2">
                     {role.description}
                   </Text>
                 </View>

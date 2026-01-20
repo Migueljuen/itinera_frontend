@@ -324,7 +324,7 @@ const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
             key={`${tag}-${idx}`}
             className="bg-blue-50 rounded-full px-3 py-1 mr-2 mb-2"
           >
-            <Text className="text-blue-500 font-onest text-sm">{tag}</Text>
+            <Text className="text-blue-600 font-onest text-sm">{tag}</Text>
           </View>
         ))}
       </View>

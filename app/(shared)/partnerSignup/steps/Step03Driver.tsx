@@ -20,19 +20,15 @@ type Props = {
 };
 
 const serviceAreas = [
-  "Bacolod City",
-  "Silay City",
-  "Talisay City",
-  "Victorias City",
-  "Cadiz City",
-  "Sagay City",
-  "Escalante City",
-  "Himamaylan City",
-  "Kabankalan City",
-  "Bago City",
-  "La Carlota City",
-  "San Carlos City",
-  "Sipalay City",
+  "Bacolod ",
+  "Silay ",
+  "Talisay ",
+  "Victorias ",
+  "Cadiz ",
+
+  "Bago ",
+  "La Carlota ",
+
 ] as const;
 
 const daysOfWeek: DayOfWeek[] = [
@@ -228,28 +224,6 @@ export default function Step03Driver({
               )}
             </View>
 
-            {/* Multi-day */}
-            <View>
-              <Text className="text-lg font-onest-semibold text-black/85">
-                Multi-day Service
-              </Text>
-
-              <View className="flex-row gap-3 mt-3">
-                <ToggleCard
-                  title="Yes"
-                  subtitle="I offer multi-day trips"
-                  selected={formData.is_multi_day === true}
-                  onPress={() => handleChange("is_multi_day", true)}
-                />
-                <ToggleCard
-                  title="No"
-                  subtitle="Day trips only"
-                  selected={formData.is_multi_day === false}
-                  onPress={() => handleChange("is_multi_day", false)}
-                />
-              </View>
-            </View>
-
             {/* Availability */}
             <View>
               <Text className="text-lg font-onest-semibold text-black/85">
@@ -284,23 +258,27 @@ export default function Step03Driver({
             </View>
           </View>
 
-          {/* Buttons */}
-          <View className="flex-row justify-between mt-10">
+          {/* Buttons (Step02 style) */}
+          <View className="flex-row mt-6 gap-3">
             <Pressable
               onPress={onBack}
-              className="px-8 py-4 rounded-xl bg-black/10"
+              className="px-6 py-4 rounded-xl flex-1 bg-gray-200"
             >
-              <Text className="text-black/70 font-onest-medium">Back</Text>
+              <Text className="text-black/70 text-center text-base font-onest-medium">
+                Back
+              </Text>
             </Pressable>
 
             <Pressable
               onPress={handleContinue}
-              className="bg-[#191313] py-4 px-8 rounded-md"
-              style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
+              className="bg-[#191313] py-4 px-8 flex-1 rounded-xl"
             >
-              <Text className="text-white font-onest-medium">Continue</Text>
+              <Text className="text-white/90 text-center text-base font-onest-medium">
+                Continue
+              </Text>
             </Pressable>
           </View>
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
