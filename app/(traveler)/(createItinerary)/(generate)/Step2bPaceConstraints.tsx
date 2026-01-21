@@ -122,8 +122,8 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
       <Pressable
         key={keyProp}
         onPress={onPress}
-        className={`border rounded-2xl px-4 py-4 mb-3 ${fullWidth ? "w-full" : "w-[48%]"
-          } ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"}`}
+        className={` rounded-2xl px-4 py-2 mb-3 ${fullWidth ? "w-full" : "w-[48%]"
+          } ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-black/5"}`}
       >
         <View>
           <View className="flex flex-row items-center justify-between">

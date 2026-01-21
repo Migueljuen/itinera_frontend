@@ -113,7 +113,7 @@ const Step3AddItems: React.FC<StepProps> = ({
       try {
         setLoading(true);
 
-        // ========== 1. Fetch recommended experiences (with preferences) ==========
+
         const fullParams = new URLSearchParams();
         fullParams.append("location", formData.city);
         fullParams.append("start_date", formData.start_date);

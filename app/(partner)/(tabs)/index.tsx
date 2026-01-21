@@ -162,6 +162,7 @@ const PartnerHomeScreen = () => {
 
   // ============ FETCH ASSIGNMENTS ============
   const fetchAssignments = async () => {
+
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
@@ -194,6 +195,7 @@ const PartnerHomeScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching assignments:", error);
+
     }
   };
 
@@ -336,6 +338,7 @@ const PartnerHomeScreen = () => {
     }
   };
 
+
   // ============ HELPER FUNCTIONS ============
   const formatTime = (time: string) => {
     if (!time) return "";
@@ -409,15 +412,15 @@ const PartnerHomeScreen = () => {
   // ============ ONGOING TRIP BANNER ============
   const OngoingTripBanner = ({ assignment }: { assignment: PartnerAssignment }) => (
     <View className="mx-6 mb-2">
-      <View className="bg-green-50 border border-green-200 rounded-2xl p-4">
+      <View className="  p-4">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center">
-            <View className="w-2.5 h-2.5 bg-green-500 rounded-full mr-2" />
-            <Text className="font-onest-semibold text-green-700">
+            <View className="w-2.5 h-2.5 bg-[#191313] rounded-full mr-2" />
+            <Text className="font-onest-semibold text-black/90">
               {config.tripLabel} In Progress
             </Text>
           </View>
-          <Text className="text-xs font-onest text-green-600">
+          <Text className="text-xs font-onest text-black/50">
             {formatDateRange(assignment.start_date, assignment.end_date)}
           </Text>
         </View>
@@ -462,18 +465,11 @@ const PartnerHomeScreen = () => {
           </Text>
         </View>
 
-        <View className="flex-row gap-3 mt-4">
-          <Pressable
-            onPress={() => router.push(`/(conversations)`)}
-            className="flex-1 bg-white border border-green-200 py-3 rounded-xl flex-row items-center justify-center"
-          >
-            <Ionicons name="chatbubble-outline" size={16} color="#16a34a" />
-            <Text className="font-onest-medium text-green-700 ml-2">Message</Text>
-          </Pressable>
+        <View className="flex-row gap-3 mt-8">
 
           <Pressable
             onPress={() => router.push(`/(partner)/(itinerary)/${assignment.itinerary_id}`)}
-            className="flex-1 bg-green-600 py-3 rounded-xl items-center"
+            className="flex-1 bg-[#191313] py-4 rounded-xl items-center"
           >
             <Text className="font-onest-medium text-white">View Itinerary</Text>
           </Pressable>
@@ -746,7 +742,7 @@ const PartnerHomeScreen = () => {
           )}
 
           {/* Empty State - Only when no requests and no upcoming */}
-          {requests.length === 0 && upcomingTrips.length === 0 && (
+          {/* {requests.length === 0 && upcomingTrips.length === 0 && (
             <View className="items-center py-8">
               <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-3">
                 <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
@@ -764,7 +760,7 @@ const PartnerHomeScreen = () => {
                 <Text className="text-white font-onest-medium">Set Availability</Text>
               </Pressable>
             </View>
-          )}
+          )} */}
         </View>
       </ScrollView>
     </SafeAreaView>

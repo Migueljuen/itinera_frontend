@@ -186,6 +186,7 @@ const ChatScreen = () => {
         }, 1000);
     };
 
+
     const stopTyping = () => {
         if (!currentUser) return;
         socketService.stopTyping(conversationId, currentUser.user_id);

@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Components - reuse from traveler side
 import { GuideAssignmentActionBar } from '@/components/guide/GuideAssignmentActionBar';
-import { PaymentTab } from '@/components/itinerary/tabs/PaymentTab';
 import { TripPlanTab } from '@/components/itinerary/tabs/TripPlanTab';
 
 // Hooks - reuse navigation hooks
@@ -34,23 +33,51 @@ import { Itinerary, MeetingPoint } from '@/types/itineraryDetails';
 
 type GuideTabType = 'overview' | 'tripplan' | 'earnings';
 
+interface TravelerPaymentInfo {
+  total_amount: number;
+  amount_paid_online: number;
+  cash_collected: number;
+  payment_status: string;
+}
+// Earnings types from backend
+interface EarningsBreakdown {
+  gross_fee: number;
+  platform_fee: number;
+  platform_fee_percentage: number;
+  net_earnings: number;
+  traveler_payment?: TravelerPaymentInfo
+  payment_status: {
+    status: 'awaiting_acceptance' | 'pending' | 'upcoming' | 'in_progress' | 'paid';
+    label: string;
+    description: string;
+    is_paid: boolean;
+  };
+  trip_dates: {
+    start_date: string;
+    end_date: string;
+    total_days: number;
+  };
+}
+
 interface GuideInfo {
   traveler_name: string;
   traveler_user_id: string;
   traveler_contact: string;
   traveler_profile_pic: string | null;
   assignment_id: number;
-  guide_fee: number;
+  service_fee: number;
   assignment_status: string;
   assigned_at: string;
   meeting_points?: MeetingPoint[];
+  earnings?: EarningsBreakdown;
 }
 
 interface GuideItineraryResponse {
   itinerary: Itinerary;
-  access_level: 'guide';
-  guide_info: GuideInfo;
-  payments: []; // Empty for guides
+  access_level: 'partner';
+  partner_type: 'Guide';
+  partner_info: GuideInfo;
+  payments: [];
 }
 
 export default function GuideItineraryDetailScreen() {
@@ -84,10 +111,27 @@ export default function GuideItineraryDetailScreen() {
           `${API_URL}/itinerary/${id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        const data: any = response.data;
 
-        if (response.data.access_level === 'guide') {
-          setItinerary(response.data.itinerary);
-          setGuideInfo(response.data.guide_info);
+        if (data.access_level === "partner" && data.partner_type === "Guide" && data.partner_info) {
+          const pi = data.partner_info;
+
+          setItinerary(data.itinerary);
+
+          setGuideInfo({
+            traveler_name: pi.traveler_name,
+            traveler_user_id: String(pi.traveler_user_id),
+            traveler_contact: pi.traveler_contact,
+            traveler_profile_pic: pi.traveler_profile_pic ?? null,
+            assignment_id: pi.assignment_id,
+            service_fee: pi.service_fee ?? 0,
+            assignment_status: pi.assignment_status,
+            assigned_at: pi.assigned_at,
+            meeting_points: pi.meeting_points ?? [],
+            earnings: pi.earnings ?? null,
+          });
+
+          return;
         }
       } catch (error) {
         console.error('Error fetching itinerary:', error);
@@ -175,7 +219,7 @@ export default function GuideItineraryDetailScreen() {
       if (!token) return;
 
       await axios.post(
-        `${API_URL}/guide/assignments/${assignmentId}/accept`,
+        `${API_URL}/partner-mobile/assignments/${assignmentId}/accept`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -212,7 +256,7 @@ export default function GuideItineraryDetailScreen() {
               if (!token) return;
 
               await axios.post(
-                `${API_URL}/guide/assignments/${assignmentId}/decline`,
+                `${API_URL}/partner-mobile/assignments/${assignmentId}/decline`,
                 { decline_reason: 'Other' },
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -271,6 +315,47 @@ export default function GuideItineraryDetailScreen() {
     };
   }, [itinerary]);
 
+  // Get payment status styling
+  const getPaymentStatusStyle = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return {
+          bg: 'bg-green-50',
+          iconBg: 'bg-green-100',
+          iconColor: '#16a34a',
+          icon: 'checkmark-circle' as const,
+        };
+      case 'in_progress':
+        return {
+          bg: 'bg-blue-50',
+          iconBg: 'bg-blue-100',
+          iconColor: '#3b82f6',
+          icon: 'play-circle' as const,
+        };
+      case 'upcoming':
+        return {
+          bg: 'bg-yellow-50',
+          iconBg: 'bg-yellow-100',
+          iconColor: '#eab308',
+          icon: 'time' as const,
+        };
+      case 'awaiting_acceptance':
+        return {
+          bg: 'bg-gray-50',
+          iconBg: 'bg-gray-100',
+          iconColor: '#9ca3af',
+          icon: 'hourglass' as const,
+        };
+      default:
+        return {
+          bg: 'bg-gray-50',
+          iconBg: 'bg-gray-100',
+          iconColor: '#9ca3af',
+          icon: 'hourglass' as const,
+        };
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -316,6 +401,10 @@ export default function GuideItineraryDetailScreen() {
 
   const isPending = guideInfo.assignment_status === 'Pending';
 
+  // Get earnings data from backend or fallback
+  const earnings = guideInfo.earnings;
+  const netEarnings = earnings?.net_earnings ?? guideInfo.service_fee * 0.9;
+
   // Render Overview Tab Content
   const renderOverviewContent = () => (
     <ScrollView
@@ -324,9 +413,9 @@ export default function GuideItineraryDetailScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Traveler Card */}
-      <View className="mx-6 mt-6">
-        <View className="rounded-2xl p-4">
-          <View className="flex-row items-start mb-3">
+      <View className="mx-6 px-4 mt-6 ">
+        <View className="rounded-2xl pb-8 border-b border-gray-200">
+          <View className="flex-row items-start mb-3 ">
             {guideInfo.traveler_profile_pic ? (
               <Image
                 source={{ uri: `${API_URL}/${guideInfo.traveler_profile_pic}` }}
@@ -394,41 +483,24 @@ export default function GuideItineraryDetailScreen() {
 
       {/* Meeting Points Section */}
       {!isPending && guideInfo.meeting_points && guideInfo.meeting_points.length > 0 && (
-        <View className="mx-6 mt-8 p-4">
+        <View className="mx-6 mt-4 p-4">
 
           {guideInfo.meeting_points.map((meetingPoint) => {
             const startDate = new Date(itinerary.start_date);
             const meetingDate = new Date(startDate);
             meetingDate.setDate(startDate.getDate() + meetingPoint.day_number - 1);
 
-            const hasGuideResponse = meetingPoint.guide_response !== null;
-            const isConfirmed = meetingPoint.status === 'confirmed';
-            const isPendingResponse = meetingPoint.status === 'pending';
-
             return (
-              <View key={meetingPoint.id} className="rounded-xl py-4 mb-3">
+              <View key={meetingPoint.id} className="rounded-xl py-4 ">
                 <View className='flex flex-row justify-between items-baseline'>
                   <Text className="text-2xl font-onest text-black/90 ">Where You'll Meet</Text>
-
-                  {/* Status Badge */}
-                  {/* {isConfirmed && (
-                    <View className="px-2 py-1 rounded-full">
-                      <Text className="text-xs font-onest text-green-700">Confirmed</Text>
-                    </View>
-                  )}
-                  {isPendingResponse && (
-                    <View className=" px-2 py-1 rounded-full">
-                      <Text className="text-xs font-onest text-yellow-700">Needs Response</Text>
-                    </View>
-                  )} */}
                 </View>
-                {/* Day Header */}
-
 
                 {/* Traveler's Requested Location */}
-                <View className="mb-3 ">
+                <View className=" border-b border-gray-200 pb-8">
                   <Text className="text-sm font-onest text-black/50 mb-2">Traveler requested to meetup in</Text>
-                  <View className="  py-3 ">
+                  <View className="  py-3 flex flex-row gap-2  ">
+                    <Ionicons name="pin-outline" size={24} color="#4F46E5" />
                     <View>
                       <Text className="font-onest-medium text-black/90 mb-1">
                         {meetingPoint.requested.name}
@@ -437,17 +509,6 @@ export default function GuideItineraryDetailScreen() {
                         {meetingPoint.requested.address}
                       </Text>
                     </View>
-
-
-                    {/* {meetingPoint.requested.notes && (
-                      <View className="bg-blue-50 rounded-lg p-2 mb-2">
-                        <Text className="text-xs font-onest text-blue-700">
-                          Note: {meetingPoint.requested.notes}
-                        </Text>
-                      </View>
-                    )} */}
-
-
                   </View>
                   <View className='flex-row items-center justify-center py-3 rounded-xl mt-2'>
                     {meetingPoint.requested.latitude && meetingPoint.requested.longitude && (
@@ -460,77 +521,11 @@ export default function GuideItineraryDetailScreen() {
                         className="flex-row items-center gap-2"
                       >
                         <Ionicons name="map-outline" size={24} color="#4F46E5" />
-                        <Text className='font-onest-medium'>View on Map</Text>
+                        <Text className='font-onest-medium text-[#4F46E5]'>View on Map</Text>
                       </Pressable>
                     )}
                   </View>
                 </View>
-
-                {/* Guide's Response (if exists) */}
-                {/* {hasGuideResponse && (
-                  <View>
-                    <Text className="text-xs font-onest text-black/50 mb-2">Your Response:</Text>
-                    <View className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                      {meetingPoint.guide_response!.type === 'confirmed' ? (
-                        <View className="flex-row items-center">
-                          <Ionicons name="checkmark-circle" size={16} color="#4F46E5" />
-                          <Text className="font-onest-medium text-primary ml-2">
-                            Location confirmed
-                          </Text>
-                        </View>
-                      ) : (
-                        <>
-                          <Text className="font-onest-medium text-black/90 mb-1">
-                            {meetingPoint.guide_response!.suggested_name}
-                          </Text>
-                          <Text className="text-sm font-onest text-black/60 mb-2">
-                            {meetingPoint.guide_response!.suggested_address}
-                          </Text>
-
-                          {meetingPoint.guide_response!.instructions && (
-                            <View className="bg-white rounded-lg p-2 mb-2">
-                              <Text className="text-xs font-onest text-black/70">
-                                {meetingPoint.guide_response!.instructions}
-                              </Text>
-                            </View>
-                          )}
-
-                          {meetingPoint.guide_response!.suggested_latitude &&
-                            meetingPoint.guide_response!.suggested_longitude && (
-                              <Pressable
-                                onPress={() => handleOpenLocation(
-                                  meetingPoint.guide_response!.suggested_latitude!,
-                                  meetingPoint.guide_response!.suggested_longitude!,
-                                  meetingPoint.guide_response!.suggested_name || 'Suggested location'
-                                )}
-                                className="flex-row items-center mt-1"
-                              >
-                                <Ionicons name="map-outline" size={14} color="#4F46E5" />
-                                <Text className="text-xs font-onest text-primary ml-1">
-                                  View suggested location
-                                </Text>
-                              </Pressable>
-                            )}
-                        </>
-                      )}
-                    </View>
-                  </View>
-                )} */}
-
-                {/* Action Button - Respond to meeting point */}
-                {/* {isPendingResponse && (
-                  <Pressable
-                    onPress={() => {
-                      // TODO: Navigate to meeting point response screen
-                      Alert.alert('Coming Soon', 'Meeting point response feature is being developed');
-                    }}
-                    className="bg-primary rounded-lg py-3 mt-3"
-                  >
-                    <Text className="text-white font-onest-medium text-center">
-                      Respond to Meeting Point
-                    </Text>
-                  </Pressable>
-                )} */}
               </View>
             );
           })}
@@ -538,7 +533,7 @@ export default function GuideItineraryDetailScreen() {
       )}
 
       {/* Trip Summary */}
-      <View className="mx-6 mt-8 p-4">
+      <View className="mx-6 mt-8 px-4 pb-16 border-b border-gray-200">
         <Text className="text-2xl font-onest text-black/90 mb-4">Trip Summary</Text>
 
         <View className="flex-row gap-3">
@@ -565,9 +560,9 @@ export default function GuideItineraryDetailScreen() {
               <Ionicons name="wallet-outline" size={20} color="#16a34a" />
             </View>
             <Text className="font-onest-semibold text-xl text-black/90">
-              ₱{guideInfo.guide_fee?.toLocaleString() || 0}
+              ₱{netEarnings.toLocaleString()}
             </Text>
-            <Text className="font-onest text-xs text-black/50">Your Fee</Text>
+            <Text className="font-onest text-xs text-black/50">Your Earnings</Text>
           </View>
         </View>
       </View>
@@ -595,15 +590,181 @@ export default function GuideItineraryDetailScreen() {
           </View>
 
           <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-gray-100">
-            <Text className="font-onest text-black/50">Your Earnings</Text>
+            <Text className="font-onest text-black/50">Your Net Earnings</Text>
             <Text className="font-onest-semibold text-primary">
-              ₱{guideInfo.guide_fee?.toLocaleString() || 0}
+              ₱{netEarnings.toLocaleString()}
             </Text>
           </View>
         </View>
       </View>
     </ScrollView>
   );
+
+  // Render Earnings Tab Content
+  const renderEarningsContent = () => {
+    // Use backend earnings data or calculate fallback
+    const grossFee = earnings?.gross_fee ?? guideInfo.service_fee;
+    const platformFee = earnings?.platform_fee ?? grossFee * 0.1;
+    const platformFeePercentage = earnings?.platform_fee_percentage ?? 10;
+    const netEarningsAmount = earnings?.net_earnings ?? grossFee - platformFee;
+    const paymentStatus = earnings?.payment_status ?? {
+      status: isPending ? 'awaiting_acceptance' : 'pending',
+      label: isPending ? 'Awaiting Acceptance' : 'Pending',
+      description: isPending ? 'Accept the assignment to proceed' : 'Waiting for trip completion',
+      is_paid: false
+    };
+
+    const statusStyle = getPaymentStatusStyle(paymentStatus.status);
+
+    return (
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+
+
+        {/* Earnings Breakdown */}
+        <View className="mx-10 mt-12">
+          <Text className="text-2xl font-onest text-black/90 ">Earnings breakdown</Text>
+          <View className=" rounded-2xl overflow-hidden  mt-4">
+            {/* Gross Fee */}
+            <View className="flex-row justify-between items-center p-4 border-b border-gray-100">
+              <View className="flex-row items-center flex-1">
+
+                <View className="flex-1">
+                  <Text className="font-onest text-black/90">Service Fee</Text>
+                  <Text className="font-onest text-xs text-black/50">Gross amount</Text>
+                </View>
+              </View>
+              <Text className="font-onest text-black/90">
+                ₱{grossFee.toLocaleString()}
+              </Text>
+            </View>
+
+            {/* Platform Fee */}
+            <View className="flex-row justify-between items-center p-4 border-b border-gray-100">
+              <View className="flex-row items-center flex-1">
+
+                <View className="flex-1">
+                  <Text className="font-onest text-black/90">Platform Fee</Text>
+                  <Text className="font-onest text-xs text-black/50">{platformFeePercentage}% service charge</Text>
+                </View>
+              </View>
+              <Text className="font-onest text-amber-600">
+                -₱{platformFee.toLocaleString()}
+              </Text>
+            </View>
+
+            {/* Net Earnings */}
+            <View className="flex-row justify-between items-center p-4 ">
+              <View className="flex-row items-center flex-1">
+
+                <View className="flex-1">
+                  <Text className="font-onest text-black/90">Net Earnings</Text>
+                  <Text className="font-onest text-xs text-black/50">Amount you'll receive</Text>
+                </View>
+              </View>
+              <Text className="font-onest text-green-600 text-lg">
+                ₱{netEarningsAmount.toLocaleString()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Traveler Payment Breakdown */}
+        {earnings?.traveler_payment && (
+          earnings.traveler_payment.amount_paid_online > 0 ||
+          earnings.traveler_payment.cash_collected > 0 ||
+          (earnings.traveler_payment.total_amount - earnings.traveler_payment.amount_paid_online - earnings.traveler_payment.cash_collected) > 0
+        ) && (
+            <View className="mx-10 mt-12">
+              <Text className="text-2xl font-onest text-black/90">Traveler payment</Text>
+
+              {earnings.traveler_payment.amount_paid_online > 0 && (
+                <View className="flex-row justify-between p-4 border-b border-gray-100">
+                  <Text className="font-onest text-black/90">Online</Text>
+                  <Text className="font-onest text-green-600">
+                    ₱{(earnings.traveler_payment.amount_paid_online - platformFee).toLocaleString()}
+                  </Text>
+                </View>
+              )}
+
+              {earnings.traveler_payment.cash_collected > 0 && (
+                <View className="flex-row justify-between p-4 border-b border-gray-100">
+                  <Text className="font-onest text-black/90">Cash</Text>
+                  <Text className="font-onest text-black/90">
+                    ₱{earnings.traveler_payment.cash_collected.toLocaleString()}
+                  </Text>
+                </View>
+              )}
+
+              {/* Remaining Balance */}
+              {(() => {
+                const remaining = earnings.traveler_payment.total_amount -
+                  earnings.traveler_payment.amount_paid_online -
+                  earnings.traveler_payment.cash_collected;
+
+                if (remaining > 0) {
+                  return (
+                    <View className="flex-row justify-between p-4">
+                      <Text className="font-onest text-black/90">Remaining</Text>
+                      <Text className="font-onest text-black/90">
+                        ₱{remaining.toLocaleString()}
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+            </View>
+          )}
+        {/* Payment Status */}
+        <View className="mx-10 mt-12">
+          <Text className="text-2xl font-onest text-black/90 ">Payment status</Text>
+          <View className={`rounded-2xl  mt-4 `}>
+            <View className="flex-row items-center">
+              <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${statusStyle.iconBg}`}>
+                <Ionicons
+                  name={statusStyle.icon}
+                  size={20}
+                  color={statusStyle.iconColor}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="font-onest text-black/90">
+                  {paymentStatus.label}
+                </Text>
+                {/* <Text className="font-onest text-xs text-black/50">
+                  {paymentStatus.description}
+                </Text> */}
+              </View>
+              {paymentStatus.is_paid && (
+                <View className="bg-green-100 px-3 py-1 rounded-full">
+                  <Text className="text-xs font-onest-medium text-green-700">Paid</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+
+        {/* Info Note */}
+        <View className="mx-10 mt-12 mb-6">
+          <View className="bg-blue-50 rounded-xl p-4 flex-row">
+            <Ionicons name="information-circle-outline" size={20} color="#3b82f6" />
+            <View className="flex-1 ml-3">
+              <Text className="font-onest-medium text-blue-800 mb-1">About Platform Fees</Text>
+              <Text className="font-onest text-xs text-blue-700 leading-5">
+                A {platformFeePercentage}% platform fee is deducted from each booking to cover payment processing,
+                platform maintenance, and customer support services.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
 
   // Render Tab Content
   const renderTabContent = () => {
@@ -624,12 +785,7 @@ export default function GuideItineraryDetailScreen() {
           />
         );
       case 'earnings':
-        return (
-          <PaymentTab
-            payments={itinerary.payments}
-            onPayNow={handlePayNow}
-          />
-        );
+        return renderEarningsContent();
       default:
         return null;
     }
@@ -643,10 +799,10 @@ export default function GuideItineraryDetailScreen() {
         <View className="flex-row justify-between items-start">
           <View className="flex-1 px-4">
             <Text className="text-3xl font-onest-semibold text-black/90">
-              {isPending ? 'Requested by' : 'Trip to'}
+              {isPending ? 'Requested by' : `${guideInfo.traveler_name}'s`}
             </Text>
             <Text className="text-3xl font-onest-semibold text-black/90">
-              {itinerary.title}
+              Itinerary
             </Text>
           </View>
         </View>
@@ -673,7 +829,7 @@ export default function GuideItineraryDetailScreen() {
       {isPending && (
         <GuideAssignmentActionBar
           assignmentId={guideInfo.assignment_id}
-          guideFee={guideInfo.guide_fee}
+          guideFee={guideInfo.service_fee}
           onAccept={handleAcceptAssignment}
           onDecline={handleDeclineAssignment}
         />

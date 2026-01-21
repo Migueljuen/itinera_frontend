@@ -117,7 +117,7 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
       <Pressable
         key={keyProp}
         onPress={onPress}
-        className={`border rounded-2xl px-4 py-4 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"
+        className={` rounded-2xl px-4 py-2 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-black/5"
           }`}
       >
         <View>

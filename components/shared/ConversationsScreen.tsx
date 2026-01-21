@@ -72,7 +72,7 @@ const getRoleConfig = (userRole: UserRole) => {
             participantBadge: (role) => role === "Creator" ? "Creator" : role === "Guide" ? "Guide" : null,
         },
         Guide: {
-            chatDetailPath: "/(guide)/(conversations)/[id]",
+            chatDetailPath: "/(partner)/(conversations)/[id]",
             newChatPath: null,
             showNewChatButton: false,
             emptyStateText: "Conversations with travelers will appear here when you accept trip requests",
@@ -391,16 +391,9 @@ const ConversationsScreen = ({ userRole }: ConversationsScreenProps) => {
                                 <TouchableOpacity
                                     key={conversation.id}
                                     onPress={() => handleConversationPress(conversation)}
-                                    className={`bg-white rounded-2xl p-4 mb-3 ${hasUnread ? "border-l-4 border-primary" : ""
+                                    className={` rounded-2xl p-4 mb-3 ${hasUnread ? "border-l-4 border-primary" : ""
                                         }`}
-                                    style={{
-                                        shadowColor: "#000",
-                                        shadowOffset: { width: 0, height: 2 },
-                                        shadowOpacity: 0.06,
-                                        shadowRadius: 8,
-                                        elevation: 3,
-                                    }}
-                                    activeOpacity={0.7}
+
                                 >
                                     <View className="flex-row items-center">
                                         {/* Avatar */}

@@ -1,6 +1,7 @@
 // app/(partner)/PartnerProfileScreen.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import {
   Alert,
   Image,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -96,6 +98,7 @@ const PartnerProfileScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const SUPPORT_USER_ID = 21;
 
   const [userData, setUserData] = useState<UserData>({
     first_name: '',
@@ -265,6 +268,42 @@ const PartnerProfileScreen: React.FC = () => {
 
     if (!result.canceled) {
       uploadProfilePicture(result.assets[0].uri);
+    }
+  };
+
+
+
+  const openSupportChat = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Please log in to message support");
+        return;
+      }
+
+      // Create or get existing conversation with Support (fixed user)
+      const response = await axios.post(
+        `${API_URL}/conversations`,
+        { participantId: SUPPORT_USER_ID },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        const conversationId = response.data.data.id;
+
+        router.push({
+          pathname: "/(partner)/(conversations)/[id]", // use traveler if that's where your chat screen is
+          params: {
+            id: String(conversationId),
+            name: "Chat support",
+          },
+        });
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to open support chat");
+      }
+    } catch (error) {
+      console.error("Error starting support conversation:", error);
+      Alert.alert("Error", "Failed to start support chat");
     }
   };
 
@@ -622,19 +661,19 @@ const PartnerProfileScreen: React.FC = () => {
 
           <View className="border-t border-gray-100" />
 
-          <TouchableOpacity
-            className="flex-row items-center py-3"
-            onPress={() => router.push('/(partner)/support')}
+          <Pressable
+            onPress={openSupportChat}
+            className="flex-1  py-3 rounded-xl flex-row items-center justify-center"
           >
             <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
               <Ionicons name="help-circle-outline" size={20} color="#3B82F6" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-onest text-black/90">Help & Support</Text>
-              <Text className="text-xs font-onest text-black/50 mt-0.5">FAQs, contact support</Text>
+              <Text className="text-sm font-onest text-black/90">Chat Support</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">Ask help</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

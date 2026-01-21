@@ -27,7 +27,7 @@ const PaymentScreen = () => {
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isPartialPayment, setIsPartialPayment] = useState(false);
 
-  const DOWN_PAYMENT_PERCENTAGE = 0.3; // 30%
+  const DOWN_PAYMENT_PERCENTAGE = 0.5;
 
   // Calculate amounts (UPDATED to include cash collected)
   const totalAmount = paymentInfo?.total_amount
@@ -375,11 +375,11 @@ const PaymentScreen = () => {
                         )}
                       </View>
                       <Text className="font-onest-semibold text-base text-black/90">
-                        Down Payment (30%)
+                        Down Payment (50%)
                       </Text>
                     </View>
                     <Text className="text-black/60 font-onest text-sm ml-8">
-                      Pay 30% now, rest later
+                      Pay 50% now, rest later
                     </Text>
                   </View>
                   <Text className="font-onest-bold text-lg text-black/90">

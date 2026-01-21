@@ -1,3 +1,4 @@
+// (traveler)/(experience)/[id].tsx
 import API_URL from "@/constants/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,8 +42,11 @@ export default function ExperienceDetail() {
     id,
     tripStartDate: paramTripStart,
     tripEndDate: paramTripEnd,
-    itineraryItemId, // NEW: Optional param for itinerary context
+    itineraryItemId,
+    viewOnly: viewOnlyParam
   } = useLocalSearchParams();
+
+  const isViewOnly = viewOnlyParam === "true";
 
   const experienceId = Number(id);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -257,10 +261,24 @@ export default function ExperienceDetail() {
         onSavePress={toggleSave}
         onCalendarPress={() => setShowAvailabilityModal(true)}
         itineraryContext={itineraryItem}
+        viewOnly={isViewOnly}
       />
 
       {/* Availability Modal - Only show when NOT from itinerary */}
-      {!isFromItinerary && (
+      {/* {!isFromItinerary && (
+        <AvailabilityModal
+          visible={showAvailabilityModal}
+          onClose={() => setShowAvailabilityModal(false)}
+          experienceId={experienceId}
+          tripStartDate={tripStartDate}
+          tripEndDate={tripEndDate}
+          selectedItems={selectedItems}
+          onTimeSlotSelect={handleTimeSlotSelect}
+          onTimeSlotDeselect={handleTimeSlotDeselect}
+          onConfirm={handleConfirmSelection}
+        />
+      )} */}
+      {!isFromItinerary && !isViewOnly && (
         <AvailabilityModal
           visible={showAvailabilityModal}
           onClose={() => setShowAvailabilityModal(false)}
