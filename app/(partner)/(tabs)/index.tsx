@@ -21,15 +21,28 @@ import { useRefresh } from "../../../contexts/RefreshContext";
 // ============ TYPES ============
 type ItineraryStatus = "pending" | "upcoming" | "ongoing" | "completed" | "cancelled";
 type AssignmentStatus = "Pending" | "Accepted" | "Declined" | "Expired" | "Cancelled";
+type ServiceType = "Guide" | "Driver";
+type PartnerType = "Guide" | "Driver";
 
 type DeclineReason = "Scheduling conflict" | "Health reasons" | "Overlapping booking" | "Weather issues" | "Other";
 
+type Vehicle = {
+  vehicle_id: number;
+  plate_number: string;
+  vehicle_type: string;
+  brand: string;
+  model: string;
+  year: number;
+  color: string;
+  passenger_capacity: number;
+};
+
 // This represents the joined data from itinerary_service_assignments + itinerary + users
-type GuideAssignment = {
+type PartnerAssignment = {
   // From itinerary_service_assignments
   assignment_id: number;
   itinerary_id: number;
-  service_type: "Guide" | "Driver";
+  service_type: ServiceType;
   provider_id: number;
   provider_profile_id: number;
   status: AssignmentStatus;
@@ -37,6 +50,7 @@ type GuideAssignment = {
   price: number;
   responded_at?: string;
   created_at: string;
+  selected_vehicle_id?: number;
 
   // From itinerary (joined)
   itinerary_title: string;
@@ -53,8 +67,11 @@ type GuideAssignment = {
   // Computed/aggregated fields from backend
   total_days: number;
   total_activities: number;
-  destinations: string[]; // unique cities from itinerary_items
-  first_activity_time?: string; // start_time of first item on first day
+  destinations: string[];
+  first_activity_time?: string;
+
+  // Driver-specific
+  vehicle?: Vehicle;
 };
 
 interface Conversation {
@@ -79,7 +96,31 @@ const ASSIGNMENT_STATUS_CONFIG: Record<AssignmentStatus, { label: string; bgColo
   Cancelled: { label: "Cancelled", bgColor: "bg-red-100", textColor: "text-red-600" },
 };
 
-const GuideHomeScreen = () => {
+// ============ PARTNER CONFIG ============
+const PARTNER_CONFIG: Record<PartnerType, {
+  label: string;
+  requestLabel: string;
+  tripLabel: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  emptyMessage: string;
+}> = {
+  Guide: {
+    label: "Tour Guide",
+    requestLabel: "Tour Requests",
+    tripLabel: "Trip",
+    icon: "walk-outline",
+    emptyMessage: "Update your availability to receive trip requests",
+  },
+  Driver: {
+    label: "Driver",
+    requestLabel: "Transport Requests",
+    tripLabel: "Booking",
+    icon: "car-outline",
+    emptyMessage: "Update your availability to receive transport requests",
+  },
+};
+
+const PartnerHomeScreen = () => {
   const router = useRouter();
   const { profileUpdated } = useRefresh();
   const [refreshing, setRefreshing] = useState(false);
@@ -89,16 +130,20 @@ const GuideHomeScreen = () => {
   const [firstName, setFirstName] = useState("");
   const [profilePic, setProfilePic] = useState("");
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [partnerType, setPartnerType] = useState<PartnerType | null>(null);
 
-  // Tour assignments state
-  const [ongoingTrip, setOngoingTrip] = useState<GuideAssignment | null>(null);
-  const [upcomingTrips, setUpcomingTrips] = useState<GuideAssignment[]>([]);
-  const [tourRequests, setTourRequests] = useState<GuideAssignment[]>([]);
+  // Assignments state
+  const [ongoingTrip, setOngoingTrip] = useState<PartnerAssignment | null>(null);
+  const [upcomingTrips, setUpcomingTrips] = useState<PartnerAssignment[]>([]);
+  const [requests, setRequests] = useState<PartnerAssignment[]>([]);
 
   // Stats
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [weekEarnings, setWeekEarnings] = useState(0);
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0);
+
+  // Get config based on partner type
+  const config = partnerType ? PARTNER_CONFIG[partnerType] : PARTNER_CONFIG.Guide;
 
   // ============ USER DATA ============
   const fetchUserData = async () => {
@@ -121,18 +166,18 @@ const GuideHomeScreen = () => {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
-      // Fetch all guide assignments
-      // Backend should return joined data with itinerary and traveler info
-      const response = await axios.get(`${API_URL}/guide/assignments`, {
+      const response = await axios.get(`${API_URL}/partner-mobile/assignments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
-        const assignments: GuideAssignment[] = response.data.data;
+        const assignments: PartnerAssignment[] = response.data.data;
+        const detectedPartnerType: PartnerType = response.data.partner_type;
+        setPartnerType(detectedPartnerType);
 
         // Pending requests (need accept/decline)
         const pending = assignments.filter((a) => a.status === "Pending");
-        setTourRequests(pending);
+        setRequests(pending);
 
         // Accepted assignments only
         const accepted = assignments.filter((a) => a.status === "Accepted");
@@ -158,7 +203,7 @@ const GuideHomeScreen = () => {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
-      const response = await axios.get(`${API_URL}/guide/earnings/summary`, {
+      const response = await axios.get(`${API_URL}/partner-mobile/earnings/summary`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -267,7 +312,7 @@ const GuideHomeScreen = () => {
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.post(
-        `${API_URL}/guide/assignments/${assignmentId}/accept`,
+        `${API_URL}/partner-mobile/assignments/${assignmentId}/accept`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -281,7 +326,7 @@ const GuideHomeScreen = () => {
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.post(
-        `${API_URL}/guide/assignments/${assignmentId}/decline`,
+        `${API_URL}/partner-mobile/assignments/${assignmentId}/decline`,
         { decline_reason: reason || "Other" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -344,26 +389,33 @@ const GuideHomeScreen = () => {
     return `${totalDays} days`;
   };
 
+  const getVehicleText = (vehicle?: Vehicle) => {
+    if (!vehicle) return null;
+    return `${vehicle.brand} ${vehicle.model} • ${vehicle.plate_number}`;
+  };
+
   // ============ STATUS CHIP ============
   const ItineraryStatusChip = ({ status }: { status: ItineraryStatus }) => {
-    const config = ITINERARY_STATUS_CONFIG[status];
+    const statusConfig = ITINERARY_STATUS_CONFIG[status];
     return (
-      <View className={`px-2 py-1 rounded-full ${config.bgColor}`}>
-        <Text className={`text-xs font-onest-medium ${config.textColor}`}>
-          {config.label}
+      <View className={`px-2 py-1 rounded-full ${statusConfig.bgColor}`}>
+        <Text className={`text-xs font-onest-medium ${statusConfig.textColor}`}>
+          {statusConfig.label}
         </Text>
       </View>
     );
   };
 
   // ============ ONGOING TRIP BANNER ============
-  const OngoingTripBanner = ({ assignment }: { assignment: GuideAssignment }) => (
+  const OngoingTripBanner = ({ assignment }: { assignment: PartnerAssignment }) => (
     <View className="mx-6 mb-2">
       <View className="bg-green-50 border border-green-200 rounded-2xl p-4">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center">
             <View className="w-2.5 h-2.5 bg-green-500 rounded-full mr-2" />
-            <Text className="font-onest-semibold text-green-700">Trip In Progress</Text>
+            <Text className="font-onest-semibold text-green-700">
+              {config.tripLabel} In Progress
+            </Text>
           </View>
           <Text className="text-xs font-onest text-green-600">
             {formatDateRange(assignment.start_date, assignment.end_date)}
@@ -381,6 +433,16 @@ const GuideHomeScreen = () => {
           </Text>
         </View>
 
+        {/* Vehicle info for drivers */}
+        {partnerType === "Driver" && assignment.vehicle && (
+          <View className="flex-row items-center mt-2">
+            <Ionicons name="car-outline" size={14} color="#6b7280" />
+            <Text className="text-black/60 font-onest text-sm ml-1">
+              {getVehicleText(assignment.vehicle)}
+            </Text>
+          </View>
+        )}
+
         <View className="flex-row items-center mt-3">
           {assignment.traveler_profile_pic ? (
             <Image
@@ -395,7 +457,8 @@ const GuideHomeScreen = () => {
           <Text className="font-onest text-sm text-black/70">{assignment.traveler_name}</Text>
           <Text className="text-black/40 mx-2">•</Text>
           <Text className="font-onest text-sm text-black/60">
-            {getDaysText(assignment.total_days)}, {assignment.total_activities} activities
+            {getDaysText(assignment.total_days)}
+            {partnerType === "Guide" && `, ${assignment.total_activities} activities`}
           </Text>
         </View>
 
@@ -409,7 +472,7 @@ const GuideHomeScreen = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push(`/(guide)/(itinerary)/${assignment.itinerary_id}`)}
+            onPress={() => router.push(`/(partner)/(itinerary)/${assignment.itinerary_id}`)}
             className="flex-1 bg-green-600 py-3 rounded-xl items-center"
           >
             <Text className="font-onest-medium text-white">View Itinerary</Text>
@@ -425,13 +488,13 @@ const GuideHomeScreen = () => {
       <View className="bg-gray-50 border border-gray-200 border-dashed rounded-2xl p-6">
         <View className="items-center">
           <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-3">
-            <Ionicons name="airplane-outline" size={28} color="#9CA3AF" />
+            <Ionicons name={config.icon} size={28} color="#9CA3AF" />
           </View>
           <Text className="font-onest-semibold text-black/70 text-center">
-            No Active Trip
+            No Active {config.tripLabel}
           </Text>
           <Text className="font-onest text-sm text-black/40 text-center mt-1">
-            Your ongoing trips will appear here
+            Your ongoing {config.tripLabel.toLowerCase()}s will appear here
           </Text>
         </View>
       </View>
@@ -439,9 +502,9 @@ const GuideHomeScreen = () => {
   );
 
   // ============ UPCOMING TRIP ITEM ============
-  const UpcomingTripItem = ({ assignment, isLast }: { assignment: GuideAssignment; isLast: boolean }) => (
+  const UpcomingTripItem = ({ assignment, isLast }: { assignment: PartnerAssignment; isLast: boolean }) => (
     <Pressable
-      onPress={() => router.push(`/(guide)/(itinerary)/${assignment.itinerary_id}`)}
+      onPress={() => router.push(`/(partner)/(itinerary)/${assignment.itinerary_id}`)}
       className={`flex-row items-center ${!isLast ? "mb-3" : ""}`}
     >
       {assignment.traveler_profile_pic ? (
@@ -462,6 +525,12 @@ const GuideHomeScreen = () => {
         <Text className="text-xs font-onest text-black/50 mt-0.5">
           {assignment.destinations?.slice(0, 2).join(", ") || "Multiple locations"}
         </Text>
+        {/* Vehicle info for drivers */}
+        {partnerType === "Driver" && assignment.vehicle && (
+          <Text className="text-xs font-onest text-black/40 mt-0.5">
+            {getVehicleText(assignment.vehicle)}
+          </Text>
+        )}
       </View>
 
       <View className="items-end">
@@ -475,11 +544,11 @@ const GuideHomeScreen = () => {
     </Pressable>
   );
 
-  // ============ TOUR REQUEST ITEM ============
-  const TourRequestItem = ({ assignment, isLast }: { assignment: GuideAssignment; isLast: boolean }) => (
+  // ============ REQUEST ITEM ============
+  const RequestItem = ({ assignment, isLast }: { assignment: PartnerAssignment; isLast: boolean }) => (
     <View className={`${!isLast ? "mb-4 pb-4 border-b border-gray-100" : ""}`}>
       <Pressable
-        onPress={() => router.push(`/(guide)/(itinerary)/${assignment.itinerary_id}`)}
+        onPress={() => router.push(`/(partner)/(itinerary)/${assignment.itinerary_id}`)}
         className="flex-row items-start"
       >
         {assignment.traveler_profile_pic ? (
@@ -506,6 +575,15 @@ const GuideHomeScreen = () => {
               {assignment.destinations?.slice(0, 2).join(", ") || "Multiple locations"}
             </Text>
           </View>
+          {/* Vehicle info for drivers */}
+          {partnerType === "Driver" && assignment.vehicle && (
+            <View className="flex-row items-center mt-1">
+              <Ionicons name="car-outline" size={12} color="#9ca3af" />
+              <Text className="text-xs font-onest text-black/50 ml-1">
+                {getVehicleText(assignment.vehicle)}
+              </Text>
+            </View>
+          )}
         </View>
 
         <Text className="font-onest-semibold text-primary">
@@ -559,7 +637,7 @@ const GuideHomeScreen = () => {
         {/* Header */}
         <View className="flex-row items-center justify-between p-6">
           <View className="flex-row items-center flex-1">
-            <Pressable onPress={() => router.push("/(guide)/profile")}>
+            <Pressable onPress={() => router.push("/(partner)/profile")}>
               {profilePic ? (
                 <Image
                   source={{ uri: `${API_URL}/${profilePic}` }}
@@ -577,12 +655,12 @@ const GuideHomeScreen = () => {
               </Text>
               <Text className="text-black/50 font-onest">
                 {ongoingTrip
-                  ? "You have a trip in progress"
-                  : tourRequests.length > 0
-                    ? `${tourRequests.length} new request${tourRequests.length > 1 ? "s" : ""}`
+                  ? `You have a ${config.tripLabel.toLowerCase()} in progress`
+                  : requests.length > 0
+                    ? `${requests.length} new request${requests.length > 1 ? "s" : ""}`
                     : upcomingTrips.length > 0
-                      ? `${upcomingTrips.length} upcoming trip${upcomingTrips.length > 1 ? "s" : ""}`
-                      : "No trips scheduled"}
+                      ? `${upcomingTrips.length} upcoming ${config.tripLabel.toLowerCase()}${upcomingTrips.length > 1 ? "s" : ""}`
+                      : `No ${config.tripLabel.toLowerCase()}s scheduled`}
               </Text>
             </View>
           </View>
@@ -602,34 +680,12 @@ const GuideHomeScreen = () => {
           </Pressable>
         </View>
 
-        {/* Earnings Card */}
-        {/* <View className="mx-6 bg-primary rounded-2xl p-5 mb-2">
-          <View className="flex-row justify-between items-start">
-            <View>
-              <Text className="text-white/70 font-onest text-sm">Today's Earnings</Text>
-              <Text className="text-white font-onest-semibold text-3xl mt-1">
-                ₱{todayEarnings.toLocaleString()}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => router.push("/(guide)/earnings")}
-              className="bg-white/20 px-3 py-1.5 rounded-full"
-            >
-              <Text className="text-white font-onest text-sm">View All</Text>
-            </Pressable>
-          </View>
-          <View className="flex-row items-center mt-3 pt-3 border-t border-white/20">
-            <Ionicons name="trending-up" size={16} color="rgba(255,255,255,0.7)" />
-            <Text className="text-white/70 font-onest text-sm ml-2">
-              This week: <Text className="text-white font-onest-medium">₱{weekEarnings.toLocaleString()}</Text>
-            </Text>
-          </View>
-        </View> */}
-
         {/* Ongoing Trip Banner - Always visible */}
         <View className="mt-4">
           <View className="px-6 mb-3">
-            <Text className="text-2xl font-onest text-black/90">Ongoing Trip</Text>
+            <Text className="text-2xl font-onest text-black/90">
+              Ongoing {config.tripLabel}
+            </Text>
           </View>
           {ongoingTrip ? (
             <OngoingTripBanner assignment={ongoingTrip} />
@@ -640,28 +696,28 @@ const GuideHomeScreen = () => {
 
         {/* Main Content Area */}
         <View className="px-6 mt-6">
-          {/* Tour Requests - Show first as they need action */}
-          {tourRequests.length > 0 && (
+          {/* Requests - Show first as they need action */}
+          {requests.length > 0 && (
             <View className="mb-8">
               <View className="flex-row justify-between items-center mb-4">
                 <View className="flex-row items-center">
-                  <Text className="text-2xl font-onest text-black/90">Tour Requests</Text>
+                  <Text className="text-2xl font-onest text-black/90">{config.requestLabel}</Text>
                   <View className="bg-red-500 rounded-full w-5 h-5 items-center justify-center ml-2">
                     <Text className="text-white text-xs font-onest-semibold">
-                      {tourRequests.length}
+                      {requests.length}
                     </Text>
                   </View>
                 </View>
-                <Pressable onPress={() => router.push("/(guide)/requests")}>
+                <Pressable onPress={() => router.push("/(partner)/requests")}>
                   <Text className="text-sm font-onest text-primary">View all</Text>
                 </Pressable>
               </View>
 
-              {tourRequests.slice(0, 3).map((assignment, index) => (
-                <TourRequestItem
+              {requests.slice(0, 3).map((assignment, index) => (
+                <RequestItem
                   key={assignment.assignment_id}
                   assignment={assignment}
-                  isLast={index === Math.min(tourRequests.length, 3) - 1}
+                  isLast={index === Math.min(requests.length, 3) - 1}
                 />
               ))}
             </View>
@@ -671,8 +727,10 @@ const GuideHomeScreen = () => {
           {upcomingTrips.length > 0 && (
             <View className="mb-8">
               <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-2xl font-onest text-black/90">Upcoming Trips</Text>
-                <Pressable onPress={() => router.push("/(guide)/itineraries")}>
+                <Text className="text-2xl font-onest text-black/90">
+                  Upcoming {config.tripLabel}s
+                </Text>
+                <Pressable onPress={() => router.push("/(partner)/itineraries")}>
                   <Text className="text-sm font-onest text-primary">View all</Text>
                 </Pressable>
               </View>
@@ -688,17 +746,19 @@ const GuideHomeScreen = () => {
           )}
 
           {/* Empty State - Only when no requests and no upcoming */}
-          {tourRequests.length === 0 && upcomingTrips.length === 0 && (
+          {requests.length === 0 && upcomingTrips.length === 0 && (
             <View className="items-center py-8">
               <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-3">
                 <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
               </View>
-              <Text className="text-base font-onest-medium text-black/70 mb-1">No Upcoming Trips</Text>
+              <Text className="text-base font-onest-medium text-black/70 mb-1">
+                No Upcoming {config.tripLabel}s
+              </Text>
               <Text className="text-black/50 font-onest text-sm text-center mb-4">
-                Update your availability to receive{"\n"}trip requests
+                {config.emptyMessage}
               </Text>
               <Pressable
-                onPress={() => router.push("/(guide)/availability")}
+                onPress={() => router.push("/(partner)/availability")}
                 className="bg-primary px-5 py-2.5 rounded-xl"
               >
                 <Text className="text-white font-onest-medium">Set Availability</Text>
@@ -706,38 +766,9 @@ const GuideHomeScreen = () => {
             </View>
           )}
         </View>
-
-        {/* Quick Actions Footer */}
-        {/* <View className="px-6 mt-4">
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={() => router.push("/(guide)/itineraries")}
-              className="flex-1 bg-white rounded-xl py-4 items-center border border-gray-100"
-            >
-              <Ionicons name="calendar-outline" size={22} color="#4F46E5" />
-              <Text className="font-onest text-sm text-black/70 mt-2">All Tours</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push("/(guide)/availability")}
-              className="flex-1 bg-white rounded-xl py-4 items-center border border-gray-100"
-            >
-              <Ionicons name="today-outline" size={22} color="#4F46E5" />
-              <Text className="font-onest text-sm text-black/70 mt-2">Availability</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push("/(guide)/profile")}
-              className="flex-1 bg-white rounded-xl py-4 items-center border border-gray-100"
-            >
-              <Ionicons name="person-outline" size={22} color="#4F46E5" />
-              <Text className="font-onest text-sm text-black/70 mt-2">Profile</Text>
-            </Pressable>
-          </View>
-        </View> */}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-export default GuideHomeScreen;
+export default PartnerHomeScreen;

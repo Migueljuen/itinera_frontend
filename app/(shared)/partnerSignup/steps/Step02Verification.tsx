@@ -236,7 +236,7 @@ export default function Step02Verification({
         </View>
 
         <View
-          className="bg-white rounded-2xl mt-4 p-5 items-center"
+          className=" rounded-2xl mt-4 p-5 items-center"
           style={shadowStyle}
         >
           <View className="relative w-full">
@@ -251,7 +251,7 @@ export default function Step02Verification({
                 resizeMode="cover"
               />
             ) : (
-              <View className="w-full h-44 rounded-2xl bg-gray-200 items-center justify-center">
+              <View className="w-full h-44 rounded-2xl bg-black/5 items-center justify-center">
                 <Ionicons
                   name={(doc.icon ?? "cloud-upload-outline") as any}
                   size={42}
@@ -302,7 +302,7 @@ export default function Step02Verification({
         : "Partners must provide a selfie and valid government-issued ID.";
 
   return (
-    <SafeAreaView className="bg-gray-50 flex-1">
+    <SafeAreaView className="bg-[#fff] flex-1">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -327,7 +327,7 @@ export default function Step02Verification({
               <UploadTile key={doc.key} doc={doc} />
             ))}
 
-            <View className="mt-10 p-4 rounded-2xl bg-white" style={shadowStyle}>
+            <View className="mt-10 p-4 rounded-2xl " style={shadowStyle}>
               <View className="flex-row items-start">
                 <Ionicons
                   name="information-circle-outline"

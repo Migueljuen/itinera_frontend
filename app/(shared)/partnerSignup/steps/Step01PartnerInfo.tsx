@@ -43,6 +43,7 @@ type FocusableFieldProps = {
   error?: string;
   isLast?: boolean;
   rightElement?: React.ReactNode;
+  autoComplete?: "off" | "password-new" | "email" | "tel";
 };
 
 function FocusableField({
@@ -399,7 +400,7 @@ export default function Step01PartnerInfo({
               </View>
             </View>
 
-            {/* ✅ PROFILE PHOTO (now matches your Profile screen UX) */}
+
             <View className="mt-12">
               <Text className="text-xl font-onest-medium text-black/90">
                 Profile photo
@@ -410,12 +411,12 @@ export default function Step01PartnerInfo({
             </View>
 
             <View
-              className="bg-white rounded-2xl mt-4 p-5 items-center"
+              className=" rounded-2xl mt-4 p-5 items-center"
               style={shadowStyle}
             >
               <View className="relative">
                 {isPicking ? (
-                  <View className="w-28 h-28 rounded-full bg-gray-100 items-center justify-center">
+                  <View className="w-28 h-28 rounded-full items-center justify-center">
                     <ActivityIndicator size="large" color="#111827" />
                   </View>
                 ) : formData.profile_pic?.uri ? (
@@ -424,7 +425,7 @@ export default function Step01PartnerInfo({
                     style={{ width: 112, height: 112, borderRadius: 56 }}
                   />
                 ) : (
-                  <View className="w-28 h-28 rounded-full bg-gray-200 items-center justify-center">
+                  <View className="w-28 h-28 rounded-full  items-center justify-center">
                     <Ionicons name="person" size={48} color="#9CA3AF" />
                   </View>
                 )}

@@ -1,7 +1,7 @@
 // app/(auth)/steps/Step04VehicleDetails.tsx
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -22,44 +22,61 @@ import type {
 } from "../partnerOnboardingForm";
 
 /**
- * ✅ IMPORTANT:
- * These components are OUTSIDE the screen component to prevent remounting on every keystroke,
- * which causes the TextInput to lose focus (keyboard closes).
+ * FocusableField - Same component pattern as Step01
  */
-
-type InputProps = {
+type FocusableFieldProps = {
     label: string;
+    value: string;
+    onChangeText: (text: string) => void;
+    inputRef: React.RefObject<TextInput | null>;
     placeholder?: string;
-    value?: string;
-    onChangeText: (t: string) => void;
-    keyboardType?: "default" | "numeric";
+    keyboardType?: "default" | "numeric" | "email-address" | "phone-pad";
+    autoCapitalize?: "none" | "sentences" | "words" | "characters";
+    error?: string;
+    isLast?: boolean;
 };
 
-const FormInput = React.memo(function FormInput({
+function FocusableField({
     label,
-    placeholder,
     value,
     onChangeText,
-    keyboardType,
-}: InputProps) {
+    inputRef,
+    placeholder,
+    keyboardType = "default",
+    autoCapitalize = "words",
+    error,
+    isLast = false,
+}: FocusableFieldProps) {
     return (
-        <View className="mb-4">
-            <Text className="text-sm font-onest-medium text-black/70 mb-2">
-                {label}
-            </Text>
-            <View className="border border-black/10 rounded-xl px-4 py-4 bg-white">
-                <TextInput
-                    value={value ?? ""}
-                    onChangeText={onChangeText}
-                    placeholder={placeholder}
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType={keyboardType ?? "default"}
-                    className="text-base text-black/90 font-onest"
-                />
-            </View>
+        <View>
+            <Pressable
+                onPress={() => inputRef.current?.focus()}
+                className={`flex flex-col items-start px-4 py-2 ${isLast ? "" : "border-b border-black/40"}`}
+                style={{ height: 55 }}
+            >
+                <Text className="text-sm font-onest text-black/50">{label}</Text>
+
+                <View className="flex-row items-center w-full flex-1">
+                    <TextInput
+                        ref={inputRef}
+                        className="flex-1 text-lg font-onest text-black/90"
+                        value={value}
+                        onChangeText={onChangeText}
+                        placeholder={placeholder}
+                        placeholderTextColor="rgba(0,0,0,0.35)"
+                        keyboardType={keyboardType}
+                        autoCapitalize={autoCapitalize}
+                        multiline={false}
+                    />
+                </View>
+            </Pressable>
+
+            {error ? (
+                <Text className="text-red-500 text-sm ml-1 mt-1">{error}</Text>
+            ) : null}
         </View>
     );
-});
+}
 
 type UploadCardProps = {
     title: string;
@@ -146,7 +163,16 @@ export default function Step04VehicleDetails({
 }: Props) {
     const [busy, setBusy] = useState<"orcr" | "photos" | null>(null);
 
-    // Same shadow setup style as Step02
+    // Input refs for focus management
+    const plateNumberRef = useRef<TextInput | null>(null);
+    const vehicleTypeRef = useRef<TextInput | null>(null);
+    const yearRef = useRef<TextInput | null>(null);
+    const brandRef = useRef<TextInput | null>(null);
+    const modelRef = useRef<TextInput | null>(null);
+    const colorRef = useRef<TextInput | null>(null);
+    const capacityRef = useRef<TextInput | null>(null);
+    const priceRef = useRef<TextInput | null>(null);
+
     const shadowStyle = useMemo(
         () => ({
             shadowColor: "#000",
@@ -287,225 +313,235 @@ export default function Step04VehicleDetails({
     const photoCount = formData.vehicle_photos?.length || 0;
 
     return (
-        <SafeAreaView className="bg-gray-50 flex-1">
+        <SafeAreaView className="bg-[#fff] h-full">
             <KeyboardAvoidingView
-                className="flex-1"
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
+                className="flex-1"
             >
                 <ScrollView
-                    className="flex-1"
-                    contentContainerStyle={{ paddingBottom: 60 }}
+                    className="flex-1 px-10"
+                    contentContainerStyle={{ paddingBottom: 40 }}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    <View className="px-10 pt-12 pb-10">
-                        <Text className="text-3xl font-onest-semibold text-gray-800">
-                            Vehicle Details
+                    {/* Header */}
+                    <View className="items-center mt-12">
+                        <Text className="text-3xl font-onest-semibold text-black/90 leading-tight">
+                            Add your vehicle details so travelers can book with confidence.
+                        </Text>
+                    </View>
+
+                    <View className="py-12">
+                        {/* VEHICLE IDENTIFICATION */}
+                        <Text className="text-xl font-onest-medium text-black/90">
+                            Vehicle identification
                         </Text>
 
-                        <Text className="mt-2 font-onest text-sm text-gray-500">
-                            Add your vehicle info so travelers can book transport with confidence.
-                        </Text>
-
-                        <View className="mt-8">
-                            <FormInput
-                                label="Plate Number *"
-                                placeholder="e.g., ABC 1234"
-                                value={formData.vehicle_plate_number}
+                        <View className="mt-4 border border-black/40 rounded-lg overflow-hidden">
+                            <FocusableField
+                                label="Plate number"
+                                value={formData.vehicle_plate_number || ""}
                                 onChangeText={(t) => handleChange("vehicle_plate_number", t)}
+                                inputRef={plateNumberRef}
+                                placeholder="e.g., ABC 1234"
+                                autoCapitalize="characters"
                             />
 
-                            <View className="flex-row gap-3">
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Vehicle Type"
-                                        placeholder="e.g., Sedan, Van, SUV"
-                                        value={formData.vehicle_type}
-                                        onChangeText={(t) => handleChange("vehicle_type", t)}
-                                    />
-                                </View>
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Year"
-                                        placeholder="e.g., 2020"
-                                        value={formData.vehicle_year}
-                                        keyboardType="numeric"
-                                        onChangeText={(t) =>
-                                            handleChange("vehicle_year", t.replace(/[^0-9]/g, ""))
-                                        }
-                                    />
-                                </View>
-                            </View>
+                            <FocusableField
+                                label="Vehicle type"
+                                value={formData.vehicle_type || ""}
+                                onChangeText={(t) => handleChange("vehicle_type", t)}
+                                inputRef={vehicleTypeRef}
+                                placeholder="e.g., Sedan, Van, SUV"
+                            />
 
-                            <View className="flex-row gap-3">
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Brand"
-                                        placeholder="e.g., Toyota"
-                                        value={formData.vehicle_brand}
-                                        onChangeText={(t) => handleChange("vehicle_brand", t)}
-                                    />
-                                </View>
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Model"
-                                        placeholder="e.g., Vios"
-                                        value={formData.vehicle_model}
-                                        onChangeText={(t) => handleChange("vehicle_model", t)}
-                                    />
-                                </View>
-                            </View>
-
-                            <View className="flex-row gap-3">
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Color"
-                                        placeholder="e.g., White"
-                                        value={formData.vehicle_color}
-                                        onChangeText={(t) => handleChange("vehicle_color", t)}
-                                    />
-                                </View>
-                                <View className="flex-1">
-                                    <FormInput
-                                        label="Passenger Capacity *"
-                                        placeholder="e.g., 4"
-                                        value={formData.vehicle_passenger_capacity}
-                                        keyboardType="numeric"
-                                        onChangeText={(t) =>
-                                            handleChange(
-                                                "vehicle_passenger_capacity",
-                                                t.replace(/[^0-9]/g, "")
-                                            )
-                                        }
-                                    />
-                                </View>
-                            </View>
-
-                            <FormInput
-                                label="Pricing per day *"
-                                placeholder="e.g., 1500"
-                                value={formData.vehicle_price_per_day}
+                            <FocusableField
+                                label="Year"
+                                value={formData.vehicle_year || ""}
+                                onChangeText={(t) => handleChange("vehicle_year", t.replace(/[^0-9]/g, ""))}
+                                inputRef={yearRef}
+                                placeholder="e.g., 2020"
                                 keyboardType="numeric"
-                                onChangeText={(t) =>
-                                    handleChange("vehicle_price_per_day", t.replace(/[^0-9.]/g, ""))
-                                }
+                                isLast
+                            />
+                        </View>
+
+                        <Text className="mt-2 font-onest text-sm text-black/50">
+                            Ensure the plate number matches your vehicle registration.
+                        </Text>
+
+                        {/* VEHICLE DETAILS */}
+                        <View className="mt-12">
+                            <Text className="text-xl font-onest-medium text-black/90">
+                                Vehicle details
+                            </Text>
+                        </View>
+
+                        <View className="mt-4 border border-black/40 rounded-lg overflow-hidden">
+                            <FocusableField
+                                label="Brand"
+                                value={formData.vehicle_brand || ""}
+                                onChangeText={(t) => handleChange("vehicle_brand", t)}
+                                inputRef={brandRef}
+                                placeholder="e.g., Toyota"
                             />
 
-                            <View className="mt-6 gap-4">
-                                {/* OR/CR */}
-                                <UploadCard
-                                    title="Upload OR/CR *"
-                                    subtitle="Photo or scanned copy (recommended max 5–10MB)"
-                                    onPress={pickORCR}
-                                    previewUri={formData.or_cr_document?.uri || null}
-                                    loading={busy === "orcr"}
-                                    disabled={!!busy}
-                                    shadowStyle={shadowStyle}
-                                />
+                            <FocusableField
+                                label="Model"
+                                value={formData.vehicle_model || ""}
+                                onChangeText={(t) => handleChange("vehicle_model", t)}
+                                inputRef={modelRef}
+                                placeholder="e.g., Vios"
+                            />
 
-                                {/* Vehicle Photos */}
-                                <View>
-                                    <View className="flex-row items-center justify-between mb-3">
-                                        <Text className="text-base font-onest-semibold text-black/90">
-                                            Vehicle Photos *
-                                        </Text>
-                                        <Text className="text-sm text-black/50 font-onest">
-                                            {photoCount}/10
-                                        </Text>
-                                    </View>
+                            <FocusableField
+                                label="Color"
+                                value={formData.vehicle_color || ""}
+                                onChangeText={(t) => handleChange("vehicle_color", t)}
+                                inputRef={colorRef}
+                                placeholder="e.g., White"
+                                isLast
+                            />
+                        </View>
 
-                                    <View className="gap-3">
-                                        <Pressable
-                                            onPress={addVehiclePhotos}
-                                            disabled={!!busy}
-                                            style={shadowStyle}
-                                            className={[
-                                                "border border-black/10 rounded-2xl bg-white px-4 py-5",
-                                                busy ? "opacity-60" : "opacity-100",
-                                            ].join(" ")}
-                                        >
-                                            <View className="flex-row items-center gap-3">
-                                                <View className="w-12 h-12 rounded-xl bg-black/5 items-center justify-center">
-                                                    {busy === "photos" ? (
-                                                        <ActivityIndicator />
-                                                    ) : (
-                                                        <Ionicons name="images-outline" size={22} color="#64748B" />
-                                                    )}
-                                                </View>
-                                                <View className="flex-1">
-                                                    <Text className="text-base font-onest-semibold text-black/90">
-                                                        Add Photos
-                                                    </Text>
-                                                    <Text className="text-sm text-black/55 mt-0.5 font-onest">
-                                                        Add at least 1 clear photo of your vehicle
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        </Pressable>
+                        {/* CAPACITY & PRICING */}
+                        <View className="mt-12">
+                            <Text className="text-xl font-onest-medium text-black/90">
+                                Capacity & pricing
+                            </Text>
+                        </View>
 
-                                        {/* Thumbnails */}
-                                        {photoCount > 0 ? (
-                                            <View className="flex-row flex-wrap gap-3">
-                                                {formData.vehicle_photos.slice(0, 10).map((p, idx) => (
-                                                    <View
-                                                        key={`${p.uri}-${idx}`}
-                                                        className="border border-black/10 rounded-xl overflow-hidden"
-                                                        style={{ width: "48%" }}
-                                                    >
-                                                        <Image
-                                                            source={{ uri: p.uri }}
-                                                            style={{ width: "100%", height: 120 }}
-                                                            resizeMode="cover"
-                                                        />
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        ) : (
-                                            <Text className="text-sm text-black/50 font-onest">
-                                                No vehicle photos added yet.
-                                            </Text>
-                                        )}
-                                    </View>
-                                </View>
-                            </View>
+                        <View className="mt-4 border border-black/40 rounded-lg overflow-hidden">
+                            <FocusableField
+                                label="Passenger capacity"
+                                value={formData.vehicle_passenger_capacity || ""}
+                                onChangeText={(t) => handleChange("vehicle_passenger_capacity", t.replace(/[^0-9]/g, ""))}
+                                inputRef={capacityRef}
+                                placeholder="e.g., 4"
+                                keyboardType="numeric"
+                            />
 
-                            {/* ✅ Note UI copied from Step02 */}
-                            <View className="mt-10 p-4 rounded-2xl bg-white" style={shadowStyle}>
-                                <View className="flex-row items-start">
-                                    <Ionicons
-                                        name="information-circle-outline"
-                                        size={18}
-                                        color="#3B82F6"
-                                    />
-                                    <Text className="text-sm text-gray-700 font-onest ml-2 flex-1">
-                                        <Text className="font-onest-semibold">Note:</Text> Your documents
-                                        are reviewed before your driver account is approved.
+                            <FocusableField
+                                label="Price per day (₱)"
+                                value={formData.vehicle_price_per_day || ""}
+                                onChangeText={(t) => handleChange("vehicle_price_per_day", t.replace(/[^0-9.]/g, ""))}
+                                inputRef={priceRef}
+                                placeholder="e.g., 1500"
+                                keyboardType="numeric"
+                                isLast
+                            />
+                        </View>
+
+                        <Text className="mt-2 font-onest text-sm text-black/50">
+                            Set a competitive daily rate for your vehicle.
+                        </Text>
+
+                        {/* DOCUMENTS */}
+                        <View className="mt-12">
+                            <Text className="text-xl font-onest-medium text-black/90">
+                                Documents & photos
+                            </Text>
+                            <Text className="mt-2 font-onest text-sm text-black/50">
+                                Upload your OR/CR and photos of your vehicle.
+                            </Text>
+                        </View>
+
+                        <View className="mt-4 gap-4">
+                            {/* OR/CR */}
+                            <UploadCard
+                                title="Upload OR/CR"
+                                subtitle="Photo or scanned copy (max 5-10MB)"
+                                onPress={pickORCR}
+                                previewUri={formData.or_cr_document?.uri || null}
+                                loading={busy === "orcr"}
+                                disabled={!!busy}
+                                shadowStyle={shadowStyle}
+                            />
+
+                            {/* Vehicle Photos */}
+                            <View
+                                className="rounded-2xl p-5"
+                                style={shadowStyle}
+                            >
+                                <View className="flex-row items-center justify-between mb-4">
+                                    <Text className="text-base font-onest-semibold text-black/90">
+                                        Vehicle Photos
+                                    </Text>
+                                    <Text className="text-sm text-black/50 font-onest">
+                                        {photoCount}/10
                                     </Text>
                                 </View>
-                            </View>
 
-                            {/* ✅ Buttons copied from Step02 */}
-                            <View className="flex-row mt-6 gap-3">
                                 <Pressable
-                                    onPress={onBack}
+                                    onPress={addVehiclePhotos}
                                     disabled={!!busy}
-                                    className="px-6 py-4 rounded-xl flex-1 bg-gray-200"
+                                    className={[
+                                        "border border-dashed border-black/20 rounded-xl px-4 py-5 items-center justify-center",
+                                        busy ? "opacity-60" : "opacity-100",
+                                    ].join(" ")}
                                 >
-                                    <Text className="text-black/70 text-center text-base font-onest-medium">
-                                        Back
-                                    </Text>
+                                    {busy === "photos" ? (
+                                        <ActivityIndicator />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="images-outline" size={28} color="#9CA3AF" />
+                                            <Text className="text-sm text-black/50 mt-2 font-onest text-center">
+                                                Tap to add photos
+                                            </Text>
+                                        </>
+                                    )}
                                 </Pressable>
 
-                                <Pressable
-                                    onPress={validateThenContinue}
-                                    disabled={!!busy}
-                                    className="bg-[#191313] py-4 px-8 flex-1 rounded-xl"
-                                >
+                                {/* Thumbnails */}
+                                {photoCount > 0 && (
+                                    <View className="flex-row flex-wrap gap-3 mt-4">
+                                        {formData.vehicle_photos.slice(0, 10).map((p, idx) => (
+                                            <View
+                                                key={`${p.uri}-${idx}`}
+                                                className="border border-black/10 rounded-xl overflow-hidden"
+                                                style={{ width: "30%", aspectRatio: 1 }}
+                                            >
+                                                <Image
+                                                    source={{ uri: p.uri }}
+                                                    style={{ width: "100%", height: "100%" }}
+                                                    resizeMode="cover"
+                                                />
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <Text className="mt-4 font-onest text-sm text-black/60 text-center">
+                                    Add at least 1 clear photo of your vehicle.
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Action buttons */}
+                        <View className="flex-row gap-3 mt-6">
+                            <Pressable
+                                onPress={onBack}
+                                disabled={!!busy}
+                                className="flex-1 px-6 py-4 rounded-xl bg-gray-200"
+                            >
+                                <Text className="text-black/70 text-center text-base font-onest-medium">
+                                    Back
+                                </Text>
+                            </Pressable>
+
+                            <Pressable
+                                onPress={validateThenContinue}
+                                disabled={!!busy}
+                                className="bg-[#191313] py-4 px-8 rounded-xl flex-1"
+                            >
+                                {busy ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
                                     <Text className="text-white/90 text-center text-base font-onest-medium">
                                         Continue
                                     </Text>
-                                </Pressable>
-                            </View>
+                                )}
+                            </Pressable>
                         </View>
                     </View>
                 </ScrollView>

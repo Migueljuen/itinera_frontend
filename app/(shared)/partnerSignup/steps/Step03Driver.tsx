@@ -180,7 +180,7 @@ export default function Step03Driver({
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-white"
+      className="flex-1 bg-[#fff]"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView className="px-10" contentContainerStyle={{ paddingBottom: 28 }}>

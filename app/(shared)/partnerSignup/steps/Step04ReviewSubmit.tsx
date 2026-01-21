@@ -1,6 +1,6 @@
 // app/(auth)/steps/Step04ReviewSubmit.tsx
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { PartnerOnboardingFormData } from "../partnerOnboardingForm";
 
@@ -26,8 +27,6 @@ export default function Step04ReviewSubmit({
   onBack,
   isSubmitting = false,
 }: Props) {
-  const logo = useMemo(() => require("../../../../assets/images/logo.png"), []);
-
   const shadowStyle = {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -257,21 +256,26 @@ export default function Step04ReviewSubmit({
   };
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView className="px-10" contentContainerStyle={{ paddingBottom: 28 }}>
-        <View className="mt-24">
-          <Text className="text-3xl font-onest-semibold text-black/90">
-            Review & Submit
-          </Text>
-          <Text className="mt-2 text-base text-black/60">
-            Please review your details before submitting your partner application.
-          </Text>
+    <SafeAreaView className="bg-[#fff] h-full">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          className="flex-1 px-10"
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View className="items-center mt-12">
+            <Text className="text-3xl font-onest-semibold text-black/90 leading-tight">
+              Review your details before submitting your application.
+            </Text>
+          </View>
 
-          <View className="mt-6 gap-4">
-            <Section title="Personal Information">
+          <View className="py-12 ">
+            <Section title="Personal Information" >
               <View className="gap-3">
                 <Row
                   label="Full Name"
@@ -293,7 +297,7 @@ export default function Step04ReviewSubmit({
             {/* Driver Vehicle Summary (only for Driver, only if data exists) */}
             {renderVehicleSummary()}
 
-            <View style={shadowStyle} className="mt-10 p-4 rounded-2xl bg-white">
+            <View style={shadowStyle} className="mt-6 p-4 rounded-2xl ">
               <View className="flex-row items-start">
                 <Ionicons
                   name="information-circle-outline"
@@ -301,54 +305,51 @@ export default function Step04ReviewSubmit({
                   color="#3B82F6"
                 />
                 <Text className="text-sm text-gray-700 font-onest ml-2 flex-1">
-                  <Text className="font-onest-semibold">Note:</Text> your application will be reviewed by our team. You&apos;ll receive an
+                  <Text className="font-onest-semibold">Note:</Text> Your application will be reviewed by our team. You&apos;ll receive an
                   email notification once your account is approved.
                 </Text>
               </View>
             </View>
-          </View>
 
-          <Text className="mt-12 font-onest text-sm text-black/90">
-            By selecting Agree and continue, I indicate my agreement to Itinera&apos;s{" "}
-            <Text className="text-blue-500 underline font-onest-medium">
-              Terms of Service
-            </Text>
-          </Text>
-
-          <View className="flex-row mt-6 gap-3">
-            <Pressable
-              onPress={onBack}
-              disabled={isSubmitting}
-              className={[
-                "px-8 py-4 rounded-xl flex-1",
-                isSubmitting ? "bg-gray-200 opacity-50" : "bg-black/10",
-              ].join(" ")}
-            >
-              <Text className="text-black/70 text-center font-onest-medium">
-                Back
+            <Text className="mt-8 font-onest text-sm text-black/50">
+              By selecting Agree and submit, I indicate my agreement to Itinera&apos;s{" "}
+              <Text className="text-blue-500 underline font-onest-medium">
+                Terms of Service
               </Text>
-            </Pressable>
+            </Text>
 
-            <Pressable
-              onPress={onSubmit}
-              disabled={isSubmitting}
-              className={[
-                "px-8 py-4 rounded-xl flex-1 bg-[#191313] items-center justify-center",
-                isSubmitting ? "opacity-60" : "opacity-100",
-              ].join(" ")}
-              style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className="text-white/90 text-center font-onest-medium">
-                  Continue
+            {/* Action buttons */}
+            <View className="flex-row gap-3 mt-6">
+              <Pressable
+                onPress={onBack}
+                disabled={isSubmitting}
+                className="flex-1 px-6 py-4 rounded-xl bg-gray-200"
+              >
+                <Text className="text-black/70 text-center text-base font-onest-medium">
+                  Back
                 </Text>
-              )}
-            </Pressable>
+              </Pressable>
+
+              <Pressable
+                onPress={onSubmit}
+                disabled={isSubmitting}
+                className={[
+                  "bg-[#191313] py-4 px-8 rounded-xl flex-1",
+                  isSubmitting ? "opacity-60" : "opacity-100",
+                ].join(" ")}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-white/90 text-center text-base font-onest-medium">
+                    Agree and submit
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -324,12 +324,12 @@ const InboxScreen = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-[#fff]">
       {/* Header */}
       <View className="p-6">
         <View className="flex-row justify-between items-center mb-6">
           <View>
-            <Text className="text-3xl font-onest-semibold text-black/90">
+            <Text className="text-3xl font-onest-semibold text-black/90 mb-2">
               Inbox
             </Text>
             <Text className="text-black/40 font-onest">

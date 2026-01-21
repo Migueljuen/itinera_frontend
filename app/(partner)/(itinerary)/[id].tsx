@@ -146,7 +146,7 @@ export default function GuideItineraryDetailScreen() {
 
       if (response.data.success) {
         router.push({
-          pathname: "/(guide)/(conversations)/[id]",
+          pathname: "/(partner)/(conversations)/[id]",
           params: {
             id: String(response.data.data.id),
             name: guideInfo.traveler_name,

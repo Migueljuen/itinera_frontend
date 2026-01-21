@@ -1,7 +1,6 @@
+// app/(partner)/PartnerProfileScreen.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -13,7 +12,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  Switch,
   Text,
   TouchableOpacity,
   View
@@ -22,104 +20,112 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from '../../../constants/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../contexts/RefreshContext';
-// Type definitions
+
+type PartnerType = 'Guide' | 'Driver';
+
 interface UserData {
   user_id?: number;
   first_name: string;
   last_name: string;
   profile_pic: string;
   email: string;
+  mobile_number?: string;
   created_at: string;
 }
 
-interface ProfileStats {
-  totalItineraries: number;
-  completedItineraries: number;
-  savedExperiences: number;
-  upcomingTrips: number;
-}
-
-interface SavedExperience {
-  id: number;
-  saved_at: string;
-  experience_id: number;
-  title: string;
-  description?: string;
-  price?: string;
-  unit?: string;
-  destination_name?: string;
+interface PartnerProfile {
+  profile_id: number;
+  verification_status: string;
+  short_description?: string;
   city?: string;
-  images?: string[];
-  tags?: string[];
-}
-
-interface NotificationSettings {
-  tripReminders: boolean;
-  itineraryUpdates: boolean;
-  nearbyExperiences: boolean;
-}
-
-const ProfileScreen: React.FC = () => {
-  const router = useRouter();
-  const bottom = useBottomTabBarHeight();
-  const { user, logout } = useAuth();
-  const { profileUpdated, triggerProfileUpdate } = useRefresh();
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
-  const [userData, setUserData] = useState<UserData>({
-    first_name: "",
-    last_name: "",
-    profile_pic: "",
-    email: "",
-    created_at: "2024-01-15T00:00:00Z",
-  });
-
-  const [profileStats, setProfileStats] = useState<ProfileStats>({
-    totalItineraries: 0,
-    completedItineraries: 0,
-    savedExperiences: 0,
-    upcomingTrips: 0
-  });
-  const [loadingStats, setLoadingStats] = useState<boolean>(true);
-
-  const [recentExperiences, setRecentExperiences] = useState<SavedExperience[]>([]);
-  const [loadingSavedExperiences, setLoadingSavedExperiences] = useState<boolean>(false);
-
-  const navigation = useNavigation<any>();
-
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    tripReminders: true,
-    itineraryUpdates: true,
-    nearbyExperiences: false
-  });
-
-  // Unified styles
-  const shadowStyle = {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+  price_per_day?: number;
+  expertise_category_id?: number;
+  languages?: string[];
+  areas_covered?: string;
+  experience_years?: number;
+  service_area?: string;
+  is_multi_day?: boolean;
+  vehicles?: Vehicle[];
+  stats: {
+    completed_trips: number;
+    total_trips: number;
+    average_rating: number | null;
+    total_reviews: number;
   };
+}
 
-  const cardStyle = "bg-white rounded-2xl";
-  const sectionTitleStyle = "text-xl font-onest-semibold text-gray-800";
-  const horizontalScrollStyle = "px-4";
-  const statCardStyle = "bg-white rounded-2xl p-5 mr-3 w-32";
-  const iconBgColors = ['bg-indigo-50', 'bg-green-50', 'bg-red-50', 'bg-blue-50'];
-  const iconColors = ['#4F46E5', '#10B981', '#EF4444', '#3B82F6'];
-  const iconNames = ['map-outline', 'checkmark-circle-outline', 'heart-outline', 'calendar-outline'];
+interface Vehicle {
+  vehicle_id: number;
+  plate_number: string;
+  vehicle_type: string;
+  brand: string;
+  model: string;
+  year: number;
+  color: string;
+  passenger_capacity: number;
+  price_per_day: number;
+}
 
-  const fetchUserData = async (): Promise<void> => {
+interface EarningsSummary {
+  today: number;
+  week: number;
+  month: number;
+  total: number;
+  pending: number;
+}
+
+const PARTNER_CONFIG: Record<PartnerType, {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = {
+  Guide: {
+    label: 'Tour Guide',
+    icon: 'walk-outline',
+  },
+  Driver: {
+    label: 'Driver',
+    icon: 'car-outline',
+  },
+};
+
+const PartnerProfileScreen: React.FC = () => {
+  const router = useRouter();
+  const { user, token, logout } = useAuth();
+  const { profileUpdated, triggerProfileUpdate } = useRefresh();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const [userData, setUserData] = useState<UserData>({
+    first_name: '',
+    last_name: '',
+    profile_pic: '',
+    email: '',
+    created_at: new Date().toISOString(),
+  });
+
+  const [partnerType, setPartnerType] = useState<PartnerType | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
+  const [earnings, setEarnings] = useState<EarningsSummary>({
+    today: 0,
+    week: 0,
+    month: 0,
+    total: 0,
+    pending: 0,
+  });
+
+  const config = partnerType ? PARTNER_CONFIG[partnerType] : PARTNER_CONFIG.Guide;
+
+  const fetchUserData = async () => {
     try {
-      const user = await AsyncStorage.getItem('user');
-      if (user) {
-        const parsedUser = JSON.parse(user);
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
         setUserData({
           ...parsedUser,
-          email: parsedUser.email || "traveler@itinera.com",
-          created_at: parsedUser.created_at || "2024-01-15T00:00:00Z"
+          email: parsedUser.email || '',
+          created_at: parsedUser.created_at || new Date().toISOString(),
         });
       }
     } catch (error) {
@@ -127,103 +133,74 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Add function to fetch user stats
-  const fetchUserStats = async (): Promise<void> => {
+  const fetchPartnerProfile = async () => {
     try {
-      setLoadingStats(true);
-      let userId = user?.user_id;
-
-      if (!userId) {
-        const userData = await AsyncStorage.getItem('user');
-        if (userData) {
-          try {
-            const userObj = JSON.parse(userData);
-            userId = userObj.user_id;
-          } catch (e) {
-            console.error('Error parsing user data:', e);
-            return;
-          }
-        }
-      }
-
-      if (!userId) {
-        console.log('No user ID found, skipping stats fetch');
-        return;
-      }
-
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('No auth token found');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/users/${userId}/stats`, {
+      const response = await fetch(`${API_URL}/partner-mobile/profile`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setProfileStats({
-            totalItineraries: data.stats.totalItineraries,
-            completedItineraries: data.stats.completedActivities, // Using activities count as requested
-            savedExperiences: data.stats.savedExperiences,
-            upcomingTrips: data.stats.upcomingTrips
-          });
+          setPartnerType(data.partner_type);
+          setPartnerProfile(data.data);
         }
-      } else {
-        console.error('Failed to fetch user stats:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching user stats:', error);
-    } finally {
-      setLoadingStats(false);
+      console.error('Error fetching partner profile:', error);
     }
   };
 
-  const fetchSavedExperiences = async (): Promise<void> => {
+  const fetchEarnings = async () => {
     try {
-      setLoadingSavedExperiences(true);
-      let userId = user?.user_id;
-
-      if (!userId) {
-        const userData = await AsyncStorage.getItem('user');
-        if (userData) {
-          try {
-            const userObj = JSON.parse(userData);
-            userId = userObj.user_id;
-          } catch (e) {
-            console.error('Error parsing user data:', e);
-            return;
-          }
-        }
-      }
-
-      if (!userId) {
-        console.log('No user ID found, skipping saved experiences fetch');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/saved-experiences?user_id=${userId}`);
+      const response = await fetch(`${API_URL}/partner-mobile/earnings/summary`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.ok) {
-        const savedData: SavedExperience[] = await response.json();
-        setRecentExperiences(savedData.slice(0, 3));
-        // Don't update savedExperiences count here anymore since we get it from stats
-        console.log(`Fetched ${savedData.length} saved experiences`);
-      } else {
-        console.error('Failed to fetch saved experiences:', response.status);
+        const data = await response.json();
+        if (data.success) {
+          setEarnings(data.data);
+        }
       }
     } catch (error) {
-      console.error('Error fetching saved experiences:', error);
-    } finally {
-      setLoadingSavedExperiences(false);
+      console.error('Error fetching earnings:', error);
     }
   };
 
-  // Handle profile picture edit
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchUserData(),
+        fetchPartnerProfile(),
+        fetchEarnings(),
+      ]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [profileUpdated]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadAllData();
+    setRefreshing(false);
+  };
+
   const handleEditProfilePicture = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -233,17 +210,12 @@ const ProfileScreen: React.FC = () => {
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) {
-            openCamera();
-          } else if (buttonIndex === 2) {
-            openImagePicker();
-          } else if (buttonIndex === 3) {
-            handleRemovePhoto();
-          }
+          if (buttonIndex === 1) openCamera();
+          else if (buttonIndex === 2) openImagePicker();
+          else if (buttonIndex === 3) handleRemovePhoto();
         }
       );
     } else {
-      // For Android, use Alert
       Alert.alert(
         'Change Profile Picture',
         'Choose an option',
@@ -258,7 +230,6 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Open camera
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -278,7 +249,6 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Open image picker
   const openImagePicker = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -298,80 +268,51 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Upload profile picture
   const uploadProfilePicture = async (imageUri: string) => {
     try {
       setUploadingImage(true);
 
       const formData = new FormData();
-
-      // Add image to form data
       formData.append('profile_pic', {
         uri: imageUri,
         type: 'image/jpeg',
         name: 'profile_pic.jpg',
       } as any);
 
-      // Get auth token
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        Alert.alert('Error', 'Please login again');
-        return;
-      }
-
-      console.log('Uploading to:', `${API_URL}/users/${userData.user_id}`);
-
-      // Make request
       const response = await fetch(`${API_URL}/users/${userData.user_id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData - let it be set automatically
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
 
-      // Check content type of response
-      const contentType = response.headers.get("content-type");
+      const contentType = response.headers.get('content-type');
 
-      if (contentType && contentType.indexOf("application/json") !== -1) {
+      if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
 
         if (response.ok) {
-          // Update local user data
-          const updatedUser = {
-            ...userData,
-            profile_pic: data.user.profile_pic,
-          };
-
+          const updatedUser = { ...userData, profile_pic: data.user.profile_pic };
           setUserData(updatedUser);
-
-          // Update AsyncStorage
           await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-
-          // Trigger profile update
           triggerProfileUpdate();
-
           Alert.alert('Success', 'Profile picture updated successfully');
         } else {
           Alert.alert('Error', data.message || 'Failed to update profile picture');
         }
       } else {
-        // Response is not JSON - likely HTML error page
-        const text = await response.text();
-        console.error('Non-JSON response:', text.substring(0, 200));
-        Alert.alert('Error', 'Server error - please check your connection and try again');
+        Alert.alert('Error', 'Server error - please try again');
       }
     } catch (error) {
       console.error('Error uploading profile picture:', error);
-      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+      Alert.alert('Error', 'Failed to upload profile picture');
     } finally {
       setUploadingImage(false);
     }
   };
 
-  // Handle remove photo
-  const handleRemovePhoto = async () => {
+  const handleRemovePhoto = () => {
     Alert.alert(
       'Remove Photo',
       'Are you sure you want to remove your profile picture?',
@@ -384,41 +325,22 @@ const ProfileScreen: React.FC = () => {
             try {
               setUploadingImage(true);
 
-              const token = await AsyncStorage.getItem('token');
-              if (!token) {
-                Alert.alert('Error', 'Please login again');
-                return;
-              }
-
-              // Send empty profile_pic to remove it
-              const response = await fetch(`${API_URL}/user/${userData.user_id}`, {
+              const response = await fetch(`${API_URL}/users/${userData.user_id}`, {
                 method: 'PUT',
                 headers: {
-                  'Authorization': `Bearer ${token}`,
+                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  profile_pic: '',
-                }),
+                body: JSON.stringify({ profile_pic: '' }),
               });
 
               const data = await response.json();
 
               if (response.ok) {
-                // Update local user data
-                const updatedUser = {
-                  ...userData,
-                  profile_pic: '',
-                };
-
+                const updatedUser = { ...userData, profile_pic: '' };
                 setUserData(updatedUser);
-
-                // Update AsyncStorage
                 await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-
-                // Trigger profile update
                 triggerProfileUpdate();
-
                 Alert.alert('Success', 'Profile picture removed');
               } else {
                 Alert.alert('Error', data.message || 'Failed to remove profile picture');
@@ -435,130 +357,62 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  useEffect(() => {
-    fetchUserData();
-    fetchUserStats();
-    fetchSavedExperiences();
-  }, [profileUpdated, user]);
-
-  const handleRefresh = async (): Promise<void> => {
-    setRefreshing(true);
-    try {
-      await Promise.all([fetchUserData(), fetchUserStats(), fetchSavedExperiences()]);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleLogout = async (): Promise<void> => {
+  const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
+      'Logout',
+      'Are you sure you want to logout?',
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Logout",
-          style: "destructive",
+          text: 'Logout',
+          style: 'destructive',
           onPress: async () => {
             const result = await logout();
             if (result.success) {
-              router.replace("/(shared)/login");
+              router.replace('/(shared)/login');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
-  const toggleSwitch = (setting: keyof NotificationSettings): void => {
-    setNotificationSettings(prevState => ({
-      ...prevState,
-      [setting]: !prevState[setting]
-    }));
-  };
-
-  const formatDate = (dateString: string): string => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric'
-    });
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-  const getFormattedImageUrl = (imageUrl: string): string | null => {
-    if (!imageUrl) return null;
-    if (imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
-    const formattedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-    return `${API_URL}${formattedPath}`;
+  const formatCurrency = (amount: number) => {
+    return `₱${amount.toLocaleString()}`;
   };
 
-  const StatCard = ({ value, label, iconName, iconColor, iconBgColor }: {
-    value: number | string;
-    label: string;
-    iconName: string;
-    iconColor: string;
-    iconBgColor: string;
-  }) => (
-    <View className={statCardStyle} style={shadowStyle}>
-      <View className={`${iconBgColor} rounded-full w-12 h-12 items-center justify-center mb-3`}>
-        <Ionicons name={iconName as any} size={24} color={iconColor} />
-      </View>
-      <Text className="text-2xl font-onest-bold text-gray-800">{value}</Text>
-      <Text className="text-xs text-gray-500 font-onest mt-1">{label}</Text>
-    </View>
-  );
+  const getVerificationBadge = (status: string) => {
+    const badges: Record<string, { bg: string; text: string; label: string }> = {
+      approved: { bg: 'bg-green-100', text: 'text-green-700', label: 'Verified' },
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' },
+    };
+    return badges[status] || badges.pending;
+  };
 
-  const NotificationRow = ({ title, description, value, onToggle }: {
-    title: string;
-    description: string;
-    value: boolean;
-    onToggle: () => void;
-  }) => (
-    <View className="p-4 flex-row justify-between items-center border-b border-gray-100 last:border-b-0">
-      <View className="flex-1 mr-4">
-        <Text className="font-onest-medium text-gray-800">{title}</Text>
-        <Text className="text-xs text-gray-500 font-onest mt-1">{description}</Text>
-      </View>
-      <Switch
-        trackColor={{ false: "#e5e7eb", true: "#4F46E5" }}
-        thumbColor={"#ffffff"}
-        ios_backgroundColor="#e5e7eb"
-        onValueChange={onToggle}
-        value={value}
-      />
-    </View>
-  );
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#1f2937" />
+        <Text className="mt-4 text-black/50 font-onest">Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
-  const statsData = [
-    { value: profileStats.totalItineraries, label: 'Itineraries Completed' },
-    { value: profileStats.completedItineraries, label: 'Activities Finished' },
-    { value: loadingSavedExperiences ? '...' : profileStats.savedExperiences, label: 'Saved Activities' },
-    { value: profileStats.upcomingTrips, label: 'Upcoming' }
-  ];
-
-  const notificationData = [
-    {
-      title: 'Trip Reminders',
-      description: 'Get notified about upcoming trips',
-      value: notificationSettings.tripReminders,
-      onToggle: () => toggleSwitch('tripReminders')
-    },
-    {
-      title: 'Itinerary Updates',
-      description: 'Stay informed about your activities',
-      value: notificationSettings.itineraryUpdates,
-      onToggle: () => toggleSwitch('itineraryUpdates')
-    },
-
-  ];
+  const verificationBadge = partnerProfile
+    ? getVerificationBadge(partnerProfile.verification_status)
+    : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-white">
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120 }}
+        className="flex-1 px-6"
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -570,105 +424,216 @@ const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="flex-row justify-between items-center p-6">
-          <View>
-            <Text className="text-3xl font-onest-semibold text-gray-800">My Profile</Text>
-            <Text className="text-gray-400 font-onest">Member since {formatDate(userData.created_at)}</Text>
-          </View>
+        <View className="flex-row justify-between items-center mt-4">
+          <Text className="text-3xl font-onest-semibold text-black/90">
+            Profile
+          </Text>
           <TouchableOpacity onPress={handleLogout} className="bg-gray-100 p-3 rounded-full">
-            <Ionicons name="log-out-outline" size={24} color="#1f2937" />
+            <Ionicons name="log-out-outline" size={20} color="#1f2937" />
           </TouchableOpacity>
         </View>
 
-        {/* Profile Card */}
-        <View className={`${cardStyle} mx-4 p-5 mb-6`} style={shadowStyle}>
-          <View className="items-center mb-4">
-            <View className="relative">
-              {uploadingImage ? (
-                <View className="w-28 h-28 rounded-full bg-gray-100 items-center justify-center">
-                  <ActivityIndicator size="large" color="#4F46E5" />
-                </View>
-              ) : userData.profile_pic ? (
-                <Image
-                  source={{ uri: `${API_URL}/${userData.profile_pic}` }}
-                  className="w-28 h-28 rounded-full"
-                />
-              ) : (
-                <View className="w-28 h-28 rounded-full bg-gray-200 items-center justify-center">
-                  <Ionicons name="person" size={48} color="#9CA3AF" />
-                </View>
-              )}
-              <TouchableOpacity
-                className="absolute bottom-0 right-0 bg-primary rounded-full p-2"
-                onPress={handleEditProfilePicture}
-                disabled={uploadingImage}
-                style={{
-                  shadowColor: '#4F46E5',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 4,
-                  elevation: 3,
-                }}
-              >
-                <Ionicons name="pencil" size={16} color="#E5E7EB" />
+        {/* Profile Section */}
+        <View className="items-center mt-8">
+          {/* Profile Picture */}
+          <View className="relative">
+            {uploadingImage ? (
+              <View className="w-24 h-24 rounded-full bg-gray-100 items-center justify-center">
+                <ActivityIndicator size="large" color="#1f2937" />
+              </View>
+            ) : userData.profile_pic ? (
+              <Image
+                source={{ uri: `${API_URL}/${userData.profile_pic}` }}
+                className="w-24 h-24 rounded-full"
+              />
+            ) : (
+              <View className="w-24 h-24 rounded-full bg-gray-100 items-center justify-center">
+                <Ionicons name="person" size={40} color="#9CA3AF" />
+              </View>
+            )}
+            <TouchableOpacity
+              className="absolute bottom-0 right-0 bg-gray-800 rounded-full p-2"
+              onPress={handleEditProfilePicture}
+              disabled={uploadingImage}
+            >
+              <Ionicons name="pencil" size={14} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Name & Email */}
+          <Text className="text-xl capitalize font-onest-semibold mt-4 px-2 text-black/90">
+            {userData.first_name} {userData.last_name}
+          </Text>
+          <Text className="text-sm text-black/50 font-onest mt-1">{userData.email}</Text>
+
+
+
+
+        </View>
+
+        {/* Performance Section */}
+        <View className="mt-12">
+          <Text className="text-2xl text-onest text-black/90 mb-4">Performance</Text>
+
+          <View className="flex-row justify-between">
+            <View className="flex-1 items-center">
+              <View className="w-10 h-10 rounded-full bg-green-100 items-center justify-center mb-2">
+                <Ionicons name="checkmark-circle-outline" size={20} color="#059669" />
+              </View>
+              <Text className="text-lg font-onest-semibold text-black/90">
+                {partnerProfile?.stats.completed_trips || 0}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Completed</Text>
+            </View>
+
+            <View className="flex-1 items-center">
+              <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mb-2">
+                <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
+              </View>
+              <Text className="text-lg font-onest-semibold text-black/90">
+                {partnerProfile?.stats.total_trips || 0}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Total Trips</Text>
+            </View>
+
+            <View className="flex-1 items-center">
+              <View className="w-10 h-10 rounded-full bg-yellow-100 items-center justify-center mb-2">
+                <Ionicons name="star-outline" size={20} color="#F59E0B" />
+              </View>
+              <Text className="text-lg font-onest-semibold text-black/90">
+                {partnerProfile?.stats.average_rating || '—'}
+              </Text>
+              <Text className="text-xs text-black/50 font-onest">Rating</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Earnings Section */}
+        <View className="mt-12">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-2xl text-onest text-black/90">Earnings</Text>
+            <TouchableOpacity onPress={() => router.push('/(partner)/earnings')}>
+              <Text className="text-sm font-onest text-primary">View all</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center flex-1">
+              <View className="w-10 h-10 rounded-full bg-green-100 items-center justify-center mr-3">
+                <Ionicons name="wallet-outline" size={20} color="#059669" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm text-onest text-black/90">This Month</Text>
+                <Text className="text-xs font-onest text-black/50 mt-0.5">
+                  {formatCurrency(earnings.month)}
+                </Text>
+              </View>
+            </View>
+            <View className="bg-green-100 px-3 py-1 rounded-full">
+              <Text className="text-xs font-onest text-green-600">
+                +{formatCurrency(earnings.week)} this week
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row mt-4 pt-4 border-t border-gray-100">
+            <View className="flex-1">
+              <Text className="text-xs text-black/50 font-onest">Total Earned</Text>
+              <Text className="text-base font-onest-semibold text-black/90 mt-1">
+                {formatCurrency(earnings.total)}
+              </Text>
+            </View>
+            <View className="flex-1 items-end">
+              <Text className="text-xs text-black/50 font-onest">Pending</Text>
+              <Text className="text-base font-onest-semibold text-yellow-600 mt-1">
+                {formatCurrency(earnings.pending)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Driver Vehicles Section */}
+        {partnerType === 'Driver' && partnerProfile?.vehicles && partnerProfile.vehicles.length > 0 && (
+          <View className="mt-12">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-2xl text-onest text-black/90">My Vehicle</Text>
+              <TouchableOpacity onPress={() => router.push('/(partner)/vehicles')}>
+                <Text className="text-sm font-onest text-primary">Manage</Text>
               </TouchableOpacity>
             </View>
 
-            <Text className="text-2xl font-onest-semibold mt-3 text-gray-800">
-              {userData.first_name} {userData.last_name}
-            </Text>
-            <Text className="text-sm text-gray-500 font-onest mt-1">{userData.email}</Text>
-          </View>
-
-          <TouchableOpacity
-            className=" rounded-xl py-3 flex-row items-center justify-center"
-            onPress={() => router.push('/(traveler)/(profile)/edit')}
-          >
-            <Ionicons name="create-outline" size={20} color="#1f2937" />
-            <Text className="ml-2 text-gray-800 font-onest-medium">Edit Profile</Text>
-          </TouchableOpacity>
-        </View>
-
-
-        {/* Notification Settings */}
-        <View className="mb-6">
-          <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Notifications</Text>
-          <View className={`${cardStyle} mx-4 overflow-hidden`}>
-            {notificationData.map((notification, index) => (
-              <NotificationRow
-                key={index}
-                title={notification.title}
-                description={notification.description}
-                value={notification.value}
-                onToggle={notification.onToggle}
-              />
+            {partnerProfile.vehicles.slice(0, 2).map((vehicle, index) => (
+              <View
+                key={vehicle.vehicle_id}
+                className={`flex-row items-center ${index < partnerProfile.vehicles!.length - 1 ? 'mb-3' : ''}`}
+              >
+                <View className="w-12 h-12 rounded-xl bg-gray-100 items-center justify-center mr-3">
+                  <Ionicons name="car-outline" size={24} color="#6B7280" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-onest text-black/90">
+                    {vehicle.brand} {vehicle.model}
+                  </Text>
+                  <Text className="text-xs font-onest text-black/50 mt-0.5">
+                    {vehicle.plate_number} • {vehicle.color} • {vehicle.passenger_capacity} seats
+                  </Text>
+                </View>
+                <Text className="text-sm font-onest-semibold text-primary">
+                  ₱{vehicle.price_per_day?.toLocaleString()}/day
+                </Text>
+              </View>
             ))}
           </View>
-        </View>
+        )}
 
         {/* Quick Actions */}
-        <View className="px-4 mb-6">
-          <TouchableOpacity
-            className="bg-primary rounded-2xl py-4 flex-row items-center justify-center mb-3"
-            onPress={() => router.push('/(guide)/(profile)/settings')}
-            style={{
-              shadowColor: '#4F46E5',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 6,
-            }}
-          >
-            <Ionicons name="settings-outline" size={20} color="#E5E7EB" />
-            <Text className="ml-2 text-gray-200 font-onest-semibold">Account Settings</Text>
-          </TouchableOpacity>
+        <View className="mt-12">
+          <Text className="text-2xl text-onest text-black/90 mb-4">Quick Actions</Text>
 
           <TouchableOpacity
-            className="border border-gray-300 rounded-2xl py-4 flex-row items-center justify-center"
-            onPress={() => router.push('/(traveler)/(support)')}
+            className="flex-row items-center py-3"
+            onPress={() => router.push('/(partner)/availability')}
           >
-            <Ionicons name="help-circle-outline" size={20} color="#6B7280" />
-            <Text className="ml-2 text-gray-700 font-onest-medium">Help & Support</Text>
+            <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mr-3">
+              <Ionicons name="calendar-outline" size={20} color="#4F46E5" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-onest text-black/90">Availability</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">Manage your schedule</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View className="border-t border-gray-100" />
+
+          <TouchableOpacity
+            className="flex-row items-center py-3"
+            onPress={() => router.push('/(partner)/(profile)/settings')}
+          >
+            <View className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3">
+              <Ionicons name="settings-outline" size={20} color="#6B7280" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-onest text-black/90">Account Settings</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">Password, notifications & more</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View className="border-t border-gray-100" />
+
+          <TouchableOpacity
+            className="flex-row items-center py-3"
+            onPress={() => router.push('/(partner)/support')}
+          >
+            <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
+              <Ionicons name="help-circle-outline" size={20} color="#3B82F6" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-onest text-black/90">Help & Support</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">FAQs, contact support</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -676,4 +641,4 @@ const ProfileScreen: React.FC = () => {
   );
 };
 
-export default ProfileScreen;
+export default PartnerProfileScreen;

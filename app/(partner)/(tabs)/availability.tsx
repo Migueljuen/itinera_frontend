@@ -1,8 +1,11 @@
-// app/(partner)/GuideAvailability.tsx
+
+// app/(partner)/PartnerAvailability.tsx
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import axios from "axios";
 import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -15,13 +18,17 @@ import {
     Switch,
     Text,
     TextInput,
-    View
+    View,
+    useColorScheme
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 import API_URL from "@/constants/api";
 import { useAuth } from "@/contexts/AuthContext";
+
+dayjs.extend(isBetween);
+
 
 type DayOfWeek =
     | "Monday"
@@ -33,15 +40,18 @@ type DayOfWeek =
     | "Sunday";
 
 type OverrideType = "Available" | "Unavailable";
+type PartnerType = "guide" | "driver";
 
-type GuideProfile = {
-    guide_id: number;
+type PartnerProfile = {
+    profile_id: number;
     availability_days: string[] | string | null;
+    guide_id?: number;
+    driver_id?: number;
 };
 
 type AvailabilityOverride = {
     override_id: number;
-    date: string; // can be "YYYY-MM-DD" or timestamp
+    date: string;
     type: OverrideType;
     reason?: string | null;
 };
@@ -56,7 +66,18 @@ const DAYS_OF_WEEK: DayOfWeek[] = [
     "Sunday",
 ];
 
-function parseAvailabilityDays(input: GuideProfile["availability_days"]): DayOfWeek[] {
+const PARTNER_CONFIG: Record<PartnerType, { label: string; description: string }> = {
+    guide: {
+        label: "Tour Guide",
+        description: "Set when you're available for tour bookings",
+    },
+    driver: {
+        label: "Driver",
+        description: "Set when you're available for transport bookings",
+    },
+};
+
+function parseAvailabilityDays(input: PartnerProfile["availability_days"]): DayOfWeek[] {
     try {
         if (!input) return [];
         if (Array.isArray(input)) return input as DayOfWeek[];
@@ -67,65 +88,119 @@ function parseAvailabilityDays(input: GuideProfile["availability_days"]): DayOfW
     }
 }
 
-const softShadow = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-};
-
-export default function GuideAvailability() {
+export default function PartnerAvailability() {
     const { user, token } = useAuth();
     const [updatingDays, setUpdatingDays] = useState<Partial<Record<DayOfWeek, boolean>>>({});
 
     const [loading, setLoading] = useState(false);
-    const [guideProfile, setGuideProfile] = useState<GuideProfile | null>(null);
+    const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
+    const [partnerType, setPartnerType] = useState<PartnerType | null>(null);
+
+    type BookingRange = { start_date: string; end_date: string };
+    const [bookings, setBookings] = useState<BookingRange[]>([]);
 
     const [availabilityDays, setAvailabilityDays] = useState<DayOfWeek[]>([]);
     const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
+    const scheme = useColorScheme();
 
     const [selectedMonth, setSelectedMonth] = useState(dayjs());
 
     const [showAddOverrideModal, setShowAddOverrideModal] = useState(false);
     const [uploading, setUploading] = useState(false);
 
-    // header filter pills (like Inbox)
-    const filters = ["All", "Weekly", "Special Dates", "Calendar"];
-    const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All");
-
-    // override form
     const [overrideDate, setOverrideDate] = useState<Date>(new Date());
     const [overrideReason, setOverrideReason] = useState("");
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    const config = partnerType ? PARTNER_CONFIG[partnerType] : PARTNER_CONFIG.guide;
 
-    const fetchGuideProfile = async () => {
-        if (!user?.user_id) return;
+    const getProfileId = (): number | null => {
+        if (!partnerProfile) return null;
+        if (partnerType === "guide") return partnerProfile.guide_id || null;
+        if (partnerType === "driver") return partnerProfile.driver_id || null;
+        return null;
+    };
+
+    const detectPartnerType = async (): Promise<PartnerType | null> => {
+        if (!user?.user_id) return null;
+
         try {
-            setLoading(true);
-            const res = await axios.get(`${API_URL}/partner/profile/guide/${user.user_id}`, {
+            const guideRes = await axios.get(`${API_URL}/partner/profile/guide/${user.user_id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
             });
 
-            const profile: GuideProfile | undefined = res.data?.profile;
+            if (guideRes.data?.profile) {
+                return "guide";
+            }
+        } catch {
+            // Not a guide
+        }
+
+        try {
+            const driverRes = await axios.get(`${API_URL}/partner/profile/driver/${user.user_id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (driverRes.data?.profile) {
+                return "driver";
+            }
+        } catch {
+            // Not a driver
+        }
+
+        return null;
+    };
+
+    const fetchPartnerProfile = async () => {
+        if (!user?.user_id) return;
+
+        try {
+            setLoading(true);
+
+            let type = partnerType;
+            if (!type) {
+                type = await detectPartnerType();
+                if (!type) {
+                    toast.error("Partner profile not found.");
+                    return;
+                }
+                setPartnerType(type);
+            }
+
+            const start = selectedMonth.startOf("month").format("YYYY-MM-DD");
+            const end = selectedMonth.endOf("month").format("YYYY-MM-DD");
+
+            const res = await axios.get(`${API_URL}/partner/profile/${type}/${user.user_id}`, {
+                params: { start, end }, // ✅ bookings window
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            const profile = res.data?.profile;
             if (!profile) {
-                toast.error("Guide profile not found.");
+                toast.error(`${PARTNER_CONFIG[type].label} profile not found.`);
                 return;
             }
 
-            setGuideProfile(profile);
+            setPartnerProfile({ ...profile, profile_id: profile.guide_id || profile.driver_id });
             setAvailabilityDays(parseAvailabilityDays(profile.availability_days));
+            setBookings(res.data?.bookings || []); // ✅ store bookings
         } catch (e) {
-            console.error("Error fetching guide profile:", e);
+            console.error("Error fetching partner profile:", e);
             toast.error("Failed to fetch profile");
         } finally {
             setLoading(false);
         }
     };
+
 
     const fetchOverrides = async () => {
         if (!user?.user_id) return;
@@ -148,7 +223,7 @@ export default function GuideAvailability() {
     const refreshAll = async () => {
         try {
             setUploading(true);
-            await Promise.all([fetchGuideProfile(), fetchOverrides()]);
+            await Promise.all([fetchPartnerProfile(), fetchOverrides()]);
             toast.success("Refreshed");
         } catch {
             // handled above
@@ -159,11 +234,10 @@ export default function GuideAvailability() {
 
     useEffect(() => {
         if (user?.user_id) {
-            fetchGuideProfile();
+            fetchPartnerProfile();
             fetchOverrides();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.user_id]);
+    }, [user?.user_id, selectedMonth]);
 
     const overrideDateString = useMemo(
         () => dayjs(overrideDate).format("YYYY-MM-DD"),
@@ -173,6 +247,15 @@ export default function GuideAvailability() {
     const getOverrideForDate = (date: dayjs.Dayjs) => {
         return overrides.find((o) => dayjs(o.date).isSame(date, "day"));
     };
+
+    const isBookedDay = (date: dayjs.Dayjs) => {
+        return bookings.some((b) => {
+            const s = dayjs(b.start_date);
+            const e = dayjs(b.end_date);
+            return date.isBetween(s, e, "day", "[]");
+        });
+    };
+
 
     const isDayAvailable = (date: dayjs.Dayjs) => {
         const dayName = date.format("dddd") as DayOfWeek;
@@ -185,9 +268,8 @@ export default function GuideAvailability() {
         const startOfMonth = selectedMonth.startOf("month");
         const endOfMonth = selectedMonth.endOf("month");
 
-        // Force Sunday-start week to match your header (Sun..Sat)
-        const startDate = startOfMonth.day(0); // Sunday
-        const endDate = endOfMonth.day(6);     // Saturday
+        const startDate = startOfMonth.day(0);
+        const endDate = endOfMonth.day(6);
 
         const days: dayjs.Dayjs[] = [];
         let current = startDate;
@@ -202,8 +284,6 @@ export default function GuideAvailability() {
 
     const calendarDays = useMemo(
         () => generateCalendarDays(),
-        // keep deps for correctness when overrides/days change
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [selectedMonth, overrides, availabilityDays]
     );
 
@@ -218,7 +298,8 @@ export default function GuideAvailability() {
     }, [overrides]);
 
     const toggleWeeklyDay = async (day: DayOfWeek, nextValue: boolean) => {
-        if (!guideProfile?.guide_id) return;
+        const profileId = getProfileId();
+        if (!profileId || !partnerType) return;
 
         const prevDays = availabilityDays;
 
@@ -226,14 +307,13 @@ export default function GuideAvailability() {
             ? Array.from(new Set([...prevDays, day]))
             : prevDays.filter((d) => d !== day);
 
-        // optimistic UI
         setAvailabilityDays(updatedDays);
 
         try {
             setUpdatingDays((p) => ({ ...p, [day]: true }));
 
             await axios.put(
-                `${API_URL}/partner/profile/guide/${guideProfile.guide_id}/availability`,
+                `${API_URL}/partner/profile/${partnerType}/${profileId}/availability`,
                 { availability_days: JSON.stringify(updatedDays) },
                 {
                     headers: {
@@ -243,13 +323,12 @@ export default function GuideAvailability() {
                 }
             );
         } catch (e) {
-            setAvailabilityDays(prevDays); // rollback
+            setAvailabilityDays(prevDays);
             toast.error("Failed to update availability");
         } finally {
             setUpdatingDays((p) => ({ ...p, [day]: false }));
         }
     };
-
 
     const openAddOverride = (date?: Date) => {
         const base = date ?? new Date();
@@ -261,7 +340,6 @@ export default function GuideAvailability() {
     const handleAddOverride = async () => {
         if (!user?.user_id) return;
 
-        // Prevent past dates
         if (dayjs(overrideDate).isBefore(dayjs(), "day")) {
             toast.error("Please select a date starting today.");
             return;
@@ -331,371 +409,278 @@ export default function GuideAvailability() {
         if (selected) setOverrideDate(selected);
     };
 
-    // Filtered render flags (so it feels like Inbox pills)
-    const showWeekly = activeFilter === "All" || activeFilter === "Weekly";
-    const showSpecial = activeFilter === "All" || activeFilter === "Special Dates";
-    const showCalendar = activeFilter === "All" || activeFilter === "Calendar";
-
     return (
-        <SafeAreaView className="flex-1 bg-white">
+        <SafeAreaView className="flex-1 bg-[#fff]">
             <KeyboardAvoidingView
-                className="flex-1 "
+                className="flex-1"
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                {/* Header (match Inbox header layout) */}
-                <View className="p-6">
-                    <View className="flex-row justify-between items-center mb-6">
-                        <View>
-                            <Text className="text-3xl font-onest-semibold text-black/90">
-                                Availability
-                            </Text>
-                            <Text className="text-black/40 font-onest">
-                                {weeklyEnabledCount} weekly days • {upcomingBlockedCount} blocked dates
-                            </Text>
-                        </View>
-
-                        <View className="flex-row items-center gap-3">
-                            <Pressable
-                                onPress={refreshAll}
-                                disabled={loading || uploading}
-                                className="w-10 h-10 rounded-full  items-center justify-center"
-                                style={({ pressed }) => [
-                                    softShadow,
-                                    { opacity: pressed ? 0.8 : 1 },
-                                ]}
-                            >
-                                {uploading ? (
-                                    <ActivityIndicator size="small" color="#1f2937" />
-                                ) : (
-                                    <Ionicons name="refresh-outline" size={20} color="rgba(0,0,0,0.7)" />
-                                )}
-                            </Pressable>
-
-                            <View className="bg-indigo-50 rounded-full px-3 py-1">
-                                <Text className="text-primary font-onest-semibold text-sm">
-                                    {upcomingBlockedCount}
-                                </Text>
-                            </View>
-                        </View>
+                {/* Header */}
+                <View className="p-6 ">
+                    <View className="flex-row justify-between items-baseline ">
+                        <Text className="text-3xl font-onest-semibold text-black/90">
+                            Availability
+                        </Text>
+                        <Pressable
+                            onPress={refreshAll}
+                            disabled={loading || uploading}
+                            className="bg-gray-100 p-3 rounded-full"
+                        >
+                            {uploading ? (
+                                <ActivityIndicator size="small" color="#1f2937" />
+                            ) : (
+                                <Ionicons name="refresh-outline" size={20} color="#1f2937" />
+                            )}
+                        </Pressable>
                     </View>
-
-                    {/* Filter pills (same pattern as Inbox) */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        className="flex-row"
-                    >
-                        {filters.map((filter) => {
-                            const isActive = activeFilter === filter;
-                            return (
-                                <Pressable
-                                    key={filter}
-                                    onPress={() => setActiveFilter(filter)}
-                                    className={`px-6 py-2 rounded-full mr-3 ${isActive ? "bg-[#191313]" : ""
-                                        }`}
-                                    style={softShadow}
-                                >
-                                    <Text
-                                        className={`text-base font-onest-medium ${isActive ? "text-white" : "text-black/40"
-                                            }`}
-                                    >
-                                        {filter}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </ScrollView>
+                    <Text className="text-black/40 font-onest">
+                        {weeklyEnabledCount} weekly days • {upcomingBlockedCount} blocked dates
+                    </Text>
                 </View>
 
-                {/* Content */}
                 <ScrollView
-                    className="flex-1"
-                    contentContainerStyle={{ paddingBottom: 120 }}
+                    className="flex-1 px-6"
+                    contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View className="px-4 pt-2 gap-4">
-                        {/* Weekly Availability Card */}
-                        {showWeekly && (
-                            <View className="bg-white rounded-2xl p-5" style={softShadow}>
-                                <View className="flex-row items-center justify-between mb-4">
-                                    <View className="flex-row items-center gap-3">
-                                        <View className="w-12 h-12 rounded-full bg-black/5 items-center justify-center">
-                                            <Ionicons name="time-outline" size={20} color="rgba(0,0,0,0.75)" />
-                                        </View>
-                                        <View>
-                                            <Text className="text-base font-onest-semibold text-black/90">
-                                                Weekly Availability
-                                            </Text>
-                                            <Text className="text-sm text-black/40 font-onest">
-                                                Toggle the days you’re generally available
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
 
-                                {loading ? (
-                                    <Text className="text-black/50 font-onest">Loading...</Text>
-                                ) : (
-                                    <View className="gap-3">
-                                        {DAYS_OF_WEEK.map((day) => {
-                                            const active = availabilityDays.includes(day);
-                                            return (
-                                                <View key={day} className="flex-row items-center justify-between">
-                                                    <Text
-                                                        className={`text-base font-onest-medium ${active ? "text-black/90" : "text-black/35"
-                                                            }`}
-                                                    >
-                                                        {day}
-                                                    </Text>
-
-                                                    <Switch
-                                                        value={active}
-                                                        trackColor={{ false: "#E5E7EB", true: "#191313" }}
-                                                        onValueChange={(next) => toggleWeeklyDay(day, next)}
-                                                        disabled={!!updatingDays[day] || !guideProfile?.guide_id}
-                                                    />
-
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                )}
+                    {/* Calendar Section */}
+                    <View className="mt-12">
+                        <View className="flex-row justify-between items-center mb-4">
+                            <Text className="text-2xl text-onest text-black/90">
+                                {selectedMonth.format("MMMM YYYY")}
+                            </Text>
+                            <View className="flex-row items-center gap-2">
+                                <Pressable
+                                    onPress={() => setSelectedMonth((m) => m.subtract(1, "month"))}
+                                    className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                                >
+                                    <Ionicons name="chevron-back" size={18} color="#374151" />
+                                </Pressable>
+                                <Pressable
+                                    onPress={() => setSelectedMonth(dayjs())}
+                                    className="px-3 py-2 rounded-full bg-gray-100"
+                                >
+                                    <Text className="text-xs font-onest text-black/70">Today</Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={() => setSelectedMonth((m) => m.add(1, "month"))}
+                                    className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                                >
+                                    <Ionicons name="chevron-forward" size={18} color="#374151" />
+                                </Pressable>
                             </View>
-                        )}
+                        </View>
 
-                        {/* Special Dates Card */}
-                        {showSpecial && (
-                            <View className="bg-white rounded-2xl p-5" style={softShadow}>
-                                <View className="flex-row items-center justify-between mb-4">
-                                    <View className="flex-row items-center gap-3">
-                                        <View className="w-12 h-12 rounded-full bg-black/5 items-center justify-center">
-                                            <Ionicons name="calendar-outline" size={20} color="rgba(0,0,0,0.75)" />
-                                        </View>
-                                        <View>
-                                            <Text className="text-base font-onest-semibold text-black/90">
-                                                Special Dates
-                                            </Text>
-                                            <Text className="text-sm text-black/40 font-onest">
-                                                Block specific dates you won’t be available
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    <Pressable
-                                        onPress={() => openAddOverride(new Date())}
-                                        disabled={uploading}
-                                        className="px-4 py-2 rounded-full bg-primary"
-                                        style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
-                                    >
-                                        <Text className="text-white font-onest-medium">Add</Text>
-                                    </Pressable>
-                                </View>
-
-                                {overrides.length === 0 ? (
-                                    <View className="items-center justify-center py-6">
-                                        <Ionicons name="calendar-clear-outline" size={44} color="#D1D5DB" />
-                                        <Text className="text-black/40 font-onest-medium text-base mt-3">
-                                            No special dates set
-                                        </Text>
-                                        <Text className="text-black/40 font-onest text-sm mt-1">
-                                            Add blocked dates when you’re unavailable
-                                        </Text>
-                                    </View>
-                                ) : (
-                                    <View className="gap-2">
-                                        {overrides
-                                            .slice()
-                                            .sort((a, b) => Number(new Date(a.date)) - Number(new Date(b.date)))
-                                            .map((o) => {
-                                                const d = dayjs(o.date);
-                                                const isUnavailable = o.type !== "Available";
-                                                return (
-                                                    <View
-                                                        key={o.override_id}
-                                                        className={`rounded-2xl p-4 ${isUnavailable ? "bg-red-50" : "bg-green-50"
-                                                            }`}
-                                                    >
-                                                        <View className="flex-row justify-between items-start">
-                                                            <View className="flex-1 pr-3">
-                                                                <Text className="text-base font-onest-semibold text-black/90">
-                                                                    {d.format("MMM D, YYYY")}
-                                                                </Text>
-                                                                <Text
-                                                                    className={`text-xs font-onest-medium mt-1 ${isUnavailable ? "text-red-700" : "text-green-700"
-                                                                        }`}
-                                                                >
-                                                                    {o.type}
-                                                                </Text>
-
-                                                                {!!o.reason && (
-                                                                    <Text className="text-sm text-black/60 mt-2 font-onest">
-                                                                        {o.reason}
-                                                                    </Text>
-                                                                )}
-                                                            </View>
-
-                                                            <Pressable
-                                                                onPress={() => handleDeleteOverride(o.override_id)}
-                                                                disabled={uploading}
-                                                                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-                                                            >
-                                                                <Ionicons
-                                                                    name="trash-outline"
-                                                                    size={18}
-                                                                    color="rgba(0,0,0,0.75)"
-                                                                />
-                                                            </Pressable>
-                                                        </View>
-                                                    </View>
-                                                );
-                                            })}
-                                    </View>
-                                )}
-                            </View>
-                        )}
-
-                        {/* Calendar Card */}
-                        {showCalendar && (
-                            <View className="bg-white rounded-2xl p-5" style={softShadow}>
-                                <View className="flex-row items-center justify-between mb-4">
-                                    <Text className="text-base font-onest-semibold text-black/90">
-                                        {selectedMonth.format("MMMM YYYY")}
+                        {/* Day headers */}
+                        <View className="flex-row mb-2">
+                            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                                <View key={d} className="flex-1">
+                                    <Text className="text-center text-xs text-black/40 font-onest">
+                                        {d}
                                     </Text>
-
-                                    <View className="flex-row items-center gap-2">
-                                        <Pressable
-                                            onPress={() => setSelectedMonth((m) => m.subtract(1, "month"))}
-                                            className="w-9 h-9 rounded-xl bg-black/5 items-center justify-center"
-                                            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-                                        >
-                                            <Ionicons name="chevron-back" size={18} color="rgba(0,0,0,0.75)" />
-                                        </Pressable>
-
-                                        <Pressable
-                                            onPress={() => setSelectedMonth(dayjs())}
-                                            className="px-3 py-2 rounded-xl bg-black/5"
-                                            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-                                        >
-                                            <Text className="text-sm font-onest-medium text-black/80">Today</Text>
-                                        </Pressable>
-
-                                        <Pressable
-                                            onPress={() => setSelectedMonth((m) => m.add(1, "month"))}
-                                            className="w-9 h-9 rounded-xl bg-black/5 items-center justify-center"
-                                            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-                                        >
-                                            <Ionicons
-                                                name="chevron-forward"
-                                                size={18}
-                                                color="rgba(0,0,0,0.75)"
-                                            />
-                                        </Pressable>
-                                    </View>
                                 </View>
+                            ))}
+                        </View>
 
-                                {/* Day headers */}
-                                <View className="flex-row">
-                                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                                        <View key={d} className="flex-1 py-2">
+                        {/* Calendar Grid */}
+                        <View className="flex-row flex-wrap">
+                            {calendarDays.map((date, idx) => {
+                                const isCurrentMonth = date.month() === selectedMonth.month();
+                                const isToday = date.isSame(dayjs(), "day");
+                                const isPast = date.isBefore(dayjs(), "day");
 
-                                            <Text className="text-center text-xs text-black/50 font-onest-medium">
-                                                {d}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
+                                const available = isDayAvailable(date);
+                                const override = getOverrideForDate(date);
+                                const booked = isBookedDay(date);
 
-                                {/* Grid */}
-                                <View className="flex-row flex-wrap">
-                                    {calendarDays.map((date, idx) => {
-                                        const isCurrentMonth = date.month() === selectedMonth.month();
-                                        const isToday = date.isSame(dayjs(), "day");
-                                        const isPast = date.isBefore(dayjs(), "day");
+                                const bgColor = !isCurrentMonth
+                                    ? "bg-transparent"
+                                    : booked
+                                        ? "bg-amber-100"
+                                        : available
+                                            ? "bg-green-100"
+                                            : "bg-gray-100";
 
-                                        const available = isDayAvailable(date);
-                                        const override = getOverrideForDate(date);
+                                const borderStyle = isToday ? "border border-primary" : "";
 
-                                        const bg =
-                                            !isCurrentMonth
-                                                ? "bg-black/5"
-                                                : available
-                                                    ? "bg-indigo-100"
-                                                    : "bg-black/5";
+                                return (
+                                    <Pressable
+                                        key={`${date.format("YYYY-MM-DD")}-${idx}`}
+                                        disabled={!isCurrentMonth || isPast || uploading || booked}
 
-                                        const borderRing = isToday
-                                            ? "border border-primary"
-                                            : "border border-transparent";
-
-                                        return (
-                                            <Pressable
-                                                key={`${date.format("YYYY-MM-DD")}-${idx}`}
-                                                disabled={!isCurrentMonth || isPast || uploading}
-                                                onPress={() => openAddOverride(date.toDate())}
-                                                style={{
-                                                    flexBasis: `${100 / 7}%`,
-                                                    aspectRatio: 1,
-                                                    padding: 4,
-                                                    opacity: !isCurrentMonth ? 0.45 : isPast ? 0.35 : 1,
-                                                }}
+                                        onPress={() => openAddOverride(date.toDate())}
+                                        style={{
+                                            flexBasis: `${100 / 7}%`,
+                                            aspectRatio: 1,
+                                            padding: 2,
+                                            opacity: !isCurrentMonth ? 0.3 : isPast ? 0.4 : 1,
+                                        }}
+                                    >
+                                        <View
+                                            className={`flex-1 rounded-xl ${bgColor} ${borderStyle} items-center justify-center`}
+                                        >
+                                            <Text
+                                                className={`text-xs font-onest ${isCurrentMonth ? "text-black/80" : "text-black/30"}`}
                                             >
-
+                                                {date.format("D")}
+                                            </Text>
+                                            {override && isCurrentMonth && (
                                                 <View
-                                                    className={`flex-1 rounded-2xl ${bg} ${borderRing} items-center justify-center`}
-                                                >
-                                                    <Text className="text-sm font-onest-medium text-black/80">
-                                                        {date.format("D")}
-                                                    </Text>
+                                                    className="absolute bottom-1"
+                                                    style={{
+                                                        width: 4,
+                                                        height: 4,
+                                                        borderRadius: 2,
+                                                        backgroundColor:
+                                                            override.type === "Available" ? "#059669" : "#DC2626",
+                                                    }}
+                                                />
+                                            )}
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
 
-                                                    {!!override && isCurrentMonth && (
-                                                        <View
-                                                            style={{
-                                                                position: "absolute",
-                                                                bottom: 8,
-                                                                width: 6,
-                                                                height: 6,
-                                                                borderRadius: 6,
-                                                                backgroundColor:
-                                                                    override.type === "Available" ? "#16a34a" : "#dc2626",
-                                                            }}
-                                                        />
-                                                    )}
+                        {/* Legend */}
+                        <View className="flex-row flex-wrap gap-4 mt-4 pt-4 border-t border-gray-100">
+                            <View className="flex-row items-center gap-2">
+                                <View className="w-3 h-3 rounded bg-green-100" />
+                                <Text className="text-xs text-black/50 font-onest">Available</Text>
+                            </View>
+                            <View className="flex-row items-center gap-2">
+                                <View className="w-3 h-3 rounded bg-amber-100" />
+                                <Text className="text-xs text-black/50 font-onest">Booked</Text>
+                            </View>
+
+                            <View className="flex-row items-center gap-2">
+                                <View className="w-3 h-3 rounded bg-gray-100" />
+                                <Text className="text-xs text-black/50 font-onest">Unavailable</Text>
+                            </View>
+                            <View className="flex-row items-center gap-2">
+                                <View className="w-3 h-3 rounded border border-primary" />
+                                <Text className="text-xs text-black/50 font-onest">Today</Text>
+                            </View>
+                        </View>
+
+                        <Text className="text-xs text-black/40 font-onest mt-3">
+                            Tap a date to add a blocked date
+                        </Text>
+                    </View>
+
+                    {/* Special Dates Section */}
+                    <View className="mt-16">
+                        <View className="flex-row justify-between items-center mb-4">
+                            <View className="flex-row items-center flex-1">
+                                <View className="w-10 h-10 rounded-full bg-red-100 items-center justify-center mr-3">
+                                    <Ionicons name="calendar-outline" size={20} color="#DC2626" />
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="text-2xl text-onest text-black/90">Blocked Dates</Text>
+                                    <Text className="text-xs text-black/50 font-onest mt-0.5">
+                                        Specific dates you won't be available
+                                    </Text>
+                                </View>
+                            </View>
+                            <Pressable onPress={() => openAddOverride(new Date())}>
+                                <Text className="text-sm font-onest text-primary">Add date</Text>
+                            </Pressable>
+                        </View>
+
+                        {overrides.length === 0 ? (
+                            <View className="items-center py-8">
+                                <Ionicons name="calendar-clear-outline" size={40} color="#D1D5DB" />
+                                <Text className="text-black/50 font-onest mt-3">No blocked dates</Text>
+                                <Text className="text-black/40 font-onest text-xs mt-1">
+                                    Add dates when you're unavailable
+                                </Text>
+                            </View>
+                        ) : (
+                            <View>
+                                {overrides
+                                    .slice()
+                                    .sort((a, b) => Number(new Date(a.date)) - Number(new Date(b.date)))
+                                    .map((o, index) => {
+                                        const d = dayjs(o.date);
+                                        const isUnavailable = o.type !== "Available";
+                                        return (
+                                            <View key={o.override_id}>
+                                                <View className="flex-row items-center py-3">
+
+                                                    <View className="flex-1">
+                                                        <Text className="text-sm font-onest text-black/90">
+                                                            {d.format("MMM D, YYYY")}
+                                                        </Text>
+                                                        {o.reason && (
+                                                            <Text className="text-xs text-black/50 font-onest mt-0.5">
+                                                                {o.reason}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                    <Pressable
+                                                        onPress={() => handleDeleteOverride(o.override_id)}
+                                                        disabled={uploading}
+                                                        className="p-2"
+                                                    >
+                                                        <Ionicons name="trash-outline" size={18} color="#9CA3AF" />
+                                                    </Pressable>
                                                 </View>
-                                            </Pressable>
+                                                {index < overrides.length - 1 && (
+                                                    <View className="border-t border-gray-100" />
+                                                )}
+                                            </View>
                                         );
                                     })}
-                                </View>
-
-                                {/* Legend */}
-                                <View className="flex-row flex-wrap gap-4 mt-4">
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="w-4 h-4 rounded bg-indigo-100" />
-                                        <Text className="text-xs text-black/50 font-onest">Available</Text>
-                                    </View>
-
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="w-4 h-4 rounded bg-black/5" />
-                                        <Text className="text-xs text-black/50 font-onest">Unavailable</Text>
-                                    </View>
-
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="w-4 h-4 rounded border border-primary" />
-                                        <Text className="text-xs text-black/50 font-onest">Today</Text>
-                                    </View>
-
-                                    <View className="flex-row items-center gap-2">
-                                        <View
-                                            style={{ width: 6, height: 6, borderRadius: 6, backgroundColor: "#dc2626" }}
-                                        />
-                                        <Text className="text-xs text-black/50 font-onest">Override</Text>
-                                    </View>
-                                </View>
-
-                                <Text className="text-xs text-black/40 font-onest mt-3">
-                                    Tip: Tap a date to quickly add an unavailable override.
-                                </Text>
                             </View>
                         )}
                     </View>
+                    {/* Weekly Availability Section */}
+                    <View className="mt-16">
+                        <View className="flex-row items-center mb-4">
+                            <View className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3">
+                                <Ionicons name="time-outline" size={20} color="#374151" />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-2xl text-onest text-black/90">Weekly Schedule</Text>
+                                <Text className="text-xs text-black/50 font-onest mt-0.5">
+                                    Toggle the days you're generally available
+                                </Text>
+                            </View>
+                        </View>
+
+                        {loading ? (
+                            <Text className="text-black/50 font-onest">Loading...</Text>
+                        ) : (
+                            <View>
+                                {DAYS_OF_WEEK.map((day, index) => {
+                                    const active = availabilityDays.includes(day);
+                                    return (
+                                        <View key={day}>
+                                            <View className="flex-row items-center justify-between py-3">
+                                                <Text
+                                                    className={`text-sm font-onest ${active ? "text-black/90" : "text-black/40"}`}
+                                                >
+                                                    {day}
+                                                </Text>
+                                                <Switch
+                                                    value={active}
+                                                    trackColor={{ false: "#E5E7EB", true: "#1f2937" }}
+                                                    onValueChange={(next) => toggleWeeklyDay(day, next)}
+                                                    disabled={!!updatingDays[day] || !getProfileId()}
+                                                />
+                                            </View>
+                                            {index < DAYS_OF_WEEK.length - 1 && (
+                                                <View className="border-t border-gray-100" />
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    </View>
+
+
                 </ScrollView>
 
                 {/* Add Override Modal */}
@@ -706,44 +691,41 @@ export default function GuideAvailability() {
                     onRequestClose={() => setShowAddOverrideModal(false)}
                 >
                     <Pressable
-                        className="flex-1 bg-black/50 px-5 justify-center"
+                        className="flex-1 bg-black/50 px-6 justify-center"
                         onPress={() => setShowAddOverrideModal(false)}
                     >
                         <Pressable
                             onPress={(e) => e.stopPropagation()}
-                            className="bg-white rounded-2xl p-5"
-                            style={softShadow}
+                            className="bg-white rounded-2xl p-6"
                         >
-                            <View className="flex-row justify-between items-start">
+                            <View className="flex-row justify-between items-start mb-6">
                                 <View className="flex-1 pr-3">
-                                    <Text className="text-lg font-onest-semibold text-black/90">
-                                        Add Unavailable Date
+                                    <Text className="text-xl text-onest text-black/90">
+                                        Add Blocked Date
                                     </Text>
-                                    <Text className="text-sm text-black/40 mt-1 font-onest">
-                                        Block a date when you won’t be available for bookings.
+                                    <Text className="text-sm text-black/50 mt-1 font-onest">
+                                        Block a date when you won't be available
                                     </Text>
                                 </View>
-
-                                <Pressable onPress={() => setShowAddOverrideModal(false)}>
-                                    <Ionicons name="close" size={22} color="rgba(0,0,0,0.6)" />
+                                <Pressable
+                                    onPress={() => setShowAddOverrideModal(false)}
+                                    className="p-1"
+                                >
+                                    <Ionicons name="close" size={24} color="#9CA3AF" />
                                 </Pressable>
                             </View>
 
-                            {/* Date row */}
-                            <View className="mt-4">
-                                <Text className="text-sm font-onest-medium text-black/70 mb-2">
-                                    Date
-                                </Text>
-
+                            {/* Date picker */}
+                            <View className="mb-4">
+                                <Text className="text-sm font-onest text-black/70 mb-2">Date</Text>
                                 <Pressable
                                     onPress={() => setShowDatePicker(true)}
-                                    className="rounded-2xl bg-black/5 px-4 py-3 flex-row items-center justify-between"
-                                    style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
+                                    className="rounded-xl bg-gray-100 px-4 py-3 flex-row items-center justify-between"
                                 >
-                                    <Text className="text-base font-onest-medium text-black/85">
+                                    <Text className="text-sm font-onest text-black/90">
                                         {dayjs(overrideDate).format("MMM D, YYYY")}
                                     </Text>
-                                    <Ionicons name="calendar-outline" size={18} color="rgba(0,0,0,0.7)" />
+                                    <Ionicons name="calendar-outline" size={18} color="#6B7280" />
                                 </Pressable>
 
                                 {showDatePicker && (
@@ -754,13 +736,14 @@ export default function GuideAvailability() {
                                             display={Platform.OS === "ios" ? "inline" : "default"}
                                             minimumDate={new Date()}
                                             onChange={onDatePickerChange}
+                                            // ✅ key fixes:
+                                            themeVariant="light"                 // iOS/Android (where supported)
+                                            textColor="#111827"                  // iOS only
+                                            style={{ backgroundColor: "#FFFFFF" }} // helps if picker background is transparent
                                         />
                                         {Platform.OS === "ios" && (
-                                            <Pressable
-                                                onPress={() => setShowDatePicker(false)}
-                                                className="mt-2 px-4 py-2 rounded-xl bg-primary self-end"
-                                            >
-                                                <Text className="text-white font-onest-medium">Done</Text>
+                                            <Pressable onPress={() => setShowDatePicker(false)} className="mt-2 self-end">
+                                                <Text className="text-sm font-onest text-primary">Done</Text>
                                             </Pressable>
                                         )}
                                     </View>
@@ -768,39 +751,35 @@ export default function GuideAvailability() {
                             </View>
 
                             {/* Reason */}
-                            <View className="mt-4">
-                                <Text className="text-sm font-onest-medium text-black/70 mb-2">
+                            <View className="mb-6">
+                                <Text className="text-sm font-onest text-black/70 mb-2">
                                     Reason (Optional)
                                 </Text>
                                 <TextInput
                                     value={overrideReason}
                                     onChangeText={setOverrideReason}
                                     placeholder="e.g., Vacation, Personal commitment"
-                                    placeholderTextColor="rgba(0,0,0,0.35)"
-                                    className="rounded-2xl bg-black/5 px-4 py-3 text-base font-onest"
+                                    placeholderTextColor="#9CA3AF"
+                                    className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-onest text-black/90"
                                 />
                             </View>
 
                             {/* Actions */}
-                            <View className="flex-row gap-3 mt-5">
+                            <View className="flex-row gap-3">
                                 <Pressable
                                     onPress={() => setShowAddOverrideModal(false)}
-                                    className="flex-1 px-4 py-3 rounded-2xl bg-black/10"
+                                    className="flex-1 py-3 rounded-xl bg-gray-100"
                                     disabled={uploading}
                                 >
-                                    <Text className="text-center font-onest-medium text-black/75">
-                                        Cancel
-                                    </Text>
+                                    <Text className="text-center font-onest text-black/70">Cancel</Text>
                                 </Pressable>
-
                                 <Pressable
                                     onPress={handleAddOverride}
-                                    className="flex-1 px-4 py-3 rounded-2xl bg-primary"
+                                    className="flex-1 py-3 rounded-xl bg-gray-900"
                                     disabled={uploading}
-                                    style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
                                 >
-                                    <Text className="text-center font-onest-medium text-white">
-                                        {uploading ? "Saving..." : "Add"}
+                                    <Text className="text-center font-onest text-white">
+                                        {uploading ? "Adding..." : "Add Date"}
                                     </Text>
                                 </Pressable>
                             </View>

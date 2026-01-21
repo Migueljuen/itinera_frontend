@@ -161,7 +161,7 @@ const AccountSettingsScreen = () => {
     const onEditField = (field: EditField, currentValue?: string | number | null) => {
         if (field === "name") {
             router.push({
-                pathname: "/(guide)/(profile)/edit",
+                pathname: "/(partner)/(profile)/edit",
                 params: {
                     field: "name",
                     first_name: account.first_name ?? "",
@@ -172,14 +172,13 @@ const AccountSettingsScreen = () => {
         }
 
         router.push({
-            pathname: "/(guide)/(profile)/edit",
+            pathname: "/(partner)/(profile)/edit",  // ✅ Changed
             params: {
                 field,
                 value: currentValue ? String(currentValue) : "",
             },
         });
     };
-
 
 
     const SettingRow = ({
