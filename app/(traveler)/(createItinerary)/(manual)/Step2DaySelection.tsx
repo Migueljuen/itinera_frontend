@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -218,6 +219,27 @@ const Step2DaySelection: React.FC<StepProps> = ({
     const [showBrowserModal, setShowBrowserModal] = useState(false);
     const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
     const [showTimeEditModal, setShowTimeEditModal] = useState(false);
+
+    const router = useRouter();
+
+    const handleViewExperience = (experienceId: number) => {
+
+        setShowBrowserModal(false);
+
+        requestAnimationFrame(() => {
+            router.push({
+                pathname: "/(traveler)/(experience)/[id]",
+                params: {
+                    id: String(experienceId),
+                    viewOnly: "true",
+                    tripStartDate: formData.start_date,
+                    tripEndDate: formData.end_date,
+
+                },
+            });
+        });
+    };
+
 
     // Calculate total days
     const totalDays = useMemo(() => {
@@ -578,6 +600,7 @@ const Step2DaySelection: React.FC<StepProps> = ({
                     existingItems={formData.items}
                     onAddExperience={handleExperienceAdded}
                     onClose={() => setShowBrowserModal(false)}
+                    onViewExperience={handleViewExperience}
                 />
             </Modal>
 

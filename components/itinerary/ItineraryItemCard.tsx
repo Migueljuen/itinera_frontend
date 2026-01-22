@@ -213,10 +213,10 @@ export function ItineraryItemCard({
             <View style={styles.hiddenRow} >
                 {onEditTime && (
                     <TouchableOpacity
-                        style={[styles.actionButton, styles.editButton]}
+                        style={[styles.actionButton, styles.editButton, { borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }]}
                         onPress={handleEditTime}
                         activeOpacity={0.8}
-                        className='rounded-xl'
+                        className=''
                     >
 
                         <Text className='font-onest text-white text-sm' >Change</Text>
@@ -225,9 +225,9 @@ export function ItineraryItemCard({
                 )}
                 {onRemove && (
                     <TouchableOpacity
-                        style={[styles.actionButton, styles.removeButton]}
+                        style={[styles.actionButton, styles.removeButton, { borderTopRightRadius: 12, borderBottomRightRadius: 12 }]}
                         onPress={handleRemove}
-                        className='rounded-xl'
+                        className=''
                     >
 
                         <Text className='font-onest' style={styles.actionButtonText}>Cancel</Text>

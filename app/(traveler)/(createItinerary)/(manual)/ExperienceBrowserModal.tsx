@@ -1,3 +1,5 @@
+// (createItinerary)/(manual)/ExperienceBrowserModal.tsx
+
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import React, { useEffect, useMemo, useState } from "react";
@@ -69,6 +71,8 @@ interface ExperienceBrowserModalProps {
     existingItems: ItineraryItem[];
     onAddExperience: (item: ItineraryItem) => void;
     onClose: () => void;
+    onViewExperience: (experienceId: number) => void;
+
 }
 
 // Filter options - matching your category table
@@ -106,7 +110,9 @@ const convertToFormTimeFormat = (timeString: string) => {
 };
 
 const timeToMinutes = (timeString: string) => {
-    const [hours, minutes] = timeString.split(":").map((num) => parseInt(num, 10));
+    const [hours, minutes] = timeString
+        .split(":")
+        .map((num) => parseInt(num, 10));
     return hours * 60 + minutes;
 };
 
@@ -115,6 +121,12 @@ const sortTimeSlots = (slots: TimeSlot[]) => {
         return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
     });
 };
+
+const formatTimeRange = (startTime: string, endTime: string) => {
+    return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+};
+
+const formatPrice = (price: number) => `₱${price.toLocaleString()}`;
 
 // Check if two time ranges overlap
 const hasTimeConflict = (
@@ -144,16 +156,27 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     existingItems,
     onAddExperience,
     onClose,
+    onViewExperience
 }) => {
+
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedFilter, setSelectedFilter] = useState("all");
-    const [expandedExperienceId, setExpandedExperienceId] = useState<number | null>(null);
+    const [expandedExperienceId, setExpandedExperienceId] = useState<
+        number | null
+    >(null);
     const [availabilityData, setAvailabilityData] = useState<{
         [key: number]: AvailabilityDay[];
     }>({});
-    const [loadingAvailability, setLoadingAvailability] = useState<number | null>(null);
+    const [loadingAvailability, setLoadingAvailability] = useState<number | null>(
+        null
+    );
+
+
+    const handleViewExperience = (experienceId: number) => {
+        onViewExperience(experienceId);
+    };
 
     // Get day of week for the selected date
     const selectedDayOfWeek = useMemo(() => {
@@ -239,12 +262,22 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     };
 
     // Check if a time slot has conflict with existing items
-    const getTimeSlotConflict = (startTime: string, endTime: string): ItineraryItem | null => {
+    const getTimeSlotConflict = (
+        startTime: string,
+        endTime: string
+    ): ItineraryItem | null => {
         const formattedStart = convertToFormTimeFormat(startTime);
         const formattedEnd = convertToFormTimeFormat(endTime);
 
         for (const item of existingItemsForDay) {
-            if (hasTimeConflict(formattedStart, formattedEnd, item.start_time, item.end_time)) {
+            if (
+                hasTimeConflict(
+                    formattedStart,
+                    formattedEnd,
+                    item.start_time,
+                    item.end_time
+                )
+            ) {
                 return item;
             }
         }
@@ -267,7 +300,11 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         };
 
         onAddExperience(newItem);
+
+
+        onClose();
     };
+
 
     // Get available slots for the selected day
     const getAvailableSlotsForDay = (experienceId: number): TimeSlot[] => {
@@ -283,7 +320,6 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         return sortTimeSlots(dayAvailability.time_slots);
     };
 
-    // Render experience card
     const renderExperienceCard = ({ item }: { item: Experience }) => {
         const isExpanded = expandedExperienceId === item.id;
         const availableSlots = getAvailableSlotsForDay(item.id);
@@ -291,7 +327,9 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         const hasAvailability = availabilityData[item.id] !== undefined;
 
         return (
-            <View
+            // ✅ Whole card navigates to details
+            <Pressable
+                onPress={() => handleViewExperience(item.id)}
                 className="bg-white rounded-xl mb-4 overflow-hidden"
                 style={{
                     shadowColor: "#000",
@@ -301,62 +339,62 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                     elevation: 3,
                 }}
             >
-                <Pressable onPress={() => handleExperiencePress(item.id)}>
-                    {/* Image */}
-                    <View className="h-40">
-                        {item.images && item.images.length > 0 ? (
-                            <Image
-                                source={{ uri: `${API_URL}/${item.images[0]}` }}
-                                className="w-full h-full"
-                                resizeMode="cover"
-                            />
-                        ) : (
-                            <View className="w-full h-full bg-gray-200 items-center justify-center">
-                                <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-                            </View>
-                        )}
-                    </View>
+                {/* Image */}
+                <View className="h-72">
+                    {item.images && item.images.length > 0 ? (
+                        <Image
+                            source={{ uri: `${API_URL}/${item.images[0]}` }}
+                            className="w-full h-full"
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View className="w-full h-full bg-gray-200 items-center justify-center">
+                            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+                        </View>
+                    )}
+                </View>
 
-                    {/* Content */}
-                    <View className="p-4">
-                        <Text
-                            className="font-onest-semibold text-lg text-black/90"
-                            numberOfLines={2}
-                        >
-                            {item.title}
+                {/* Content */}
+                <View className="p-4">
+                    <Text className="font-onest-semibold text-lg text-black/90" numberOfLines={2}>
+                        {item.title}
+                    </Text>
+
+                    <View className="flex-row items-center mt-2">
+                        <Ionicons name="location-outline" size={14} color="#6B7280" />
+                        <Text className="text-black/50 font-onest text-sm ml-1" numberOfLines={1}>
+                            {item.location}, {item.destination_name}
                         </Text>
-
-                        <View className="flex-row items-center mt-2">
-                            <Ionicons name="location-outline" size={14} color="#6B7280" />
-                            <Text
-                                className="text-black/50 font-onest text-sm ml-1"
-                                numberOfLines={1}
-                            >
-                                {item.location}, {item.destination_name}
-                            </Text>
-                        </View>
-
-                        <View className="flex-row items-center justify-between mt-3">
-                            {item.price && item.price !== "0" && (
-                                <Text className="text-black/70 font-onest-medium">
-                                    From ₱{parseFloat(item.price).toLocaleString()}{" "}
-                                    <Text className="text-black/40 font-onest">/ {item.unit}</Text>
-                                </Text>
-                            )}
-
-                            <View className="flex-row items-center">
-                                <Text className="text-blue-600 font-onest-medium text-sm mr-1">
-                                    {isExpanded ? "Hide slots" : "Select time"}
-                                </Text>
-                                <Ionicons
-                                    name={isExpanded ? "chevron-up" : "chevron-down"}
-                                    size={16}
-                                    color="#3B82F6"
-                                />
-                            </View>
-                        </View>
                     </View>
-                </Pressable>
+
+                    <View className="flex-row items-center justify-between mt-3">
+                        {item.price && item.price !== "0" && (
+                            <Text className="text-black/70 font-onest-medium">
+                                From ₱{parseFloat(item.price).toLocaleString()}{" "}
+                                <Text className="text-black/40 font-onest">/ {item.unit}</Text>
+                            </Text>
+                        )}
+
+                        {/* ✅ ONLY this opens/closes slots (prevents navigating) */}
+                        <Pressable
+                            onPress={(e) => {
+                                e.stopPropagation(); // 👈 prevents the card navigation
+                                handleExperiencePress(item.id);
+                            }}
+                            className="flex-row items-center"
+                            hitSlop={10}
+                        >
+                            <Text className="text-blue-600 font-onest-medium text-sm mr-1">
+                                {isExpanded ? "Hide slots" : "Select time"}
+                            </Text>
+                            <Ionicons
+                                name={isExpanded ? "chevron-up" : "chevron-down"}
+                                size={16}
+                                color="#3B82F6"
+                            />
+                        </Pressable>
+                    </View>
+                </View>
 
                 {/* Expanded Time Slots Section */}
                 {isExpanded && (
@@ -370,57 +408,98 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                             </View>
                         ) : availableSlots.length > 0 ? (
                             <View>
-                                <Text className="text-black/70 font-onest-medium mb-3">
-                                    Available on {selectedDayOfWeek}
-                                </Text>
-                                <View className="flex-row flex-wrap">
-                                    {availableSlots.map((slot, idx) => {
-                                        const conflictingItem = getTimeSlotConflict(
-                                            slot.start_time,
-                                            slot.end_time
-                                        );
-                                        const hasConflict = conflictingItem !== null;
 
-                                        return (
-                                            <TouchableOpacity
-                                                key={idx}
-                                                onPress={() => !hasConflict && handleAddTimeSlot(item, slot)}
-                                                disabled={hasConflict}
-                                                className={`
-                                                    mr-2 mb-2 px-4 py-3 rounded-xl border
-                                                    ${hasConflict
-                                                        ? "bg-gray-100 border-gray-200"
-                                                        : "bg-blue-50 border-blue-200"
-                                                    }
-                                                `}
-                                                activeOpacity={0.7}
+                                {availableSlots.map((slot, idx) => {
+                                    const conflictingItem = getTimeSlotConflict(slot.start_time, slot.end_time);
+                                    const hasConflict = conflictingItem !== null;
+
+                                    const slotPrice = parseFloat(item.price) || 0;
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={idx}
+                                            onPress={() => !hasConflict && handleAddTimeSlot(item, slot)}
+                                            disabled={hasConflict}
+                                            activeOpacity={0.8}
+                                            style={{
+                                                borderWidth: 1,
+                                                borderColor: "#E5E7EB",
+                                                backgroundColor: hasConflict ? "#F9FAFB" : "#FFFFFF",
+                                                borderRadius: 12,
+                                                paddingHorizontal: 16,
+                                                paddingVertical: 14,
+                                                marginBottom: 12,
+                                                opacity: hasConflict ? 0.6 : 1,
+                                            }}
+                                        >
+                                            <View
+                                                style={{
+                                                    flexDirection: "row",
+                                                    alignItems: "flex-start",
+                                                    justifyContent: "space-between",
+                                                }}
                                             >
-                                                <View className="flex-row items-center">
-                                                    {hasConflict && (
-                                                        <Ionicons
-                                                            name="alert-circle"
-                                                            size={16}
-                                                            color="#9CA3AF"
-                                                            style={{ marginRight: 4 }}
-                                                        />
+                                                <View style={{ flex: 1, paddingRight: 12 }}>
+                                                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                                                        {hasConflict && (
+                                                            <Ionicons
+                                                                name="alert-circle"
+                                                                size={16}
+                                                                color="#9CA3AF"
+                                                                style={{ marginRight: 6 }}
+                                                            />
+                                                        )}
+
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Onest-SemiBold",
+                                                                fontSize: 16,
+                                                                fontWeight: "600",
+                                                                color: "#000",
+                                                            }}
+                                                        >
+                                                            {formatTimeRange(slot.start_time, slot.end_time)}
+                                                        </Text>
+                                                    </View>
+
+                                                    {/* price line (matches AvailabilityCalendar vibe) */}
+                                                    {slotPrice > 0 && (
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Onest",
+                                                                fontSize: 14,
+                                                                color: "#6B7280",
+                                                                marginTop: 2,
+                                                            }}
+                                                        >
+                                                            {formatPrice(slotPrice)} / {item.unit}
+                                                        </Text>
                                                     )}
-                                                    <Text
-                                                        className={`font-onest-medium text-sm ${hasConflict ? "text-gray-400" : "text-blue-700"
-                                                            }`}
-                                                    >
-                                                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                                                    </Text>
+
+                                                    {/* conflict line */}
+                                                    {hasConflict && (
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Onest",
+                                                                fontSize: 12,
+                                                                color: "#9CA3AF",
+                                                                marginTop: 6,
+                                                            }}
+                                                        >
+                                                            Conflicts with {conflictingItem?.experience_name || "another activity"}
+                                                        </Text>
+                                                    )}
                                                 </View>
-                                                {hasConflict && (
-                                                    <Text className="text-gray-400 font-onest text-xs mt-1">
-                                                        Conflicts with {conflictingItem?.experience_name || "another activity"}
-                                                    </Text>
+
+                                                {!hasConflict && (
+                                                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                                                 )}
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
                             </View>
+
                         ) : hasAvailability ? (
                             <View className="py-4 items-center">
                                 <Ionicons name="calendar-outline" size={24} color="#9CA3AF" />
@@ -438,7 +517,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         )}
                     </View>
                 )}
-            </View>
+            </Pressable>
         );
     };
 
@@ -453,8 +532,8 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             <View className="bg-white px-6 py-4 border-b border-gray-100">
                 <View className="flex-row items-center justify-between">
                     <View>
-                        <Text className="text-xl font-onest-semibold text-black/90">
-                            Add Experience
+                        <Text className="text-2xl font-onest-semibold text-black/90">
+                            Browse activities
                         </Text>
                         {selectedDayDate && (
                             <Text className="text-black/50 font-onest mt-1">
@@ -481,22 +560,19 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                             key={filter.key}
                             onPress={() => setSelectedFilter(filter.key)}
                             className={`
-                                mr-2 px-4 py-2 rounded-full
-                                ${selectedFilter === filter.key
-                                    ? "bg-blue-500"
-                                    : "bg-gray-100"
-                                }
-                            `}
+                mr-2 px-4 py-2 rounded-full
+                ${selectedFilter === filter.key ? "bg-blue-500" : "bg-gray-100"}
+              `}
                             activeOpacity={0.7}
                         >
                             <Text
                                 className={`
-                                    font-onest-medium text-sm
-                                    ${selectedFilter === filter.key
+                  font-onest-medium text-sm
+                  ${selectedFilter === filter.key
                                         ? "text-white"
                                         : "text-black/70"
                                     }
-                                `}
+                `}
                             >
                                 {filter.label}
                             </Text>
@@ -532,14 +608,12 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                     <Text className="text-black/70 font-onest-medium text-center mt-4">
                         {experiences.length > 0
                             ? "All available experiences have been added!"
-                            : "No experiences found"
-                        }
+                            : "No experiences found"}
                     </Text>
                     <Text className="text-black/40 font-onest text-center mt-2">
                         {experiences.length > 0
                             ? "Try a different filter or go back to view your itinerary"
-                            : "Try a different filter or check back later"
-                        }
+                            : "Try a different filter or check back later"}
                     </Text>
                 </View>
             ) : (
@@ -553,7 +627,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             )}
 
             {/* Done Button */}
-            <View className="bg-white px-6 py-4 border-t border-gray-100 pb-8">
+            {/* <View className="bg-white px-6 py-4 border-t border-gray-100 pb-8">
                 <TouchableOpacity
                     onPress={onClose}
                     className="bg-primary py-4 rounded-xl items-center"
@@ -561,7 +635,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                 >
                     <Text className="text-white font-onest-semibold text-base">Done</Text>
                 </TouchableOpacity>
-            </View>
+            </View> */}
         </View>
     );
 };

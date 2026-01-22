@@ -798,8 +798,15 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         </Pressable>
       </Modal>
 
+      <View className="pb-4">
+
+        <Text className="mt-12 font-onest text-sm text-black/90">By selecting confirm & save, I indicate my agreement to the <Text className="text-blue-500 underline font-onest-medium">Terms of Service</Text> of Itinera
+        </Text>
+
+      </View>
+
       {/* Floating Action Buttons */}
-      <View className="px-6 py-4 border-t border-gray-200">
+      <View className="px-6 py-4 ">
         <View className="flex-row justify-between">
           <TouchableOpacity
             onPress={onBack}
