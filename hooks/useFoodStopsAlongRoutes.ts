@@ -29,11 +29,16 @@ export interface RouteWithFoodStops {
     origin: Coordinate;
     destination: Coordinate;
     waypoints: Coordinate[];
+    skippedPoints?: string[]; // Track which points were skipped
 }
 
 interface CachedRouteData {
     routeData: RouteWithFoodStops;
     timestamp: number;
+}
+
+interface PointWithName extends Coordinate {
+    name: string;
 }
 
 const ORS_API_KEY = process.env.EXPO_PUBLIC_OPENROUTE_API_KEY || "";
@@ -62,7 +67,6 @@ const getCachedRouteData = async (cacheKey: string): Promise<RouteWithFoodStops 
         const parsedCache: CachedRouteData = JSON.parse(cached);
         const now = Date.now();
 
-        // Check if cache is expired
         if (now - parsedCache.timestamp > CACHE_EXPIRY_MS) {
             await AsyncStorage.removeItem(cacheKey);
             return null;
@@ -141,7 +145,7 @@ const decodePolyline = (encoded: string): Coordinate[] => {
  */
 const sampleRoutePoints = (
     polyline: Coordinate[],
-    maxPoints: number = 10
+    maxPoints: number = 8
 ): Coordinate[] => {
     if (polyline.length <= maxPoints) return polyline;
 
@@ -157,65 +161,23 @@ const sampleRoutePoints = (
 };
 
 /**
- * Build Overpass API query for food establishments
+ * Build Overpass API query for food establishments - OPTIMIZED
  */
 const buildOverpassQuery = (
     points: Coordinate[],
-    radiusMeters: number = 1000
+    radiusMeters: number = 500
 ): string => {
-    const queries: string[] = [];
-
-    const amenities = [
-        "restaurant",
-        "cafe",
-        "fast_food",
-        "food_court",
-        "bakery",
-        "ice_cream",
-        "pub",
-        "bar",
-        "biergarten",
-        "canteen",
-    ];
-
-    const shops = [
-        "bakery",
-        "pastry",
-        "coffee",
-        "deli",
-        "confectionery",
-    ];
-
-    for (const point of points) {
-        for (const amenity of amenities) {
-            queries.push(
-                `node["amenity"="${amenity}"](around:${radiusMeters},${point.latitude},${point.longitude});`
-            );
-            queries.push(
-                `way["amenity"="${amenity}"](around:${radiusMeters},${point.latitude},${point.longitude});`
-            );
-        }
-
-        for (const shop of shops) {
-            queries.push(
-                `node["shop"="${shop}"](around:${radiusMeters},${point.latitude},${point.longitude});`
-            );
-        }
-
-        queries.push(
-            `node["cuisine"](around:${radiusMeters},${point.latitude},${point.longitude});`
-        );
-        queries.push(
-            `way["cuisine"](around:${radiusMeters},${point.latitude},${point.longitude});`
-        );
-    }
+    const aroundFilter = points
+        .map((p) => `${p.latitude},${p.longitude}`)
+        .join(",");
 
     const query = `
-[out:json][timeout:30];
+[out:json][timeout:25];
 (
-  ${queries.join("\n  ")}
+  node["amenity"~"restaurant|cafe|fast_food|food_court|bakery"](around:${radiusMeters},${aroundFilter});
+  node["shop"~"bakery|pastry|coffee"](around:${radiusMeters},${aroundFilter});
 );
-out center body;
+out body 50;
 `;
 
     return query;
@@ -286,6 +248,198 @@ const deduplicateFoodStops = (stops: FoodStop[]): FoodStop[] => {
     return Array.from(seen.values());
 };
 
+/**
+ * Try to fetch route from OpenRouteService
+ */
+const fetchORSRoute = async (
+    coordinates: number[][]
+): Promise<{ success: boolean; polyline?: Coordinate[]; error?: string }> => {
+    try {
+        const response = await fetch(
+            "https://api.openrouteservice.org/v2/directions/driving-car",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: ORS_API_KEY,
+                },
+                body: JSON.stringify({
+                    coordinates,
+                    instructions: false,
+                }),
+            }
+        );
+
+        if (response.ok) {
+            const json = await response.json();
+            if (json.routes?.[0]?.geometry) {
+                return {
+                    success: true,
+                    polyline: decodePolyline(json.routes[0].geometry),
+                };
+            }
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        return {
+            success: false,
+            error: errorData.error?.message || `Route API error: ${response.status}`,
+        };
+    } catch (err: any) {
+        return {
+            success: false,
+            error: err.message || "Network error",
+        };
+    }
+};
+
+/**
+ * Parse which coordinate index failed from ORS error message
+ */
+const parseFailedCoordinateIndex = (errorMessage: string): number | null => {
+    const match = errorMessage.match(/coordinate (\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+};
+
+/**
+ * Try routing with progressively fewer points, removing unroutable ones
+ */
+const fetchRouteWithRetry = async (
+    origin: Coordinate,
+    allPoints: PointWithName[]
+): Promise<{
+    polyline: Coordinate[];
+    skippedPoints: string[];
+    routeSuccess: boolean;
+}> => {
+    const skippedPoints: string[] = [];
+    let remainingPoints = [...allPoints];
+    let attempts = 0;
+    const maxAttempts = allPoints.length + 1; // Don't try more than we have points
+
+    while (attempts < maxAttempts) {
+        attempts++;
+
+        // Build coordinates array: origin + remaining points
+        const coordinates = [
+            [origin.longitude, origin.latitude],
+            ...remainingPoints.map((p) => [p.longitude, p.latitude]),
+        ];
+
+        console.log(`>>> Route attempt ${attempts} with ${coordinates.length} points`);
+
+        const result = await fetchORSRoute(coordinates);
+
+        if (result.success && result.polyline) {
+            console.log(">>> Route succeeded!");
+            return {
+                polyline: result.polyline,
+                skippedPoints,
+                routeSuccess: true,
+            };
+        }
+
+        // Parse which coordinate failed
+        const failedIndex = parseFailedCoordinateIndex(result.error || "");
+
+        if (failedIndex !== null) {
+            // Index 0 is origin
+            if (failedIndex === 0) {
+                console.warn(">>> Origin location is not routable");
+                // Can't skip origin, try using first destination as origin
+                if (remainingPoints.length > 1) {
+                    const newOrigin = remainingPoints[0];
+                    skippedPoints.push("Your current location");
+                    console.log(`>>> Using "${newOrigin.name}" as new origin`);
+
+                    // Recursively try with new origin
+                    const retryResult = await fetchRouteWithRetry(
+                        { latitude: newOrigin.latitude, longitude: newOrigin.longitude },
+                        remainingPoints.slice(1)
+                    );
+                    return {
+                        polyline: retryResult.polyline,
+                        skippedPoints: [...skippedPoints, ...retryResult.skippedPoints],
+                        routeSuccess: retryResult.routeSuccess,
+                    };
+                }
+                break;
+            }
+
+            // Failed index > 0 means one of our waypoints/destination
+            const pointIndex = failedIndex - 1; // Adjust for origin
+            if (pointIndex < remainingPoints.length) {
+                const failedPoint = remainingPoints[pointIndex];
+                console.log(`>>> Skipping unroutable point: "${failedPoint.name}"`);
+                skippedPoints.push(failedPoint.name);
+
+                // Remove the failed point and retry
+                remainingPoints = [
+                    ...remainingPoints.slice(0, pointIndex),
+                    ...remainingPoints.slice(pointIndex + 1),
+                ];
+
+                // If no points left, we can't route
+                if (remainingPoints.length === 0) {
+                    console.warn(">>> No routable points remaining");
+                    break;
+                }
+
+                continue; // Try again with remaining points
+            }
+        }
+
+        // Unknown error or no coordinate index - try simplified route
+        console.warn(">>> Unknown routing error, trying direct route");
+        break;
+    }
+
+    // Final fallback: just origin to last destination
+    if (remainingPoints.length > 0) {
+        const lastPoint = remainingPoints[remainingPoints.length - 1];
+        console.log(`>>> Final attempt: direct route to "${lastPoint.name}"`);
+
+        const directResult = await fetchORSRoute([
+            [origin.longitude, origin.latitude],
+            [lastPoint.longitude, lastPoint.latitude],
+        ]);
+
+        if (directResult.success && directResult.polyline) {
+            // Mark all intermediate points as skipped
+            const intermediateSkipped = remainingPoints
+                .slice(0, -1)
+                .map((p) => p.name);
+
+            return {
+                polyline: directResult.polyline,
+                skippedPoints: [...skippedPoints, ...intermediateSkipped],
+                routeSuccess: true,
+            };
+        }
+    }
+
+    // Complete failure - return straight line path for food search
+    console.log(">>> All routing failed, using straight-line path");
+    const straightLinePath: Coordinate[] = [
+        origin,
+        ...remainingPoints.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+    ];
+
+    // If even that's empty, just use origin
+    if (straightLinePath.length < 2 && allPoints.length > 0) {
+        straightLinePath.push({
+            latitude: allPoints[0].latitude,
+            longitude: allPoints[0].longitude,
+        });
+    }
+
+    return {
+        polyline: straightLinePath,
+        skippedPoints,
+        routeSuccess: false,
+    };
+};
+
 export const useFoodStopsAlongRoute = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -314,7 +468,6 @@ export const useFoodStopsAlongRoute = () => {
                 const cachedData = await getCachedRouteData(cacheKey);
 
                 if (cachedData) {
-                    // Update origin with current user location if available
                     if (userLocation) {
                         cachedData.origin = {
                             latitude: userLocation.coords.latitude,
@@ -326,7 +479,7 @@ export const useFoodStopsAlongRoute = () => {
                     return cachedData;
                 }
 
-                // No cache, fetch fresh data
+                // Get origin (user location or first destination)
                 let origin: Coordinate;
                 if (userLocation) {
                     origin = {
@@ -349,53 +502,35 @@ export const useFoodStopsAlongRoute = () => {
                     }
                 }
 
-                const allPoints = itemsWithCoords.map((item) => ({
+                // Build points with names for better error messages
+                const allPoints: PointWithName[] = itemsWithCoords.map((item) => ({
                     latitude: item.destination_latitude!,
                     longitude: item.destination_longitude!,
+                    name: item.destination_name || "Unknown stop",
                 }));
 
-                const destination = allPoints[allPoints.length - 1];
-                const waypoints = allPoints.slice(0, -1);
-
-                const coordinates = [
-                    [origin.longitude, origin.latitude],
-                    ...waypoints.map((wp) => [wp.longitude, wp.latitude]),
-                    [destination.longitude, destination.latitude],
-                ];
-
                 console.log(">>> Fetching route from OpenRouteService...");
-                const routeResponse = await fetch(
-                    "https://api.openrouteservice.org/v2/directions/driving-car",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: ORS_API_KEY,
-                        },
-                        body: JSON.stringify({
-                            coordinates,
-                            instructions: false,
-                        }),
-                    }
-                );
-                console.log(">>> Route response received");
+                console.log(`>>> Origin: ${origin.latitude}, ${origin.longitude}`);
+                console.log(`>>> Destinations: ${allPoints.map((p) => p.name).join(" → ")}`);
 
-                if (!routeResponse.ok) {
-                    const errorData = await routeResponse.json().catch(() => ({}));
-                    throw new Error(
-                        errorData.error?.message || `Route API error: ${routeResponse.status}`
+                // Fetch route with automatic retry for unroutable points
+                const routeResult = await fetchRouteWithRetry(origin, allPoints);
+
+                // Show alert if points were skipped
+                if (routeResult.skippedPoints.length > 0) {
+                    const skippedList = routeResult.skippedPoints.join(", ");
+                    console.log(`>>> Skipped unroutable points: ${skippedList}`);
+
+                    Alert.alert(
+                        "Route Note",
+                        `Some stops are in remote areas without road access and were skipped: ${skippedList}.\n\nFood stops are shown along the accessible route.`,
+                        [{ text: "OK" }]
                     );
                 }
 
-                const routeJson = await routeResponse.json();
-
-                if (!routeJson.routes?.[0]?.geometry) {
-                    throw new Error("No route found");
-                }
-
-                const polyline = decodePolyline(routeJson.routes[0].geometry);
-                const sampledPoints = sampleRoutePoints(polyline, 15);
-                const overpassQuery = buildOverpassQuery(sampledPoints, 1000);
+                // Fetch food stops along the route
+                const sampledPoints = sampleRoutePoints(routeResult.polyline, 8);
+                const overpassQuery = buildOverpassQuery(sampledPoints, 500);
 
                 let foodStops: FoodStop[] = [];
 
@@ -425,12 +560,23 @@ export const useFoodStopsAlongRoute = () => {
                     console.warn("Overpass API request failed:", overpassError);
                 }
 
+                // Build final result
+                const destination = allPoints[allPoints.length - 1];
+                const waypoints = allPoints.slice(0, -1);
+
                 const result: RouteWithFoodStops = {
-                    polyline,
+                    polyline: routeResult.polyline,
                     foodStops,
                     origin,
-                    destination,
-                    waypoints,
+                    destination: {
+                        latitude: destination.latitude,
+                        longitude: destination.longitude,
+                    },
+                    waypoints: waypoints.map((wp) => ({
+                        latitude: wp.latitude,
+                        longitude: wp.longitude,
+                    })),
+                    skippedPoints: routeResult.skippedPoints,
                 };
 
                 // Cache the result
@@ -457,7 +603,6 @@ export const useFoodStopsAlongRoute = () => {
         setError(null);
     }, []);
 
-    // Optional: Clear all food stops cache
     const clearCache = useCallback(async () => {
         try {
             const keys = await AsyncStorage.getAllKeys();

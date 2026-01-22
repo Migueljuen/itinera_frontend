@@ -46,6 +46,7 @@ export function TripPlanActionBar({
     }
 
     const handleNavigate = () => {
+        console.log('All waypoints:');
         if (hasMultipleStops) {
             onNavigateAll(items);
         } else {

@@ -1,7 +1,7 @@
 // (traveler)/(createItinerary)/(generate)/Step2aGroupTiming.tsx
-import { ExploreTime, TravelCompanion } from "@/types/experienceTypes";
+import { ActivityIntensity, ExploreTime, TravelCompanion } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -27,6 +27,7 @@ interface ItineraryFormData {
     travelerCount: number;
     travelCompanion?: TravelCompanion;
     exploreTime?: ExploreTime;
+    activityIntensity?: ActivityIntensity;
   };
 }
 
@@ -43,40 +44,26 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
   onNext,
   onBack,
 }) => {
-  const companionOptions: TravelCompanion[] = useMemo(
-    () => ["Solo", "Partner", "Friends", "Family", "Any"],
-    []
-  );
-
   const exploreTimeOptions: ExploreTime[] = useMemo(
     () => ["Daytime", "Nighttime", "Both"],
     []
   );
 
-  const [selectedCompanion, setSelectedCompanion] =
-    useState<TravelCompanion | null>(
-      formData.preferences?.travelCompanion || null
-    );
-
-  const [travelerCount, setTravelerCount] = useState<number>(
-    formData.preferences?.travelerCount || 1
+  const activityIntensityOptions: ActivityIntensity[] = useMemo(
+    () => ["Low", "Moderate", "High"],
+    []
   );
 
   const [selectedExploreTime, setSelectedExploreTime] =
     useState<ExploreTime | null>(formData.preferences?.exploreTime || null);
 
-  useEffect(() => {
-    if (formData.preferences?.travelerCount) return;
-
-    if (selectedCompanion === "Solo") setTravelerCount(1);
-    else if (selectedCompanion === "Partner") setTravelerCount(2);
-    else if (selectedCompanion === "Friends" || selectedCompanion === "Family")
-      setTravelerCount(4);
-    else if (selectedCompanion === "Any") setTravelerCount(1);
-  }, [selectedCompanion, formData.preferences?.travelerCount]);
+  const [selectedActivityIntensity, setSelectedActivityIntensity] =
+    useState<ActivityIntensity | null>(
+      formData.preferences?.activityIntensity || null
+    );
 
   const isValid = () =>
-    selectedCompanion !== null && selectedExploreTime !== null;
+    selectedExploreTime !== null && selectedActivityIntensity !== null;
 
   const handleNext = () => {
     if (!isValid()) return;
@@ -85,59 +72,52 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
       ...prev,
       preferences: {
         ...(prev.preferences ?? { travelerCount: 1, experiences: [] }),
-        travelCompanion: selectedCompanion!,
-        travelerCount: selectedCompanion === "Solo" ? 1 : travelerCount,
         exploreTime: selectedExploreTime!,
+        activityIntensity: selectedActivityIntensity!,
       },
     }));
 
     onNext();
   };
 
-  const selectCompanion = (companion: TravelCompanion) => {
-    setSelectedCompanion(companion);
-
-    if (companion === "Solo") setTravelerCount(1);
-    else if (companion === "Partner") setTravelerCount(2);
-    else if (companion === "Friends") setTravelerCount(3);
-    else if (companion === "Family") setTravelerCount(4);
-    else setTravelerCount(1);
-  };
-
   const renderCard = (params: {
     keyProp: string;
     title: string;
     subtitle?: string;
+    icon?: string;
     selected: boolean;
     onPress: () => void;
   }) => {
-    const { keyProp, title, subtitle, selected, onPress } = params;
+    const { keyProp, title, subtitle, icon, selected, onPress } = params;
 
     return (
       <Pressable
         key={keyProp}
         onPress={onPress}
-        className={` rounded-2xl px-4 py-2 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-black/5"
+        className={`rounded-2xl px-4 py-4 w-full mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"
           }`}
       >
         <View>
           <View className="flex flex-row items-center justify-between">
-            <Text className="text-lg font-onest text-black/90">
-              {title}
-            </Text>
+            <View className="flex-row items-center">
+              {icon && (
+                <Text className="text-2xl mr-3">{icon}</Text>
+              )}
+              <View>
+                <Text className="text-lg font-onest text-black/90">{title}</Text>
+                {!!subtitle && (
+                  <Text className="text-sm text-gray-500 font-onest mt-1">
+                    {subtitle}
+                  </Text>
+                )}
+              </View>
+            </View>
             {selected && (
-              <View className="">
-                <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
+              <View>
+                <Ionicons name="checkmark-circle" size={22} color="#4F46E5" />
               </View>
             )}
           </View>
-          {!!subtitle && (
-            <Text className="text-xs text-gray-500 font-onest mt-1">
-              {subtitle}
-            </Text>
-          )}
-
-
         </View>
       </Pressable>
     );
@@ -154,124 +134,88 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         >
-          <View className="py-2">
-            <View>
-              {/* Companion */}
-              <View className="mb-8">
-                <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
-                  Who are you travelling with?
-                </Text>
-                <Text className="text-base text-black/50 font-onest mb-8">
-                  Group size affects pricing suggestions.
-                </Text>
+          <View className="py-2 px-4">
 
-                <View className="flex-row flex-wrap justify-between">
-                  {companionOptions.map((companion) =>
-                    renderCard({
-                      keyProp: `companion-${companion}`,
-                      title: companion,
-                      subtitle:
-                        companion === "Solo"
-                          ? "Just you"
-                          : companion === "Partner"
-                            ? "Two people"
-                            : companion === "Friends"
-                              ? "Small group"
-                              : companion === "Family"
-                                ? "Family trip"
-                                : "We’ll adapt",
-                      selected: selectedCompanion === companion,
-                      onPress: () => selectCompanion(companion),
-                    })
-                  )}
-                </View>
+            {/* Explore time */}
+            <View className="mb-8">
+              <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
+                When do you prefer to explore?
+              </Text>
+              <Text className="text-base text-black/50 font-onest mb-6">
+                This helps us suggest activities that match your schedule.
+              </Text>
 
-                {/* travelerCount only if not Solo */}
-                {selectedCompanion && selectedCompanion !== "Solo" && (
-                  <View className="mt-4 border border-gray-200 rounded-2xl bg-white px-4 py-4">
-                    <Text className="font-onest-medium text-sm mb-3 text-gray-700">
-                      Total number of participants
-                    </Text>
-
-                    <View className="flex-row items-center justify-between">
-                      <Pressable
-                        onPress={() =>
-                          setTravelerCount((prev) => Math.max(2, prev - 1))
-                        }
-                        className="bg-white border border-gray-200 rounded-xl p-3"
-                      >
-                        <Ionicons name="remove" size={20} color="#374151" />
-                      </Pressable>
-
-                      <View className="items-center">
-                        <Text className="font-onest-bold text-3xl text-primary">
-                          {travelerCount}
-                        </Text>
-                        <Text className="text-xs text-gray-500 font-onest mt-1">
-                          travelers
-                        </Text>
-                      </View>
-
-                      <Pressable
-                        onPress={() =>
-                          setTravelerCount((prev) => Math.min(20, prev + 1))
-                        }
-                        className="bg-white border border-gray-200 rounded-xl p-3"
-                      >
-                        <Ionicons name="add" size={20} color="#374151" />
-                      </Pressable>
-                    </View>
-                  </View>
-                )}
-
-                {selectedCompanion === "Solo" && (
-                  <View className="mt-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-                    <Text className="text-xs text-indigo-700 font-onest">
-                      ✨ Solo travel — costs calculated for 1 person
-                    </Text>
-                  </View>
-                )}
-
-                {selectedCompanion === null && (
-                  <Text className="text-xs text-red-500 font-onest mt-3">
-                    Please select a companion option
-                  </Text>
+              <View>
+                {exploreTimeOptions.map((time) =>
+                  renderCard({
+                    keyProp: `time-${time}`,
+                    title: time,
+                    icon:
+                      time === "Daytime"
+                        ? "☀️"
+                        : time === "Nighttime"
+                          ? "🌙"
+                          : "🌗",
+                    subtitle:
+                      time === "Daytime"
+                        ? "Morning to afternoon activities"
+                        : time === "Nighttime"
+                          ? "Evening to late night experiences"
+                          : "A mix of day and night activities",
+                    selected: selectedExploreTime === time,
+                    onPress: () => setSelectedExploreTime(time),
+                  })
                 )}
               </View>
 
-              {/* Explore time */}
-              <View className="mb-6">
-                <Text className="font-onest-medium text-2xl mb-8">
-                  When do you prefer to explore?
+              {selectedExploreTime === null && (
+                <Text className="text-xs text-red-500 font-onest mt-3">
+                  Please select when you prefer to explore
                 </Text>
+              )}
+            </View>
 
-                <View className="flex-row flex-wrap justify-between">
-                  {exploreTimeOptions.map((time) =>
-                    renderCard({
-                      keyProp: `time-${time}`,
-                      title: time,
-                      subtitle:
-                        time === "Daytime"
-                          ? "Morning to afternoon"
-                          : time === "Nighttime"
-                            ? "Evening to late night"
-                            : "We’ll mix both",
-                      selected: selectedExploreTime === time,
-                      onPress: () => setSelectedExploreTime(time),
-                    })
-                  )}
-                </View>
+            {/* Activity Intensity */}
+            <View className="mb-6">
+              <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
+                How packed do you want your days?
+              </Text>
+              <Text className="text-base text-black/50 font-onest mb-6">
+                This affects how many activities we schedule per day.
+              </Text>
 
-                {selectedExploreTime === null && (
-                  <Text className="text-xs text-red-500 font-onest mt-3">
-                    Please select an explore time
-                  </Text>
+              <View>
+                {activityIntensityOptions.map((intensity) =>
+                  renderCard({
+                    keyProp: `intensity-${intensity}`,
+                    title: intensity,
+                    icon:
+                      intensity === "Low"
+                        ? "🧘"
+                        : intensity === "Moderate"
+                          ? "🚶"
+                          : "🏃",
+                    subtitle:
+                      intensity === "Low"
+                        ? "Relaxed pace"
+                        : intensity === "Moderate"
+                          ? "Balanced days"
+                          : "Action-packed",
+                    selected: selectedActivityIntensity === intensity,
+                    onPress: () => setSelectedActivityIntensity(intensity),
+                  })
                 )}
               </View>
+
+              {selectedActivityIntensity === null && (
+                <Text className="text-xs text-red-500 font-onest mt-3">
+                  Please select an intensity level
+                </Text>
+              )}
             </View>
 
             {/* Navigation Buttons */}
-            <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200 pb-4">
+            <View className="flex-row justify-between mt-4 pt-4 border-t border-gray-200 pb-4">
               <TouchableOpacity
                 onPress={onBack}
                 className="py-4 px-6 rounded-xl border border-gray-200"

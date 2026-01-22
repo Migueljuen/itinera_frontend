@@ -1,3 +1,4 @@
+import { TravelCompanion } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
 import { addDays, differenceInDays, format } from "date-fns";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -33,6 +35,13 @@ export interface ItineraryFormData {
   notes?: string;
   city: string;
   items: ItineraryItem[];
+  preferences?: {
+    experiences: any[];
+    experienceIds?: number[];
+    travelerCount: number;
+    travelCompanion?: TravelCompanion;
+    exploreTime?: string;
+  };
 }
 
 // itinerary type
@@ -138,6 +147,12 @@ const Step1SelectLocation: React.FC<StepProps> = ({
   setFormData,
   onNext,
 }) => {
+  // Companion options
+  const companionOptions: TravelCompanion[] = useMemo(
+    () => ["Solo", "Partner", "Friends", "Family", "Any"],
+    []
+  );
+
   // Add title state
   const [title, setTitle] = useState<string>(formData.title || "");
   const [localCity, setLocalCity] = useState<string | null>(
@@ -157,6 +172,15 @@ const Step1SelectLocation: React.FC<StepProps> = ({
   const [endDate, setEndDate] = useState<string>(formData.end_date || "");
   const [markedDates, setMarkedDates] = useState<any>({});
   const [selectingEndDate, setSelectingEndDate] = useState<boolean>(false);
+
+  // Traveler companion and count states
+  const [selectedCompanion, setSelectedCompanion] =
+    useState<TravelCompanion | null>(
+      formData.preferences?.travelCompanion || null
+    );
+  const [travelerCount, setTravelerCount] = useState<number>(
+    formData.preferences?.travelerCount || 1
+  );
 
   // Screen dimensions for dropdown max height - memoized
   const { height: screenHeight } = Dimensions.get("window");
@@ -270,20 +294,41 @@ const Step1SelectLocation: React.FC<StepProps> = ({
       title.trim() !== "" &&
       localCity !== null &&
       startDate !== "" &&
-      endDate !== ""
+      endDate !== "" &&
+      selectedCompanion !== null
     );
   };
 
   const handleNext = () => {
-    if (isValid()) {
-      onNext();
-    }
+    if (!isValid()) return;
+
+    // Update formData with companion and traveler count
+    setFormData((prev) => ({
+      ...prev,
+      preferences: {
+        ...(prev.preferences ?? { travelerCount: 1, experiences: [] }),
+        travelCompanion: selectedCompanion!,
+        travelerCount: selectedCompanion === "Solo" ? 1 : travelerCount,
+      },
+    }));
+
+    onNext();
   };
 
   const selectCity = (city: City) => {
     setLocalCity(city.value);
     setSelectedLabel(city.label);
     setDropdownOpen(false);
+  };
+
+  const selectCompanion = (companion: TravelCompanion) => {
+    setSelectedCompanion(companion);
+
+    if (companion === "Solo") setTravelerCount(1);
+    else if (companion === "Partner") setTravelerCount(2);
+    else if (companion === "Friends") setTravelerCount(3);
+    else if (companion === "Family") setTravelerCount(4);
+    else setTravelerCount(1);
   };
 
   // Retry loading cities
@@ -389,6 +434,42 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     return range;
   };
 
+  // Render companion card
+  const renderCompanionCard = (companion: TravelCompanion) => {
+    const selected = selectedCompanion === companion;
+    const subtitle =
+      companion === "Solo"
+        ? "Just you"
+        : companion === "Partner"
+          ? "Two people"
+          : companion === "Friends"
+            ? "Small group"
+            : companion === "Family"
+              ? "Family trip"
+              : "We'll adapt";
+
+    return (
+      <Pressable
+        key={`companion-${companion}`}
+        onPress={() => selectCompanion(companion)}
+        className={`rounded-2xl px-4 py-2 w-[48%] mb-3 ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"
+          }`}
+      >
+        <View>
+          <View className="flex flex-row items-center justify-between">
+            <Text className="text-lg font-onest text-black/90">{companion}</Text>
+            {selected && (
+              <View>
+                <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
+              </View>
+            )}
+          </View>
+          <Text className="text-xs text-black/50 font-onest mt-1">{subtitle}</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -408,20 +489,17 @@ const Step1SelectLocation: React.FC<StepProps> = ({
             <Text className="text-center text-xl font-onest-semibold mb-2">
               Plan your perfect journey
             </Text>
-            <Text className="text-center text-sm text-gray-500 font-onest mb-6 w-11/12 m-auto">
-              Give your itinerary a memorable title and choose your
-              destination and travel dates.
+            <Text className="text-center text-sm text-black/50 font-onest mb-6 w-11/12 m-auto">
+              Tell us where you're going, when, and who you're traveling with.
             </Text>
 
-            <View className="flex justify-evenly gap-4 border-t pt-12 border-gray-200 relative">
+            <View className="flex justify-evenly gap-4 border-t pt-8 border-gray-200 relative">
               {/* Title Input Field */}
-              <View className=" pb-4 z-10">
-                <Text className="font-onest-medium py-2">
-                  Itinerary Title
-                </Text>
+              <View className="pb-4 z-10">
+                <Text className="font-onest-medium py-2">Itinerary Title</Text>
                 <TextInput
                   className={`px-3 py-3 border ${title.trim() ? "border-primary" : "border-gray-300"
-                    } rounded-md  text-base font-onest`}
+                    } rounded-xl text-base font-onest`}
                   placeholder="e.g., Summer Adventure in Bacolod"
                   placeholderTextColor="#9CA3AF"
                   value={title}
@@ -431,21 +509,21 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                   onSubmitEditing={() => Keyboard.dismiss()}
                 />
                 {title.length > 0 && (
-                  <Text className="text-xs text-gray-500 font-onest mt-1 text-right">
+                  <Text className="text-xs text-black/50 font-onest mt-1 text-right">
                     {title.length}/100
                   </Text>
                 )}
               </View>
 
               {/* Custom Dropdown for City Selection */}
-              <View className=" pb-4 z-10">
+              <View className="pb-4 z-10">
                 <Text className="font-onest-medium py-2">
-                  Select Available Destination
+                  Where are you going?
                 </Text>
                 {/* Dropdown Button */}
                 <TouchableOpacity
                   className={`flex-row items-center justify-between px-3 py-3 border ${dropdownOpen ? "border-primary" : "border-gray-300"
-                    } rounded-md `}
+                    } rounded-xl`}
                   onPress={toggleDropdown}
                   activeOpacity={0.7}
                   disabled={loadingCities}
@@ -453,13 +531,13 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                   {loadingCities ? (
                     <View className="flex-row items-center">
                       <ActivityIndicator size="small" color="#4F46E5" />
-                      <Text className="text-gray-500 ml-2">
+                      <Text className="text-black/50 ml-2">
                         Loading destinations...
                       </Text>
                     </View>
                   ) : (
                     <Text
-                      className={`text-base ${localCity ? "text-black font-onest" : "text-gray-500"
+                      className={`text-base ${localCity ? "text-black font-onest" : "text-black/50"
                         }`}
                     >
                       {selectedLabel}
@@ -473,7 +551,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 </TouchableOpacity>
                 {/* Error Message */}
                 {cityError && (
-                  <View className="mt-2 p-2 bg-red-50 rounded-md">
+                  <View className="mt-2 p-2 bg-red-50 rounded-xl">
                     <Text className="text-red-600 text-sm font-onest">
                       {cityError}
                     </Text>
@@ -509,7 +587,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                     <ScrollView nestedScrollEnabled={true}>
                       {cities.length === 0 && !loadingCities ? (
                         <View className="px-4 py-8 text-center">
-                          <Text className="text-gray-500 text-base font-onest">
+                          <Text className="text-black/50 text-base font-onest">
                             No destinations available
                           </Text>
                         </View>
@@ -528,7 +606,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                               <Text className="text-base font-onest">
                                 {city.label}
                               </Text>
-                              <Text className="text-xs text-gray-500 font-onest">
+                              <Text className="text-xs text-black/50 font-onest">
                                 {city.experienceCount}{" "}
                                 {city.experienceCount === 1
                                   ? "Activity"
@@ -544,22 +622,22 @@ const Step1SelectLocation: React.FC<StepProps> = ({
               </View>
 
               {/* Date Selection */}
-              <View className=" pb-4 mt-4 z-9">
-                <Text className="font-onest-medium py-2">Travel Dates</Text>
+              <View className="pb-4 mt-4 z-9">
+                <Text className="font-onest-medium py-2">When are you traveling?</Text>
                 <TouchableOpacity
                   className={`flex-row items-center justify-between px-3 py-3 border ${showCalendar ? "border-primary" : "border-gray-300"
-                    } rounded-md `}
+                    } rounded-xl`}
                   onPress={toggleCalendar}
                   activeOpacity={0.7}
                 >
                   <Text
-                    className={`text-base ${startDate ? "text-black font-onest" : "text-gray-500"
+                    className={`text-base ${startDate ? "text-black font-onest" : "text-black/50"
                       }`}
                   >
                     {startDate && endDate
-                      ? `${formatDisplayDate(
-                        startDate
-                      )} - ${formatDisplayDate(endDate)}`
+                      ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(
+                        endDate
+                      )}`
                       : startDate
                         ? `${formatDisplayDate(startDate)} - Select end date`
                         : "Select travel dates"}
@@ -573,7 +651,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
 
                 {/* Calendar popup */}
                 {showCalendar && (
-                  <View className=" border border-gray-200 rounded-md mt-1 shadow-sm z-20">
+                  <View className="border border-gray-200 rounded-xl mt-1  z-20">
                     <Calendar
                       onDayPress={handleDayPress}
                       markedDates={markedDates}
@@ -592,7 +670,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                       }}
                     />
                     <View className="p-3 border-t border-gray-200">
-                      <Text className="text-center text-sm text-gray-500 font-onest mb-1">
+                      <Text className="text-center text-sm text-black/50 font-onest mb-1">
                         {selectingEndDate
                           ? "Now select your end date"
                           : "Select your travel dates"}
@@ -605,7 +683,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 {startDate && !showCalendar && (
                   <View className="flex-row justify-between mt-2">
                     <View className="flex-1">
-                      <Text className="text-xs text-gray-500 font-onest">
+                      <Text className="text-xs text-black/50 font-onest">
                         Start Date
                       </Text>
                       <Text className="text-sm font-onest-medium">
@@ -613,18 +691,16 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                       </Text>
                     </View>
                     <View className="flex-1">
-                      <Text className="text-xs text-gray-500 font-onest">
+                      <Text className="text-xs text-black/50 font-onest">
                         End Date
                       </Text>
                       <Text className="text-sm font-onest-medium">
-                        {endDate
-                          ? formatDisplayDate(endDate)
-                          : "Not selected"}
+                        {endDate ? formatDisplayDate(endDate) : "Not selected"}
                       </Text>
                     </View>
                     {startDate && endDate && (
                       <View className="flex-1">
-                        <Text className="text-xs text-gray-500 font-onest">
+                        <Text className="text-xs text-black/50 font-onest">
                           Duration
                         </Text>
                         <Text className="text-sm font-onest-medium">
@@ -636,6 +712,68 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                         </Text>
                       </View>
                     )}
+                  </View>
+                )}
+              </View>
+
+              {/* Who Section - Companion Selection */}
+              <View className="pb-4 mt-4">
+                <Text className="font-onest-medium py-2 text-lg">
+                  Who's traveling?
+                </Text>
+                <Text className="text-sm text-black/50 font-onest mb-4">
+                  Group size affects pricing suggestions.
+                </Text>
+
+                <View className="flex-row flex-wrap justify-between">
+                  {companionOptions.map((companion) =>
+                    renderCompanionCard(companion)
+                  )}
+                </View>
+
+                {/* Traveler count - only if not Solo */}
+                {selectedCompanion && selectedCompanion !== "Solo" && (
+                  <View className="mt-4  py-4">
+                    <Text className="font-onest-medium py-2 text-lg">
+                      Exact number of guests
+                    </Text>
+
+                    <View className="flex-row items-center mt-4 justify-between">
+                      <Pressable
+                        onPress={() =>
+                          setTravelerCount((prev) => Math.max(2, prev - 1))
+                        }
+                        className="bg-white border border-gray-200 rounded-xl p-3"
+                      >
+                        <Ionicons name="remove" size={20} color="#374151" />
+                      </Pressable>
+
+                      <View className="items-center">
+                        <Text className="font-onest-bold text-3xl text-black/90">
+                          {travelerCount}
+                        </Text>
+                        <Text className="text-xs text-black/50 font-onest mt-1">
+                          travelers
+                        </Text>
+                      </View>
+
+                      <Pressable
+                        onPress={() =>
+                          setTravelerCount((prev) => Math.min(20, prev + 1))
+                        }
+                        className="bg-white border border-gray-200 rounded-xl p-3"
+                      >
+                        <Ionicons name="add" size={20} color="#374151" />
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
+                {selectedCompanion === "Solo" && (
+                  <View className="mt-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <Text className="text-xs text-indigo-700 font-onest">
+                      ✨ Solo travel — costs calculated for 1 person
+                    </Text>
                   </View>
                 )}
               </View>

@@ -4,6 +4,8 @@ import { ItineraryItemCard } from '@/components/itinerary/ItineraryItemCard';
 import { TimeSlotEditSheet } from '@/components/itinerary/TimeSlotEditSheet';
 import { TravelIndicator } from '@/components/itinerary/TravelIndicator';
 import { TripPlanActionBar } from '@/components/itinerary/TripPlanActionBar';
+import { useFoodStopsAlongRoute } from '@/hooks/useFoodStopsAlongRoutes';
+
 import API_URL from '@/constants/api';
 import { Itinerary, ItineraryItem } from '@/types/itineraryDetails';
 import {
@@ -13,7 +15,7 @@ import {
 } from '@/utils/itinerary-utils';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 interface DayStyles {
@@ -69,6 +71,13 @@ export function TripPlanTab({
     const chipScrollRef = useRef<ScrollView>(null);
     const [selectedDayChip, setSelectedDayChip] = useState<number | null>(null);
 
+    const { clearCache } = useFoodStopsAlongRoute();
+
+    // FOR CLEAR CACHE
+    useEffect(() => {
+        clearCache();
+        console.log('>>> Cache cleared!');
+    }, []);
     // Time Edit Sheet State
     const [timeEditSheetVisible, setTimeEditSheetVisible] = useState(false);
     const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);

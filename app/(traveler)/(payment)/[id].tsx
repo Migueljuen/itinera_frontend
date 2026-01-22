@@ -91,6 +91,7 @@ const PaymentScreen = () => {
     }
   };
 
+
   const handleSubmitPayment = async () => {
     if (!proofImage) {
       toast.error("Please upload your proof of payment");
@@ -98,6 +99,7 @@ const PaymentScreen = () => {
     }
 
     const paymentType = isPartialPayment ? "down payment" : totalPaid > 0 ? "remaining balance" : "full payment";
+
     Alert.alert(
       "Submit Payment",
       `Send ${paymentType} proof of ₱${amountToPay.toFixed(2)} now?`,
@@ -406,13 +408,30 @@ const PaymentScreen = () => {
             )}
           </View>
 
+          {/* Refund Policy Notice */}
+          <View className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200">
+            <View className="flex-row items-start">
+              {/* <Ionicons name="warning-outline" size={18} color="#D97706" /> */}
+              <View className="ml-2 flex-1">
+                <Text className="font-onest-semibold text-base mb-3 text-amber-700">
+                  Refund Policy
+                </Text>
+                <Text className="font-onest text-sm text-amber-700 leading-loose">
+                  • Down payments are <Text className="font-onest-semibold">non-refundable</Text>.{"\n"}
+                  • Full payments are <Text className="font-onest-semibold">50% refundable</Text> if cancelled at least 48 hours before the itinerary start.{"\n"}
+                  • Cancellations within 48 hours are <Text className="font-onest-semibold">non-refundable</Text>.
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {/* Amount Summary */}
           <View className="py-6 mb-6 border-b-2 border-dashed border-[#e3e3e3]">
             <View className="flex flex-row items-baseline justify-between">
               <Text className="font-onest-medium text-base text-black/40">
                 Amount to Pay
               </Text>
-              <Text className="text-2xl font-onest-bold text-primary">
+              <Text className="text-2xl font-onest-bold text-[#191313]">
                 ₱
                 {amountToPay.toLocaleString("en-US", {
                   minimumFractionDigits: 2,

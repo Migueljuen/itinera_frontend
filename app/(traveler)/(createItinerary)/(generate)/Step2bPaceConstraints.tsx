@@ -1,6 +1,5 @@
 // (traveler)/(createItinerary)/(generate)/Step2bPaceConstraints.tsx
 import {
-  ActivityIntensity,
   Budget,
   TravelDistance,
 } from "@/types/experienceTypes";
@@ -30,7 +29,6 @@ interface ItineraryFormData {
     experienceIds?: number[];
     travelerCount: number;
     budget?: Budget;
-    activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
   };
 }
@@ -50,11 +48,6 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
 }) => {
   const budgetOptions: Budget[] = useMemo(
     () => ["Free", "Budget-friendly", "Mid-range", "Premium"],
-    []
-  );
-
-  const activityIntensityOptions: ActivityIntensity[] = useMemo(
-    () => ["Low", "Moderate", "High"],
     []
   );
 
@@ -79,18 +72,11 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
     formData.preferences?.budget || null
   );
 
-  const [selectedActivityIntensity, setSelectedActivityIntensity] =
-    useState<ActivityIntensity | null>(
-      formData.preferences?.activityIntensity || null
-    );
-
   const [selectedTravelDistance, setSelectedTravelDistance] =
     useState<TravelDistance | null>(formData.preferences?.travelDistance || null);
 
   const isValid = () =>
-    selectedBudget !== null &&
-    selectedActivityIntensity !== null &&
-    selectedTravelDistance !== null;
+    selectedBudget !== null && selectedTravelDistance !== null;
 
   const handleNext = () => {
     if (!isValid()) return;
@@ -100,7 +86,6 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
       preferences: {
         ...(prev.preferences ?? { travelerCount: 1, experiences: [] }),
         budget: selectedBudget!,
-        activityIntensity: selectedActivityIntensity!,
         travelDistance: selectedTravelDistance!,
       },
     }));
@@ -123,7 +108,7 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
         key={keyProp}
         onPress={onPress}
         className={` rounded-2xl px-4 py-2 mb-3 ${fullWidth ? "w-full" : "w-[48%]"
-          } ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-black/5"}`}
+          } ${selected ? "border-primary bg-indigo-100" : "border-gray-200 bg-gray-50"}`}
       >
         <View>
           <View className="flex flex-row items-center justify-between">
@@ -159,11 +144,11 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         >
-          <View className="py-2">
+          <View className="py-2 px-4">
             {/* Budget */}
-            <View className="mb-8">
+            <View className="mb-8 ">
               <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
-                What’s your ideal budget?
+                What's your ideal budget?
               </Text>
               <Text className="text-base text-black/50 font-onest mb-8">
                 This helps match experiences to your price range.
@@ -195,46 +180,13 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
               )}
             </View>
 
-            {/* Activity Intensity */}
-            <View className="mb-8">
-              <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
-                How packed do you want your days?
-              </Text>
-              <Text className="text-base text-black/50 font-onest mb-8">
-                This affects how many activities we schedule per day.
-              </Text>
-
-              <View className="flex-row flex-wrap justify-between">
-                {activityIntensityOptions.map((intensity) =>
-                  renderCard({
-                    keyProp: `intensity-${intensity}`,
-                    title: intensity,
-                    subtitle:
-                      intensity === "Low"
-                        ? "Relaxed pace"
-                        : intensity === "Moderate"
-                          ? "Balanced days"
-                          : "Action-packed",
-                    selected: selectedActivityIntensity === intensity,
-                    onPress: () => setSelectedActivityIntensity(intensity),
-                  })
-                )}
-              </View>
-
-              {selectedActivityIntensity === null && (
-                <Text className="text-xs text-red-500 font-onest mt-2">
-                  Please select an intensity level
-                </Text>
-              )}
-            </View>
-
             {/* Travel Distance */}
             <View className="mb-6">
               <Text className="font-onest-semibold text-2xl text-black/90 mb-3">
                 How far are you willing to travel?
               </Text>
               <Text className="text-base text-black/50 font-onest mb-8">
-                We’ll prioritize experiences within your preferred distance.
+                We'll prioritize experiences within your preferred distance.
               </Text>
 
               {travelDistanceOptions.map((option) =>
