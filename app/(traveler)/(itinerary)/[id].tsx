@@ -41,7 +41,7 @@ export default function ItineraryDetailScreen() {
   const [selectedDayForFood, setSelectedDayForFood] = useState<number>(1);
 
   // Hooks
-  const { itinerary, serviceAssignments, loading, accessLevel } = useItinerary(id);
+  const { itinerary, serviceAssignments, loading, accessLevel, refetch } = useItinerary(id);
 
   const { addItineraryToCalendar } = useCalendarIntegration();
   const { getEditCapabilities, getDayHeaderStyle } = useEditCapabilities(itinerary);
@@ -166,6 +166,7 @@ export default function ItineraryDetailScreen() {
             onNavigateSingle={handleSingleNavigation}
             onNavigateBetween={navigateBetweenItems}
             onShowFoodStops={handleShowFoodStops}
+            onRefresh={refetch}
           />
         );
       case 'guide':
@@ -210,7 +211,7 @@ export default function ItineraryDetailScreen() {
         {/* Date Row */}
         <View className="flex-row items-center my-6 px-4">
           <Ionicons name="calendar-outline" size={16} color="#000000cc" />
-          <Text className="text-sm text-black/90 font-onest ml-2">
+          <Text className="text-sm text-black/90 font-onest ml-2 ">
             {dateRangeText}
           </Text>
         </View>

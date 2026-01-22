@@ -244,9 +244,6 @@ export default function ExperienceDetail() {
                 experienceId={experienceId}
                 tripStartDate={tripStartDate}
                 tripEndDate={tripEndDate}
-                selectedItems={selectedItems}
-                onTimeSlotSelect={handleTimeSlotSelect}
-                onTimeSlotDeselect={handleTimeSlotDeselect}
               />
             </View>
           )}
@@ -279,16 +276,14 @@ export default function ExperienceDetail() {
         />
       )} */}
       {!isFromItinerary && !isViewOnly && (
+
         <AvailabilityModal
           visible={showAvailabilityModal}
           onClose={() => setShowAvailabilityModal(false)}
           experienceId={experienceId}
           tripStartDate={tripStartDate}
           tripEndDate={tripEndDate}
-          selectedItems={selectedItems}
-          onTimeSlotSelect={handleTimeSlotSelect}
-          onTimeSlotDeselect={handleTimeSlotDeselect}
-          onConfirm={handleConfirmSelection}
+          price={Number(experience.price)}
         />
       )}
     </View>
@@ -547,7 +542,7 @@ const StepsSection: React.FC<StepsSectionProps> = ({ steps }) => {
               <Text className="font-onest-medium text-lg text-black/90 mb-1">
                 {step.title}
               </Text>
-              <Text className="text-black/40 font-onest mb-2">{step.description}</Text>
+              <Text className="text-black/50 font-onest mb-2">{step.description}</Text>
             </View>
           </View>
           {index < steps.length - 1 && (

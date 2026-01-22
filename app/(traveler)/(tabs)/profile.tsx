@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -95,6 +96,43 @@ const ProfileScreen: React.FC = () => {
     itineraryUpdates: true,
     nearbyExperiences: false
   });
+
+  const SUPPORT_USER_ID = 21;
+
+  const openSupportChat = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Please log in to message support");
+        return;
+      }
+
+      // Create or get existing conversation with Support (fixed user)
+      const response = await axios.post(
+        `${API_URL}/conversations`,
+        { participantId: SUPPORT_USER_ID },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        const conversationId = response.data.data.id;
+
+        router.push({
+          pathname: "/(traveler)/(conversations)/[id]",
+          params: {
+            id: String(conversationId),
+            name: "Chat support",
+          },
+        });
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to open support chat");
+      }
+    } catch (error) {
+      console.error("Error starting support conversation:", error);
+      Alert.alert("Error", "Failed to start support chat");
+    }
+  };
+
 
   // Unified styles
   const shadowStyle = {
@@ -622,13 +660,7 @@ const ProfileScreen: React.FC = () => {
             <Text className="text-sm text-black/50 font-onest mt-1">{userData.email}</Text>
           </View>
 
-          <TouchableOpacity
-            className=" rounded-xl py-3 flex-row items-center justify-center"
-            onPress={() => router.push('/(traveler)/(profile)/edit')}
-          >
-            <Ionicons name="create-outline" size={20} color="#1f2937" />
-            <Text className="ml-2 text-black/90 font-onest-medium">Edit Profile</Text>
-          </TouchableOpacity>
+
         </View>
 
         {/* Travel Stats */}
@@ -747,7 +779,7 @@ const ProfileScreen: React.FC = () => {
         )}
 
         {/* Notification Settings */}
-        <View className="mb-6">
+        {/* <View className="mb-6">
           <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Notifications</Text>
           <View className={`${cardStyle} mx-4 overflow-hidden`}>
             {notificationData.map((notification, index) => (
@@ -760,33 +792,47 @@ const ProfileScreen: React.FC = () => {
               />
             ))}
           </View>
-        </View>
+        </View> */}
 
         {/* Quick Actions */}
-        <View className="px-4 mb-6">
-          <TouchableOpacity
-            className="bg-primary rounded-2xl py-4 flex-row items-center justify-center mb-3"
-            onPress={() => router.push('/(traveler)/(profile)/account-settings')}
-            style={{
-              shadowColor: '#4F46E5',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 6,
-            }}
-          >
-            <Ionicons name="settings-outline" size={20} color="#E5E7EB" />
-            <Text className="ml-2 text-gray-200 font-onest-semibold">Account Settings</Text>
-          </TouchableOpacity>
+        <View className="mt-4 px-6 mb-6">
+          <Text className={`${sectionTitleStyle} mb-4`}>Quick Actions</Text>
 
           <TouchableOpacity
-            className="border border-gray-300 rounded-2xl py-4 flex-row items-center justify-center"
-            onPress={() => router.push('/(traveler)/(support)')}
+            className="flex-row items-center py-3"
+            onPress={() => router.push("/(traveler)/(profile)/settings")}
+          // If your route is actually /account-settings, change the line above to:
+          // onPress={() => router.push("/(traveler)/(profile)/account-settings")}
           >
-            <Ionicons name="help-circle-outline" size={20} color="#6B7280" />
-            <Text className="ml-2 text-black/90 font-onest-medium">Help & Support</Text>
+            <View className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3">
+              <Ionicons name="settings-outline" size={20} color="#6B7280" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-onest text-black/90">Account Settings</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">
+                Password, notifications & more
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
+
+          <View className="border-t border-gray-100" />
+
+          <Pressable
+            onPress={openSupportChat}
+            className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
+          >
+            <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
+              <Ionicons name="help-circle-outline" size={20} color="#3B82F6" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-onest text-black/90">Chat Support</Text>
+              <Text className="text-xs font-onest text-black/50 mt-0.5">Ask help</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </Pressable>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );

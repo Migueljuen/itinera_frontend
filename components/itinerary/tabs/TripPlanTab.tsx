@@ -1,8 +1,10 @@
 // components/itinerary/tabs/TripPlanTab.tsx
 
 import { ItineraryItemCard } from '@/components/itinerary/ItineraryItemCard';
+import { TimeSlotEditSheet } from '@/components/itinerary/TimeSlotEditSheet';
 import { TravelIndicator } from '@/components/itinerary/TravelIndicator';
 import { TripPlanActionBar } from '@/components/itinerary/TripPlanActionBar';
+import API_URL from '@/constants/api';
 import { Itinerary, ItineraryItem } from '@/types/itineraryDetails';
 import {
     getDateForDay,
@@ -12,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 interface DayStyles {
     container: string;
@@ -29,6 +31,7 @@ interface Props {
     onNavigateSingle: (item: ItineraryItem) => void;
     onNavigateBetween: (from: ItineraryItem, to: ItineraryItem) => void;
     onShowFoodStops: (dayNumber: number, items: ItineraryItem[]) => void;
+    onRefresh?: () => void; // Optional callback to refresh itinerary data
 }
 
 interface DayGroup {
@@ -58,6 +61,7 @@ export function TripPlanTab({
     onNavigateSingle,
     onNavigateBetween,
     onShowFoodStops,
+    onRefresh,
 }: Props) {
     const router = useRouter();
     const groupedItems = groupItemsByDay(itinerary.items);
@@ -65,9 +69,106 @@ export function TripPlanTab({
     const chipScrollRef = useRef<ScrollView>(null);
     const [selectedDayChip, setSelectedDayChip] = useState<number | null>(null);
 
+    // Time Edit Sheet State
+    const [timeEditSheetVisible, setTimeEditSheetVisible] = useState(false);
+    const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+    const [editingDayDate, setEditingDayDate] = useState<Date | null>(null);
+    const [editingDayNumber, setEditingDayNumber] = useState<number | null>(null);
+
     const dayPositions = useRef<{ [key: number]: number }>({});
 
-    // Categorize days into: current/today, upcoming, and completed
+    // ============ Time Edit Handlers ============
+
+    const handleEditTime = (item: ItineraryItem, dayNumber: number) => {
+        // Calculate the actual date for this day
+        const startDate = new Date(itinerary.start_date);
+        const dayDate = new Date(startDate);
+        dayDate.setDate(startDate.getDate() + dayNumber - 1);
+
+        setEditingItem(item);
+        setEditingDayDate(dayDate);
+        setEditingDayNumber(dayNumber);
+        setTimeEditSheetVisible(true);
+    };
+
+    const handleSaveTimeSlot = async (
+        item: ItineraryItem,
+        newStartTime: string,
+        newEndTime: string
+    ) => {
+        try {
+            // Call your API to update the itinerary item's time
+            const response = await fetch(`${API_URL}/itinerary/item/${item.item_id}/time`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start_time: newStartTime,
+                    end_time: newEndTime,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update time slot');
+            }
+
+            // Close the sheet
+            setTimeEditSheetVisible(false);
+            setEditingItem(null);
+            setEditingDayNumber(null);
+
+            // Refresh the itinerary data
+            onRefresh?.();
+        } catch (error) {
+            console.error('Error updating time slot:', error);
+            Alert.alert('Error', 'Failed to update time slot. Please try again.');
+        }
+    };
+
+    const handleCloseTimeEditSheet = () => {
+        setTimeEditSheetVisible(false);
+        setEditingItem(null);
+        setEditingDayNumber(null);
+    };
+
+    const handleRemoveItem = (item: ItineraryItem) => {
+        Alert.alert(
+            'Remove Activity',
+            `Are you sure you want to remove "${item.experience_name}" from your itinerary?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const response = await fetch(
+                                `${API_URL}/itinerary/item/${item.item_id}`,
+                                { method: 'DELETE' }
+                            );
+
+                            if (!response.ok) {
+                                throw new Error('Failed to remove item');
+                            }
+
+                            // Refresh itinerary data
+                            onRefresh?.();
+                        } catch (error) {
+                            console.error('Error removing item:', error);
+                            Alert.alert('Error', 'Failed to remove activity. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const getOtherItemsOnDay = (dayNumber: number): ItineraryItem[] => {
+        const dayItems = groupedItems[dayNumber] || [];
+        return dayItems.filter((item) => item.item_id !== editingItem?.item_id);
+    };
+
+    // ============ Day Categorization ============
+
     const { currentDay, upcomingDays, completedDays, allDays, dayChips } = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -133,7 +234,7 @@ export function TripPlanTab({
             }
 
             const subLabel = dayDate.toLocaleDateString('en-US', {
-                day: 'numeric'
+                day: 'numeric',
             });
 
             return {
@@ -154,6 +255,8 @@ export function TripPlanTab({
             dayChips: chips,
         };
     }, [groupedItems, itinerary]);
+
+    // ============ Navigation Handlers ============
 
     const handleItemPress = (item: ItineraryItem) => {
         router.push(
@@ -180,15 +283,28 @@ export function TripPlanTab({
         dayPositions.current[dayNumber] = y;
     };
 
+    // ============ Computed Values ============
+
     const selectedDay = useMemo(() => {
         if (selectedDayChip !== null) {
-            return allDays.find(d => d.dayNumber === selectedDayChip) || currentDay;
+            return allDays.find((d) => d.dayNumber === selectedDayChip) || currentDay;
         }
         return currentDay;
     }, [selectedDayChip, allDays, currentDay]);
 
-    // Determine if selected day is completed
     const isSelectedDayCompleted = selectedDay?.isPast ?? false;
+
+    const getVariant = (day: DayGroup): 'current' | 'upcoming' | 'completed' => {
+        if (day.isToday || day.dayNumber === currentDay?.dayNumber) {
+            return 'current';
+        }
+        if (day.isPast) {
+            return 'completed';
+        }
+        return 'upcoming';
+    };
+
+    // ============ Render ============
 
     return (
         <View className="flex-1 mt-6">
@@ -202,7 +318,8 @@ export function TripPlanTab({
                         className="flex-row"
                     >
                         {dayChips.map((chip, index) => {
-                            const isSelected = selectedDayChip === chip.dayNumber ||
+                            const isSelected =
+                                selectedDayChip === chip.dayNumber ||
                                 (selectedDayChip === null && chip.isCurrent);
 
                             return (
@@ -256,7 +373,7 @@ export function TripPlanTab({
             <ScrollView
                 ref={mainScrollRef}
                 className="flex-1 px-6 mx-4"
-                contentContainerStyle={{ paddingBottom: 180 }} // Extra padding for action bar
+                contentContainerStyle={{ paddingBottom: 180 }}
                 showsVerticalScrollIndicator={false}
             >
                 {selectedDay ? (
@@ -270,13 +387,9 @@ export function TripPlanTab({
                             onNavigateSingle={onNavigateSingle}
                             onNavigateBetween={onNavigateBetween}
                             onItemPress={handleItemPress}
-                            variant={
-                                selectedDay.isToday || selectedDay.dayNumber === currentDay?.dayNumber
-                                    ? 'current'
-                                    : selectedDay.isPast
-                                        ? 'completed'
-                                        : 'upcoming'
-                            }
+                            onEditTime={(item) => handleEditTime(item, selectedDay.dayNumber)}
+                            onRemoveItem={handleRemoveItem}
+                            variant={getVariant(selectedDay)}
                         />
                     </View>
                 ) : (
@@ -294,6 +407,18 @@ export function TripPlanTab({
                     </View>
                 )}
             </ScrollView>
+
+            {/* Time Slot Edit Sheet */}
+            <TimeSlotEditSheet
+                visible={timeEditSheetVisible}
+                onClose={handleCloseTimeEditSheet}
+                onSave={handleSaveTimeSlot}
+                item={editingItem}
+                dayDate={editingDayDate}
+                otherItemsOnDay={
+                    editingDayNumber ? getOtherItemsOnDay(editingDayNumber) : []
+                }
+            />
 
             {/* Bottom Action Bar */}
             {selectedDay && (
@@ -321,6 +446,8 @@ interface DayCardProps {
     onNavigateSingle: (item: ItineraryItem) => void;
     onNavigateBetween: (from: ItineraryItem, to: ItineraryItem) => void;
     onItemPress: (item: ItineraryItem) => void;
+    onEditTime: (item: ItineraryItem) => void;
+    onRemoveItem?: (item: ItineraryItem) => void;
     variant: 'current' | 'upcoming' | 'completed';
 }
 
@@ -333,6 +460,8 @@ function DayCard({
     onNavigateSingle,
     onNavigateBetween,
     onItemPress,
+    onEditTime,
+    onRemoveItem,
     variant,
 }: DayCardProps) {
     const { dayNumber, items, dateString, isToday } = day;
@@ -421,7 +550,9 @@ function DayCard({
                     {items.map((item, index) => {
                         const nextItem = items[index + 1];
                         const isLast = index === items.length - 1;
-                        const timeCheck = nextItem ? hasEnoughTimeBetween(item, nextItem) : null;
+                        const timeCheck = nextItem
+                            ? hasEnoughTimeBetween(item, nextItem)
+                            : null;
 
                         const canNavigateBetween = Boolean(
                             nextItem &&
@@ -439,15 +570,26 @@ function DayCard({
                                         isLast={isLast && !nextItem}
                                         onPress={() => onItemPress(item)}
                                         onNavigate={() => onNavigateSingle(item)}
+                                        onEditTime={() => onEditTime(item)}
+                                        onRemove={
+                                            onRemoveItem
+                                                ? () => onRemoveItem(item)
+                                                : undefined
+                                        }
                                         isCompleted={variant === 'completed'}
+                                        swipeEnabled={variant !== 'completed'}
                                     />
                                 </View>
 
                                 {nextItem && (
                                     <TravelIndicator
                                         timeCheck={timeCheck}
-                                        canNavigate={canNavigateBetween && variant !== 'completed'}
-                                        onNavigate={() => onNavigateBetween(item, nextItem)}
+                                        canNavigate={
+                                            canNavigateBetween && variant !== 'completed'
+                                        }
+                                        onNavigate={() =>
+                                            onNavigateBetween(item, nextItem)
+                                        }
                                     />
                                 )}
                             </React.Fragment>
