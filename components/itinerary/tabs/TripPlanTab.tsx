@@ -4,9 +4,8 @@ import { ItineraryItemCard } from '@/components/itinerary/ItineraryItemCard';
 import { TimeSlotEditSheet } from '@/components/itinerary/TimeSlotEditSheet';
 import { TravelIndicator } from '@/components/itinerary/TravelIndicator';
 import { TripPlanActionBar } from '@/components/itinerary/TripPlanActionBar';
-import { useFoodStopsAlongRoute } from '@/hooks/useFoodStopsAlongRoutes';
-
 import API_URL from '@/constants/api';
+import { useFoodStopsAlongRoute } from '@/hooks/useFoodStopsAlongRoutes';
 import { Itinerary, ItineraryItem } from '@/types/itineraryDetails';
 import {
     getDateForDay,
@@ -14,6 +13,7 @@ import {
     hasEnoughTimeBetween,
 } from '@/utils/itinerary-utils';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
@@ -106,26 +106,41 @@ export function TripPlanTab({
         newEndTime: string
     ) => {
         try {
-            // Call your API to update the itinerary item's time
-            const response = await fetch(`${API_URL}/itinerary/item/${item.item_id}/time`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    start_time: newStartTime,
-                    end_time: newEndTime,
-                }),
-            });
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "Please log in again");
+                return;
+            }
+
+            // Reuse the bulk endpoint with a single item
+            const response = await fetch(
+                `${API_URL}/itinerary/${itinerary.itinerary_id}/items/bulk-update`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        updates: [
+                            {
+                                item_id: item.item_id,
+                                start_time: newStartTime,
+                                end_time: newEndTime,
+                            },
+                        ],
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error('Failed to update time slot');
             }
 
-            // Close the sheet
             setTimeEditSheetVisible(false);
             setEditingItem(null);
             setEditingDayNumber(null);
 
-            // Refresh the itinerary data
             onRefresh?.();
         } catch (error) {
             console.error('Error updating time slot:', error);
@@ -141,8 +156,8 @@ export function TripPlanTab({
 
     const handleRemoveItem = (item: ItineraryItem) => {
         Alert.alert(
-            'Remove Activity',
-            `Are you sure you want to remove "${item.experience_name}" from your itinerary?`,
+            'Cancel Trip',
+            `Trip cancellations are non-refundable.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -150,16 +165,30 @@ export function TripPlanTab({
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            const token = await AsyncStorage.getItem("token");
+                            if (!token) {
+                                Alert.alert("Error", "Please log in again");
+                                return;
+                            }
+
                             const response = await fetch(
-                                `${API_URL}/itinerary/item/${item.item_id}`,
-                                { method: 'DELETE' }
+                                `${API_URL}/itinerary/${itinerary.itinerary_id}/items/bulk-delete`,
+                                {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({
+                                        item_ids: [item.item_id],  // Single item in array
+                                    }),
+                                }
                             );
 
                             if (!response.ok) {
                                 throw new Error('Failed to remove item');
                             }
 
-                            // Refresh itinerary data
                             onRefresh?.();
                         } catch (error) {
                             console.error('Error removing item:', error);

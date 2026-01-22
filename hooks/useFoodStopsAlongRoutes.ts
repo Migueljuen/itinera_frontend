@@ -3,7 +3,7 @@
 import { ItineraryItem } from "@/types/itineraryDetails";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 // Types
@@ -29,7 +29,7 @@ export interface RouteWithFoodStops {
     origin: Coordinate;
     destination: Coordinate;
     waypoints: Coordinate[];
-    skippedPoints?: string[]; // Track which points were skipped
+    skippedPoints?: string[];
 }
 
 interface CachedRouteData {
@@ -46,14 +46,21 @@ const CACHE_PREFIX = "food_stops_cache_";
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Generate a cache key from itinerary items
+ * Generate a cache key from origin + itinerary coordinates (rounded)
+ * (This prevents reusing a route created from a different user location.)
  */
-const generateCacheKey = (items: ItineraryItem[]): string => {
+const generateCacheKey = (items: ItineraryItem[], origin: Coordinate): string => {
+    const originPart = `${origin.latitude.toFixed(4)},${origin.longitude.toFixed(4)}`;
+
     const coordString = items
         .filter((item) => item.destination_latitude && item.destination_longitude)
-        .map((item) => `${item.destination_latitude?.toFixed(4)},${item.destination_longitude?.toFixed(4)}`)
+        .map(
+            (item) =>
+                `${item.destination_latitude!.toFixed(4)},${item.destination_longitude!.toFixed(4)}`
+        )
         .join("|");
-    return `${CACHE_PREFIX}${coordString}`;
+
+    return `${CACHE_PREFIX}${originPart}|${coordString}`;
 };
 
 /**
@@ -142,52 +149,50 @@ const decodePolyline = (encoded: string): Coordinate[] => {
 
 /**
  * Sample points along the route at regular intervals
+ * Ensures we include the last point too.
  */
-const sampleRoutePoints = (
-    polyline: Coordinate[],
-    maxPoints: number = 8
-): Coordinate[] => {
+const sampleRoutePoints = (polyline: Coordinate[], maxPoints = 8): Coordinate[] => {
     if (polyline.length <= maxPoints) return polyline;
 
     const sampled: Coordinate[] = [];
-    const step = Math.floor(polyline.length / maxPoints);
+    const lastIndex = polyline.length - 1;
 
-    for (let i = 0; i < polyline.length; i += step) {
-        sampled.push(polyline[i]);
-        if (sampled.length >= maxPoints) break;
+    for (let i = 0; i < maxPoints; i++) {
+        const t = i / (maxPoints - 1);
+        const idx = Math.round(t * lastIndex);
+        sampled.push(polyline[idx]);
     }
 
     return sampled;
 };
 
 /**
- * Build Overpass API query for food establishments - OPTIMIZED
+ * Build Overpass query: one around() per sampled point (correct syntax)
  */
-const buildOverpassQuery = (
-    points: Coordinate[],
-    radiusMeters: number = 500
-): string => {
-    const aroundFilter = points
-        .map((p) => `${p.latitude},${p.longitude}`)
-        .join(",");
+const buildOverpassQuery = (points: Coordinate[], radiusMeters = 500) => {
+    const clauses = points
+        .map(
+            (p) => `
+  node["amenity"~"restaurant|cafe|fast_food|food_court|bakery|bar"](around:${radiusMeters},${p.latitude},${p.longitude});
+  node["shop"~"bakery|pastry|coffee"](around:${radiusMeters},${p.latitude},${p.longitude});
+`
+        )
+        .join("\n");
 
-    const query = `
-[out:json][timeout:25];
+    return `
+[out:json][timeout:60];
 (
-  node["amenity"~"restaurant|cafe|fast_food|food_court|bakery"](around:${radiusMeters},${aroundFilter});
-  node["shop"~"bakery|pastry|coffee"](around:${radiusMeters},${aroundFilter});
+${clauses}
 );
-out body 50;
+out body;
 `;
-
-    return query;
 };
 
 /**
  * Parse Overpass API response into FoodStop objects
  */
 const parseOverpassResponse = (data: any): FoodStop[] => {
-    if (!data.elements) return [];
+    if (!data?.elements) return [];
 
     return data.elements
         .filter((el: any) => {
@@ -203,30 +208,27 @@ const parseOverpassResponse = (data: any): FoodStop[] => {
             const amenity = el.tags?.amenity;
             const shop = el.tags?.shop;
 
-            if (amenity === "cafe" || shop === "coffee") {
-                type = "cafe";
-            } else if (amenity === "fast_food") {
-                type = "fast_food";
-            } else if (amenity === "food_court" || amenity === "canteen") {
-                type = "food_court";
-            } else if (amenity === "bakery" || shop === "bakery" || shop === "pastry" || shop === "confectionery") {
+            if (amenity === "cafe" || shop === "coffee") type = "cafe";
+            else if (amenity === "fast_food") type = "fast_food";
+            else if (amenity === "food_court" || amenity === "canteen") type = "food_court";
+            else if (
+                amenity === "bakery" ||
+                shop === "bakery" ||
+                shop === "pastry" ||
+                shop === "confectionery"
+            )
                 type = "bakery";
-            } else if (amenity === "bar" || amenity === "pub" || amenity === "biergarten") {
-                type = "bar";
-            } else if (amenity === "ice_cream") {
-                type = "cafe";
-            }
+            else if (amenity === "bar" || amenity === "pub" || amenity === "biergarten") type = "bar";
+            else if (amenity === "ice_cream") type = "cafe";
 
             return {
-                id: el.id.toString(),
+                id: String(el.id),
                 name: el.tags.name,
                 type,
                 cuisine: el.tags.cuisine,
                 latitude,
                 longitude,
-                address: [el.tags["addr:street"], el.tags["addr:housenumber"]]
-                    .filter(Boolean)
-                    .join(" "),
+                address: [el.tags["addr:street"], el.tags["addr:housenumber"]].filter(Boolean).join(" "),
                 openingHours: el.tags.opening_hours,
             };
         });
@@ -240,9 +242,7 @@ const deduplicateFoodStops = (stops: FoodStop[]): FoodStop[] => {
 
     for (const stop of stops) {
         const key = `${stop.latitude.toFixed(4)},${stop.longitude.toFixed(4)}`;
-        if (!seen.has(key)) {
-            seen.set(key, stop);
-        }
+        if (!seen.has(key)) seen.set(key, stop);
     }
 
     return Array.from(seen.values());
@@ -255,41 +255,32 @@ const fetchORSRoute = async (
     coordinates: number[][]
 ): Promise<{ success: boolean; polyline?: Coordinate[]; error?: string }> => {
     try {
-        const response = await fetch(
-            "https://api.openrouteservice.org/v2/directions/driving-car",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: ORS_API_KEY,
-                },
-                body: JSON.stringify({
-                    coordinates,
-                    instructions: false,
-                }),
-            }
-        );
+        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: ORS_API_KEY,
+            },
+            body: JSON.stringify({
+                coordinates,
+                instructions: false,
+            }),
+        });
 
         if (response.ok) {
             const json = await response.json();
             if (json.routes?.[0]?.geometry) {
-                return {
-                    success: true,
-                    polyline: decodePolyline(json.routes[0].geometry),
-                };
+                return { success: true, polyline: decodePolyline(json.routes[0].geometry) };
             }
         }
 
         const errorData = await response.json().catch(() => ({}));
         return {
             success: false,
-            error: errorData.error?.message || `Route API error: ${response.status}`,
+            error: errorData?.error?.message || `Route API error: ${response.status}`,
         };
     } catch (err: any) {
-        return {
-            success: false,
-            error: err.message || "Network error",
-        };
+        return { success: false, error: err?.message || "Network error" };
     }
 };
 
@@ -307,20 +298,15 @@ const parseFailedCoordinateIndex = (errorMessage: string): number | null => {
 const fetchRouteWithRetry = async (
     origin: Coordinate,
     allPoints: PointWithName[]
-): Promise<{
-    polyline: Coordinate[];
-    skippedPoints: string[];
-    routeSuccess: boolean;
-}> => {
+): Promise<{ polyline: Coordinate[]; skippedPoints: string[]; routeSuccess: boolean }> => {
     const skippedPoints: string[] = [];
     let remainingPoints = [...allPoints];
     let attempts = 0;
-    const maxAttempts = allPoints.length + 1; // Don't try more than we have points
+    const maxAttempts = allPoints.length + 1;
 
     while (attempts < maxAttempts) {
         attempts++;
 
-        // Build coordinates array: origin + remaining points
         const coordinates = [
             [origin.longitude, origin.latitude],
             ...remainingPoints.map((p) => [p.longitude, p.latitude]),
@@ -332,31 +318,24 @@ const fetchRouteWithRetry = async (
 
         if (result.success && result.polyline) {
             console.log(">>> Route succeeded!");
-            return {
-                polyline: result.polyline,
-                skippedPoints,
-                routeSuccess: true,
-            };
+            return { polyline: result.polyline, skippedPoints, routeSuccess: true };
         }
 
-        // Parse which coordinate failed
         const failedIndex = parseFailedCoordinateIndex(result.error || "");
 
         if (failedIndex !== null) {
-            // Index 0 is origin
             if (failedIndex === 0) {
                 console.warn(">>> Origin location is not routable");
-                // Can't skip origin, try using first destination as origin
                 if (remainingPoints.length > 1) {
                     const newOrigin = remainingPoints[0];
                     skippedPoints.push("Your current location");
                     console.log(`>>> Using "${newOrigin.name}" as new origin`);
 
-                    // Recursively try with new origin
                     const retryResult = await fetchRouteWithRetry(
                         { latitude: newOrigin.latitude, longitude: newOrigin.longitude },
                         remainingPoints.slice(1)
                     );
+
                     return {
                         polyline: retryResult.polyline,
                         skippedPoints: [...skippedPoints, ...retryResult.skippedPoints],
@@ -366,35 +345,30 @@ const fetchRouteWithRetry = async (
                 break;
             }
 
-            // Failed index > 0 means one of our waypoints/destination
-            const pointIndex = failedIndex - 1; // Adjust for origin
+            const pointIndex = failedIndex - 1;
             if (pointIndex < remainingPoints.length) {
                 const failedPoint = remainingPoints[pointIndex];
                 console.log(`>>> Skipping unroutable point: "${failedPoint.name}"`);
                 skippedPoints.push(failedPoint.name);
 
-                // Remove the failed point and retry
                 remainingPoints = [
                     ...remainingPoints.slice(0, pointIndex),
                     ...remainingPoints.slice(pointIndex + 1),
                 ];
 
-                // If no points left, we can't route
                 if (remainingPoints.length === 0) {
                     console.warn(">>> No routable points remaining");
                     break;
                 }
 
-                continue; // Try again with remaining points
+                continue;
             }
         }
 
-        // Unknown error or no coordinate index - try simplified route
         console.warn(">>> Unknown routing error, trying direct route");
         break;
     }
 
-    // Final fallback: just origin to last destination
     if (remainingPoints.length > 0) {
         const lastPoint = remainingPoints[remainingPoints.length - 1];
         console.log(`>>> Final attempt: direct route to "${lastPoint.name}"`);
@@ -405,11 +379,7 @@ const fetchRouteWithRetry = async (
         ]);
 
         if (directResult.success && directResult.polyline) {
-            // Mark all intermediate points as skipped
-            const intermediateSkipped = remainingPoints
-                .slice(0, -1)
-                .map((p) => p.name);
-
+            const intermediateSkipped = remainingPoints.slice(0, -1).map((p) => p.name);
             return {
                 polyline: directResult.polyline,
                 skippedPoints: [...skippedPoints, ...intermediateSkipped],
@@ -418,26 +388,17 @@ const fetchRouteWithRetry = async (
         }
     }
 
-    // Complete failure - return straight line path for food search
     console.log(">>> All routing failed, using straight-line path");
     const straightLinePath: Coordinate[] = [
         origin,
         ...remainingPoints.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
     ];
 
-    // If even that's empty, just use origin
     if (straightLinePath.length < 2 && allPoints.length > 0) {
-        straightLinePath.push({
-            latitude: allPoints[0].latitude,
-            longitude: allPoints[0].longitude,
-        });
+        straightLinePath.push({ latitude: allPoints[0].latitude, longitude: allPoints[0].longitude });
     }
 
-    return {
-        polyline: straightLinePath,
-        skippedPoints,
-        routeSuccess: false,
-    };
+    return { polyline: straightLinePath, skippedPoints, routeSuccess: false };
 };
 
 export const useFoodStopsAlongRoute = () => {
@@ -445,16 +406,22 @@ export const useFoodStopsAlongRoute = () => {
     const [error, setError] = useState<string | null>(null);
     const [routeData, setRouteData] = useState<RouteWithFoodStops | null>(null);
 
+    // Prevent out-of-order responses from clobbering state
+    const requestIdRef = useRef(0);
+
     const fetchRouteWithFoodStops = useCallback(
-        async (
-            dayItems: ItineraryItem[],
-            userLocation?: Location.LocationObject | null
-        ): Promise<RouteWithFoodStops | null> => {
+        async (dayItems: ItineraryItem[], userLocation?: Location.LocationObject | null) => {
+            const requestId = ++requestIdRef.current;
+
             console.log(">>> FETCH START");
             setLoading(true);
             setError(null);
 
             try {
+                if (!ORS_API_KEY) {
+                    throw new Error("Missing OpenRouteService API key (EXPO_PUBLIC_OPENROUTE_API_KEY).");
+                }
+
                 const itemsWithCoords = dayItems.filter(
                     (item) => item.destination_latitude && item.destination_longitude
                 );
@@ -463,24 +430,9 @@ export const useFoodStopsAlongRoute = () => {
                     throw new Error("No activities with location data");
                 }
 
-                // Check cache first
-                const cacheKey = generateCacheKey(itemsWithCoords);
-                const cachedData = await getCachedRouteData(cacheKey);
-
-                if (cachedData) {
-                    if (userLocation) {
-                        cachedData.origin = {
-                            latitude: userLocation.coords.latitude,
-                            longitude: userLocation.coords.longitude,
-                        };
-                    }
-                    setRouteData(cachedData);
-                    setLoading(false);
-                    return cachedData;
-                }
-
-                // Get origin (user location or first destination)
+                // 1) Determine origin FIRST (so cache key is correct)
                 let origin: Coordinate;
+
                 if (userLocation) {
                     origin = {
                         latitude: userLocation.coords.latitude,
@@ -502,6 +454,17 @@ export const useFoodStopsAlongRoute = () => {
                     }
                 }
 
+                // 2) Cache check (with origin included)
+                const cacheKey = generateCacheKey(itemsWithCoords, origin);
+                const cachedData = await getCachedRouteData(cacheKey);
+
+                if (cachedData) {
+                    if (requestId !== requestIdRef.current) return cachedData; // stale
+                    setRouteData(cachedData);
+                    setLoading(false);
+                    return cachedData;
+                }
+
                 // Build points with names for better error messages
                 const allPoints: PointWithName[] = itemsWithCoords.map((item) => ({
                     latitude: item.destination_latitude!,
@@ -513,10 +476,8 @@ export const useFoodStopsAlongRoute = () => {
                 console.log(`>>> Origin: ${origin.latitude}, ${origin.longitude}`);
                 console.log(`>>> Destinations: ${allPoints.map((p) => p.name).join(" → ")}`);
 
-                // Fetch route with automatic retry for unroutable points
                 const routeResult = await fetchRouteWithRetry(origin, allPoints);
 
-                // Show alert if points were skipped
                 if (routeResult.skippedPoints.length > 0) {
                     const skippedList = routeResult.skippedPoints.join(", ");
                     console.log(`>>> Skipped unroutable points: ${skippedList}`);
@@ -533,19 +494,16 @@ export const useFoodStopsAlongRoute = () => {
                 const overpassQuery = buildOverpassQuery(sampledPoints, 500);
 
                 let foodStops: FoodStop[] = [];
+                let overpassOk = false;
 
                 try {
                     console.log(">>> Fetching food stops from Overpass...");
-                    const overpassResponse = await fetch(
-                        "https://overpass-api.de/api/interpreter",
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/x-www-form-urlencoded",
-                            },
-                            body: `data=${encodeURIComponent(overpassQuery)}`,
-                        }
-                    );
+                    const overpassResponse = await fetch("https://overpass-api.de/api/interpreter", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: `data=${encodeURIComponent(overpassQuery)}`,
+                    });
+
                     console.log(">>> Overpass response received");
 
                     if (!overpassResponse.ok) {
@@ -554,10 +512,11 @@ export const useFoodStopsAlongRoute = () => {
                     } else {
                         const overpassJson = await overpassResponse.json();
                         foodStops = deduplicateFoodStops(parseOverpassResponse(overpassJson));
+                        overpassOk = true;
                         console.log(`>>> Found ${foodStops.length} food stops`);
                     }
-                } catch (overpassError) {
-                    console.warn("Overpass API request failed:", overpassError);
+                } catch (e) {
+                    console.warn("Overpass API request failed:", e);
                 }
 
                 // Build final result
@@ -568,26 +527,25 @@ export const useFoodStopsAlongRoute = () => {
                     polyline: routeResult.polyline,
                     foodStops,
                     origin,
-                    destination: {
-                        latitude: destination.latitude,
-                        longitude: destination.longitude,
-                    },
-                    waypoints: waypoints.map((wp) => ({
-                        latitude: wp.latitude,
-                        longitude: wp.longitude,
-                    })),
+                    destination: { latitude: destination.latitude, longitude: destination.longitude },
+                    waypoints: waypoints.map((wp) => ({ latitude: wp.latitude, longitude: wp.longitude })),
                     skippedPoints: routeResult.skippedPoints,
                 };
 
-                // Cache the result
-                await setCachedRouteData(cacheKey, result);
+                // Cache ONLY when Overpass succeeded (prevents caching empty results after 504)
+                if (overpassOk) {
+                    await setCachedRouteData(cacheKey, result);
+                } else {
+                    console.log(">>> Not caching because Overpass failed");
+                }
 
+                if (requestId !== requestIdRef.current) return result; // stale
                 setRouteData(result);
                 setLoading(false);
                 console.log(">>> FETCH COMPLETE");
                 return result;
             } catch (err: any) {
-                const errorMessage = err.message || "Failed to fetch route";
+                const errorMessage = err?.message || "Failed to fetch route";
                 setError(errorMessage);
                 setLoading(false);
                 console.log(">>> FETCH ERROR:", errorMessage);

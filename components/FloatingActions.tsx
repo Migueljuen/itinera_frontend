@@ -181,7 +181,8 @@ type ItineraryContext = {
 };
 
 type FloatingActionsProps = {
-    price: string;
+    price: string | number | null;
+    price_estimate?: string | null;
     unit: string;
     isSaved: boolean;
     onSavePress: () => void;
@@ -194,6 +195,7 @@ type FloatingActionsProps = {
 
 export const FloatingActions: React.FC<FloatingActionsProps> = ({
     price,
+    price_estimate,
     unit,
     isSaved,
     onSavePress,
@@ -299,11 +301,47 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({
                         </View>
                     </View>
                 ) : (
-                    // Show price when browsing normally
-                    <Text className="font-onest-medium text-lg text-black/90">
-                        Starts at ₱{price}{" "}
-                        <Text className="text-black/60 font-onest text-base">/ {unit}</Text>
-                    </Text>
+                    // Show price when browsing normally (price OR estimate)
+                    <View className="flex-1">
+                        {(() => {
+                            const priceNum =
+                                price === null || price === undefined || price === ""
+                                    ? null
+                                    : Number(price);
+
+                            if (priceNum != null && !Number.isNaN(priceNum) && priceNum > 0) {
+                                return (
+                                    <Text className="font-onest-medium text-lg text-black/90">
+                                        Starts at ₱{priceNum.toLocaleString()}{" "}
+                                        <Text className="text-black/60 font-onest text-base">/ {unit}</Text>
+                                    </Text>
+                                );
+                            }
+                            const estimate =
+                                typeof price_estimate === "string"
+                                    ? price_estimate.trim()
+                                    : price_estimate;
+
+                            const hasEstimate =
+                                !!estimate && estimate !== "null" && estimate !== "undefined";
+
+                            if (hasEstimate) {
+                                return (
+                                    <Text className="font-onest-medium text-lg text-black/90">
+                                        Starts at ₱{estimate}{" "}
+
+                                    </Text>
+                                );
+                            }
+
+
+                            return (
+                                <Text className="font-onest-medium text-base text-black/40">
+                                    —
+                                </Text>
+                            );
+                        })()}
+                    </View>
                 )}
 
                 {/* Only show calendar button if NOT viewOnly */}

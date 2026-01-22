@@ -27,12 +27,12 @@ export default function Step00RoleSelection({
   onNext,
 }: Props) {
   const roles: RoleItem[] = [
-    // {
-    //   role_id: "Creator",
-    //   name: "Share Activity",
-    //   description: "Offer activities and experiences to travelers",
-    //   image: require("../../../../assets/images/category.png"),
-    // },
+    {
+      role_id: "Creator",
+      name: "Share Activity",
+      description: "Offer activities and experiences to travelers",
+      image: require("../../../../assets/images/category.png"),
+    },
     {
       role_id: "Guide",
       name: "Tour Guide",

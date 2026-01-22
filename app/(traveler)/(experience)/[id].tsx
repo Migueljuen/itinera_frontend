@@ -254,6 +254,7 @@ export default function ExperienceDetail() {
       <FloatingActions
         price={experience.price}
         unit={experience.unit}
+        price_estimate={experience.price_estimate}
         isSaved={isSaved}
         onSavePress={toggleSave}
         onCalendarPress={() => setShowAvailabilityModal(true)}

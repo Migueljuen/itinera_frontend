@@ -44,6 +44,7 @@ export type Experience = {
     description: string;
     notes: string;
     price: string;
+    price_estimate: string;
     unit: string;
     destination_name: string;
     location: string;

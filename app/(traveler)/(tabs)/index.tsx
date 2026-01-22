@@ -27,6 +27,7 @@ type Experience = {
   title: string;
   description: string;
   price: string;
+  price_estimate: string;
   unit: string;
   destination_name: string;
   location: string;
@@ -311,19 +312,40 @@ const App = () => {
             {item.title}
           </Text>
           <View className="flex-row items-center mt-1">
-
+            {/* 
             <Text
               className="text-black/60 font-onest text-sm "
               numberOfLines={1}
             >
               {item.location}, {item.destination_name}
-            </Text>
+            </Text> */}
           </View>
-          {item.price && item.price !== "0" && (
-            <Text className="text-black/60 font-onest text-sm mt-2">
-              From ₱{parseFloat(item.price).toLocaleString()}
-            </Text>
-          )}
+          {/* Price */}
+          {(() => {
+            const priceNum =
+              item.price != null && item.price !== ""
+                ? Number(item.price)
+                : null;
+
+            if (priceNum != null && !Number.isNaN(priceNum) && priceNum > 0) {
+              return (
+                <Text className="text-black/70 font-onest  text-sm ">
+                  From ₱{priceNum.toLocaleString()} {item.unit ? `/ person` : ""}
+                </Text>
+              );
+            }
+
+            if (item.price_estimate) {
+              return (
+                <Text className="text-black/60 font-onest text-sm  ">
+                  Around ₱{item.price_estimate}
+                </Text>
+              );
+            }
+
+            return null; // or return <Text className="text-black/40 font-onest text-sm mt-2">—</Text>
+          })()}
+
         </View>
       </View>
     </Pressable>
