@@ -295,25 +295,10 @@ const AccountSettingsScreen = () => {
                     </View>
                 </View>
 
-                {/* Status ONLY (keep label only for status) */}
-                {account.status ? (
-                    <View className="mb-6">
-                        <View className={`${cardStyle} mx-4 overflow-hidden`} style={shadowStyle}>
-                            <SettingRow
-                                icon="shield-checkmark-outline"
-                                label="Status"
-                                value={account.status}
-                                showLabel
-                                onPress={() => { }}
-                                showChevron={false}
-                            />
-                        </View>
-                    </View>
-                ) : null}
 
                 {/* Payout */}
                 <View className="mb-6">
-                    <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Payout <Text className="text-black/50 font-onest text-sm">(GCash)</Text></Text>
+                    <Text className={`px-6 ${sectionTitleStyle} mb-4`}>Refund Payout <Text className="text-black/50 font-onest text-sm">(GCash)</Text></Text>
                     <View className={`${cardStyle} mx-4 overflow-hidden`} style={shadowStyle}>
                         <SettingRow
                             icon="wallet-outline"

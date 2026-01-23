@@ -1,4 +1,3 @@
-
 import socketService from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,11 +13,9 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Adjustment from "../../../assets/icons/adjustment.svg";
 import API_URL from "../../../constants/api";
 import { useRefresh } from "../../../contexts/RefreshContext";
 
@@ -71,7 +68,6 @@ const App = () => {
         setFirstName(parsedUser.first_name);
         setProfilePic(parsedUser.profile_pic);
         setCurrentUserId(parsedUser.user_id);
-        // If user has a location saved, use it
         if (parsedUser.city) {
           setUserLocation(parsedUser.city);
         }
@@ -125,19 +121,13 @@ const App = () => {
     }
   };
 
-  // Save to recently viewed when navigating to experience
   const addToRecentlyViewed = async (experienceId: number) => {
     try {
       const viewed = await AsyncStorage.getItem("recentlyViewed");
       let viewedIds: number[] = viewed ? JSON.parse(viewed) : [];
 
-      // Remove if already exists (to move to front)
       viewedIds = viewedIds.filter((id) => id !== experienceId);
-
-      // Add to front
       viewedIds.unshift(experienceId);
-
-      // Keep only last 20
       viewedIds = viewedIds.slice(0, 20);
 
       await AsyncStorage.setItem("recentlyViewed", JSON.stringify(viewedIds));
@@ -219,14 +209,12 @@ const App = () => {
     fetchUserData();
   }, [profileUpdated]);
 
-  // Refetch tomorrow experiences when user location changes
   useEffect(() => {
     if (!loading) {
       fetchTomorrowExperiences();
     }
   }, [userLocation]);
 
-  // Socket setup
   useEffect(() => {
     const setupSocket = async () => {
       await socketService.connect();
@@ -234,7 +222,6 @@ const App = () => {
     setupSocket();
   }, []);
 
-  // Listen for new messages
   useFocusEffect(
     useCallback(() => {
       if (!currentUserId) return;
@@ -252,12 +239,12 @@ const App = () => {
     }, [currentUserId])
   );
 
-  // Fetch unread count on focus
   useFocusEffect(
     useCallback(() => {
       fetchUnreadCount();
     }, [fetchUnreadCount])
   );
+
   useEffect(() => {
     fetchRecentlyViewed();
   }, []);
@@ -275,7 +262,6 @@ const App = () => {
         addToRecentlyViewed(item.id);
         router.push(`/(experience)/${item.id}`);
       }}
-
       className="mr-4 "
       style={{ width: 240 }}
     >
@@ -301,7 +287,6 @@ const App = () => {
               <Ionicons name="image-outline" size={40} color="#9CA3AF" />
             </View>
           )}
-
         </View>
 
         <View className="py-3">
@@ -311,16 +296,7 @@ const App = () => {
           >
             {item.title}
           </Text>
-          <View className="flex-row items-center mt-1">
-            {/* 
-            <Text
-              className="text-black/60 font-onest text-sm "
-              numberOfLines={1}
-            >
-              {item.location}, {item.destination_name}
-            </Text> */}
-          </View>
-          {/* Price */}
+
           {(() => {
             const priceNum =
               item.price != null && item.price !== ""
@@ -343,9 +319,8 @@ const App = () => {
               );
             }
 
-            return null; // or return <Text className="text-black/40 font-onest text-sm mt-2">—</Text>
+            return null;
           })()}
-
         </View>
       </View>
     </Pressable>
@@ -363,7 +338,6 @@ const App = () => {
     onSeeAll?: () => void;
     emptyMessage?: string;
   }) => {
-    // Don't render section if no data and no empty message
     if (data.length === 0 && !emptyMessage) return null;
 
     return (
@@ -402,7 +376,6 @@ const App = () => {
     );
   };
 
-  // ============ LOADING STATE ============
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
@@ -459,34 +432,42 @@ const App = () => {
 
         {/* Search Bar */}
         <Pressable
-          onPress={() => router.push("/(search)")}
-
-          className="flex-row items-center mx-6 p-4 bg-white rounded-xl"
+          onPress={() => router.push("/(traveler)/(search)")}
+          className="flex flex-row  mx-6 p-5 mb-2 bg-[#fff] rounded-full border border-gray-200"
           style={{
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
+            shadowOpacity: 0.08,
             shadowRadius: 4,
             elevation: 2,
           }}
         >
           <Image
             source={require("../../../assets/images/search.png")}
-            className="w-5 h-5 mr-3 opacity-60"
+            className="w-5 h-5 mr-3 "
             resizeMode="contain"
           />
-          <Text className="flex-1 text-base text-black/50 font-onest">
+          <Text className="flex-1  text-black/90 font-onest-medium">
+
             Search activities
           </Text>
-          <Adjustment className="w-5 h-5 mr-3 opacity-60" />
+
         </Pressable>
 
-        {/* Recently Viewed - Only show if user has viewed experiences */}
+        {/* Recently Viewed */}
         {recentlyViewed.length > 0 && (
           <Section
             title="Recently Viewed"
             data={recentlyViewed}
-            onSeeAll={() => router.push("/(recently-viewed)")}
+            onSeeAll={() =>
+              router.push({
+                pathname: "/(traveler)/(experience)/see-all",
+                params: {
+                  source: "recentlyViewed",
+                  title: "Recently Viewed",
+                },
+              })
+            }
           />
         )}
 
@@ -494,7 +475,15 @@ const App = () => {
         <Section
           title="Happening Today"
           data={todayExperiences}
-          onSeeAll={() => router.push("/(experiences)?filter=today")}
+          onSeeAll={() =>
+            router.push({
+              pathname: "/(traveler)/(experience)/see-all",
+              params: {
+                filter: "today",
+                title: "Happening Today",
+              },
+            })
+          }
           emptyMessage="No experiences scheduled for today"
         />
 
@@ -503,7 +492,14 @@ const App = () => {
           title={`Tomorrow in ${userLocation}`}
           data={tomorrowExperiences}
           onSeeAll={() =>
-            router.push(`/(experiences)?filter=tomorrow&location=${userLocation}`)
+            router.push({
+              pathname: "/(traveler)/(experience)/see-all",
+              params: {
+                filter: "tomorrow",
+                location: userLocation,
+                title: `Tomorrow in ${userLocation}`,
+              },
+            })
           }
         />
 
@@ -511,7 +507,15 @@ const App = () => {
         <Section
           title="This Weekend"
           data={weekendExperiences}
-          onSeeAll={() => router.push("/(experiences)?filter=weekend")}
+          onSeeAll={() =>
+            router.push({
+              pathname: "/(traveler)/(experience)/see-all",
+              params: {
+                filter: "weekend",
+                title: "This Weekend",
+              },
+            })
+          }
           emptyMessage="No weekend experiences available"
         />
 
@@ -519,7 +523,15 @@ const App = () => {
         <Section
           title="Popular Experiences"
           data={popularExperiences}
-          onSeeAll={() => router.push("/(experiences)?filter=popular")}
+          onSeeAll={() =>
+            router.push({
+              pathname: "/(traveler)/(experience)/see-all",
+              params: {
+                filter: "popular",
+                title: "Popular Experiences",
+              },
+            })
+          }
         />
       </ScrollView>
     </SafeAreaView>

@@ -39,6 +39,8 @@ export default function TravelerLayout() {
         }}
       />
       <Stack.Screen name="(createItinerary)" options={{ headerShown: false }} />
+      <Stack.Screen name="(cancelBooking)" options={{ headerShown: false }} />
+      <Stack.Screen name="(search)" options={{ headerShown: false }} />
       <Stack.Screen name="(notification)" options={{ headerShown: false }} />
       <Stack.Screen name="(payment)" options={{ headerShown: false }} />
       <Stack.Screen name="(conversations)" options={{ headerShown: false }} />

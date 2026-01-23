@@ -32,6 +32,7 @@ interface ItineraryItem {
     primary_image?: string;
     price?: number;
     unit?: string;
+    price_estimate?: string;
 }
 
 interface ItineraryFormData {
@@ -295,7 +296,7 @@ const Step2DaySelection: React.FC<StepProps> = ({
         return dayDate;
     }, [formData.start_date, selectedDayChip]);
 
-    // Calculate total cost
+    // Calculate total cost (only includes items with actual price, not price_estimate)
     const totalCost = useMemo(() => {
         const travelerCount = formData.preferences?.travelerCount || 1;
 
@@ -433,9 +434,14 @@ const Step2DaySelection: React.FC<StepProps> = ({
                             </Text>
                         </View>
                     </View>
+                    {/* Note about estimates */}
+                    {formData.items.some(item => !item.price && item.price_estimate) && (
+                        <Text className="text-black/50 font-onest text-xs mt-2">
+                            Some activities have variable pricing (e.g., dining) and are not included in this total.
+                        </Text>
+                    )}
                 </View>
             )}
-
             {/* Horizontal Day Chips */}
             {dayChips.length > 0 && (
                 <View className="mb-4">
@@ -781,7 +787,7 @@ const TimeSlotEditModal: React.FC<TimeSlotEditModalProps> = ({
                         ) : availableSlots.length > 0 ? (
                             <View>
                                 <Text className="text-black/70 font-onest-medium mb-4">
-                                    Available times on {selectedDayOfWeek}
+                                    {"Available times on " + selectedDayOfWeek}
                                 </Text>
 
                                 {availableSlots.map((slot, idx) => {
@@ -834,7 +840,7 @@ const TimeSlotEditModal: React.FC<TimeSlotEditModalProps> = ({
                                                                 : "text-black/90"
                                                             }`}
                                                     >
-                                                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                                        {formatTime(slot.start_time) + " - " + formatTime(slot.end_time)}
                                                     </Text>
                                                 </View>
 
@@ -847,7 +853,7 @@ const TimeSlotEditModal: React.FC<TimeSlotEditModalProps> = ({
 
                                             {hasConflict && (
                                                 <Text className="text-gray-400 font-onest text-sm mt-2">
-                                                    Conflicts with {conflictingItem?.experience_name || "another activity"}
+                                                    {"Conflicts with " + (conflictingItem?.experience_name || "another activity")}
                                                 </Text>
                                             )}
                                         </TouchableOpacity>
@@ -858,7 +864,7 @@ const TimeSlotEditModal: React.FC<TimeSlotEditModalProps> = ({
                             <View className="py-8 items-center">
                                 <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
                                 <Text className="text-black/50 font-onest-medium text-center mt-4">
-                                    Not available on {selectedDayOfWeek}
+                                    {"Not available on " + selectedDayOfWeek}
                                 </Text>
                             </View>
                         )}
@@ -890,6 +896,10 @@ const ItineraryBuilderItemCard: React.FC<ItineraryBuilderItemCardProps> = ({
 }) => {
     const startTimeDisplay = formatTime(item.start_time);
     const endTimeDisplay = formatTime(item.end_time);
+
+    // Determine if we have an actual price or just an estimate
+    const hasActualPrice = item.price !== undefined && item.price !== null && Number(item.price) > 0;
+    const hasPriceEstimate = !hasActualPrice && item.price_estimate;
 
     return (
         <View className="flex-row">
@@ -951,7 +961,7 @@ const ItineraryBuilderItemCard: React.FC<ItineraryBuilderItemCardProps> = ({
                             className="text-2xl font-onest text-black/90"
                             numberOfLines={1}
                         >
-                            {startTimeDisplay} - {endTimeDisplay}
+                            {startTimeDisplay + " - " + endTimeDisplay}
                         </Text>
                         <Ionicons
                             name="chevron-down"
@@ -971,15 +981,20 @@ const ItineraryBuilderItemCard: React.FC<ItineraryBuilderItemCardProps> = ({
                     </Pressable>
                 </View>
 
-                {/* Price (if available) */}
-                {item.price && item.price > 0 && (
+                {/* Price Display - Show actual price OR price estimate */}
+                {hasActualPrice ? (
                     <View className="mt-3 flex-row items-center">
                         <Text className="text-sm font-onest text-black/50">
-                            ₱{item.price.toLocaleString()}
-                            {item.unit ? ` / ${item.unit}` : ""}
+                            {"₱" + item.price!.toLocaleString() + (item.unit ? " / " + item.unit : "")}
                         </Text>
                     </View>
-                )}
+                ) : hasPriceEstimate ? (
+                    <View className="mt-3 flex-row items-center">
+                        <Text className="text-sm font-onest text-black/50 italic">
+                            {"Est. " + item.price_estimate}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
         </View>
     );

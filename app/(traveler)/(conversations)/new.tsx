@@ -252,7 +252,7 @@ const NewConversationScreen = () => {
 
                                         {/* Experiences */}
                                         <View className="mt-2">
-                                            {creator.experiences.slice(0, 2).map((exp, index) => (
+                                            {creator.experiences.slice(0, 1).map((exp, index) => (
                                                 <View
                                                     key={index}
                                                     className="flex-row items-center mt-1"
@@ -270,11 +270,11 @@ const NewConversationScreen = () => {
                                                     </Text>
                                                 </View>
                                             ))}
-                                            {creator.experiences.length > 2 && (
+                                            {/* {creator.experiences.length > 2 && (
                                                 <Text className="font-onest text-xs text-primary mt-1">
                                                     +{creator.experiences.length - 2} more experiences
                                                 </Text>
-                                            )}
+                                            )} */}
                                         </View>
                                     </View>
                                 </View>

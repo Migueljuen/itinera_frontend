@@ -381,9 +381,15 @@ export default function Signup() {
             </View> */}
 
 
-            <Text className="mt-12 font-onest text-sm text-black/90">By selecting Agree and continue, I indicate my agreement to Itinera's
-              {" "}<Text className="text-blue-500 underline font-onest-medium">Terms of Service</Text> </Text>
-
+            <Text className="flex-1 font-onest text-sm text-black/90">
+              By selecting Agree and continue, I indicate my agreement to Itinera's{" "}
+              <Text
+                className="text-blue-500 underline font-onest-medium"
+                onPress={() => router.push("/(shared)/Terms")}
+              >
+                Terms of Service
+              </Text>
+            </Text>
             {/* Signup Button */}
             <Pressable
               onPress={handleSignup}

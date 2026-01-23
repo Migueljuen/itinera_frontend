@@ -1,4 +1,6 @@
-import { TravelCompanion } from "@/types/experienceTypes";
+
+import type { TravelCompanion } from "@/types/experienceTypes";
+import type { ItineraryFormData } from "@/types/itineraryTypes";
 import { Ionicons } from "@expo/vector-icons";
 import { addDays, differenceInDays, format } from "date-fns";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -27,22 +29,22 @@ interface StepProps {
 }
 
 // itinerary type
-export interface ItineraryFormData {
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes?: string;
-  city: string;
-  items: ItineraryItem[];
-  preferences?: {
-    experiences: any[];
-    experienceIds?: number[];
-    travelerCount: number;
-    travelCompanion?: TravelCompanion;
-    exploreTime?: string;
-  };
-}
+// export interface ItineraryFormData {
+//   traveler_id: number;
+//   start_date: string;
+//   end_date: string;
+//   title: string;
+//   notes?: string;
+//   city: string;
+//   items: ItineraryItem[];
+//   preferences?: {
+//     experiences: any[];
+//     experienceIds?: number[];
+//     travelerCount: number;
+//     travelCompanion?: TravelCompanion;
+//     exploreTime?: string;
+//   };
+// }
 
 // itinerary type
 export interface ItineraryItem {

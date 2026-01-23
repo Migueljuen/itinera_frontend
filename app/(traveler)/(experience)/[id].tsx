@@ -285,6 +285,7 @@ export default function ExperienceDetail() {
           tripStartDate={tripStartDate}
           tripEndDate={tripEndDate}
           price={Number(experience.price)}
+          price_estimate={experience.price_estimate}
         />
       )}
     </View>

@@ -8,6 +8,7 @@ import API_URL from '@/constants/api';
 import { useFoodStopsAlongRoute } from '@/hooks/useFoodStopsAlongRoutes';
 import { Itinerary, ItineraryItem } from '@/types/itineraryDetails';
 import {
+    formatTime,
     getDateForDay,
     groupItemsByDay,
     hasEnoughTimeBetween,
@@ -155,49 +156,31 @@ export function TripPlanTab({
     };
 
     const handleRemoveItem = (item: ItineraryItem) => {
-        Alert.alert(
-            'Cancel Trip',
-            `Trip cancellations are non-refundable.`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Remove',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const token = await AsyncStorage.getItem("token");
-                            if (!token) {
-                                Alert.alert("Error", "Please log in again");
-                                return;
-                            }
-
-                            const response = await fetch(
-                                `${API_URL}/itinerary/${itinerary.itinerary_id}/items/bulk-delete`,
-                                {
-                                    method: 'DELETE',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}`,
-                                    },
-                                    body: JSON.stringify({
-                                        item_ids: [item.item_id],  // Single item in array
-                                    }),
-                                }
-                            );
-
-                            if (!response.ok) {
-                                throw new Error('Failed to remove item');
-                            }
-
-                            onRefresh?.();
-                        } catch (error) {
-                            console.error('Error removing item:', error);
-                            Alert.alert('Error', 'Failed to remove activity. Please try again.');
-                        }
-                    },
-                },
-            ]
+        // Find the activity payment info for this item
+        const paymentInfo = itinerary.payments?.[0];
+        const activityPayment = paymentInfo?.activity_payments?.find(
+            (ap) => ap.item_id === item.item_id
         );
+
+        const activityPrice = activityPayment?.activity_price || 0;
+        const isFullyPaid = activityPayment?.is_fully_paid || false;
+        const paymentStatus = paymentInfo?.payment_status || 'Unpaid';
+
+        // Navigate to cancellation screen with booking details
+        router.push({
+            pathname: '/(traveler)/(cancelBooking)/cancelBooking',
+            params: {
+                itemId: item.item_id.toString(),
+                itineraryId: itinerary.itinerary_id.toString(),
+                experienceName: item.experience_name,
+                destinationName: item.destination_name,
+                destinationCity: item.destination_city,
+                startTime: formatTime(item.start_time),
+                endTime: formatTime(item.end_time),
+                activityPrice: activityPrice.toString(),
+                paymentStatus: isFullyPaid ? 'fully_paid' : 'downpayment',
+            },
+        });
     };
 
     const getOtherItemsOnDay = (dayNumber: number): ItineraryItem[] => {

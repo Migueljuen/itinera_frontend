@@ -33,6 +33,7 @@ interface ItineraryItem {
     images?: string[];
     primary_image?: string;
     price?: number;
+    price_estimate?: string;
     unit?: string;
 }
 
@@ -41,6 +42,7 @@ interface Experience {
     title: string;
     description: string;
     price: string;
+    price_estimate: string;
     unit: string;
     destination_name: string;
     location: string;
@@ -297,15 +299,12 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             experience_description: experience.description,
             destination_name: experience.destination_name,
             images: experience.images,
+            price_estimate: experience.price_estimate, // Add this line
         };
 
         onAddExperience(newItem);
-
-
         onClose();
     };
-
-
     // Get available slots for the selected day
     const getAvailableSlotsForDay = (experienceId: number): TimeSlot[] => {
         const availability = availabilityData[experienceId];

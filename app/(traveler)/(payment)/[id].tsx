@@ -409,17 +409,16 @@ const PaymentScreen = () => {
           </View>
 
           {/* Refund Policy Notice */}
-          <View className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200">
+          <View className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-200">
             <View className="flex-row items-start">
               {/* <Ionicons name="warning-outline" size={18} color="#D97706" /> */}
               <View className="ml-2 flex-1">
-                <Text className="font-onest-semibold text-base mb-3 text-amber-700">
+                <Text className="font-onest-semibold text-base mb-3 text-blue-700">
                   Refund Policy
                 </Text>
-                <Text className="font-onest text-sm text-amber-700 leading-loose">
+                <Text className="font-onest text-sm text-blue-700 leading-loose">
                   • Down payments are <Text className="font-onest-semibold">non-refundable</Text>.{"\n"}
                   • Full payments are <Text className="font-onest-semibold">50% refundable</Text> if cancelled at least 48 hours before the itinerary start.{"\n"}
-                  • Cancellations within 48 hours are <Text className="font-onest-semibold">non-refundable</Text>.
                 </Text>
               </View>
             </View>

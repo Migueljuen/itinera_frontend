@@ -1,5 +1,6 @@
 // app/(auth)/steps/Step00Requirements.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -12,12 +13,10 @@ type Props = {
 };
 
 function SectionCard({
-
     title,
     subtitle,
     items,
 }: {
-
     title: string;
     subtitle?: string;
     items: string[];
@@ -34,12 +33,10 @@ function SectionCard({
             }}
         >
             <View className="flex-row items-center mb-1">
-
                 <View className="flex-1">
                     <Text className="text-lg font-onest-semibold text-black/90">
                         {title}
                     </Text>
-
                 </View>
             </View>
 
@@ -59,6 +56,8 @@ function SectionCard({
 
 export default function Step00Requirements({ formData, onNext, onBack }: Props) {
     const [confirmed, setConfirmed] = useState(false);
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const router = useRouter();
 
     const roleLabel = formData.creator_role_label || "Partner";
     const role = formData.creator_role;
@@ -72,7 +71,7 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
 
         if (role === "Driver") {
             return [
-                "Driver’s license (upload for admin review).",
+                "Driver's license (upload for admin review).",
                 "Vehicle registration (OR/CR) (upload for admin review).",
             ];
         }
@@ -80,6 +79,8 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
         // Creator/Experience host
         return [];
     }, [role]);
+
+    const canContinue = confirmed && agreedToTerms;
 
     return (
         <View className="flex-1">
@@ -93,10 +94,8 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                         Verification requirements
                     </Text>
                     <Text className="mt-2 text-base text-black/50 font-onest">
-                        Before you continue, here’s what you’ll need to submit for approval.
+                        Before you continue, here's what you'll need to submit for approval.
                     </Text>
-
-
                 </View>
 
                 {/* Cards */}
@@ -106,7 +105,6 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     transition={{ type: "timing", duration: 250 }}
                 >
                     <SectionCard
-
                         title="1. Contact + profile"
                         items={[
                             "Verified phone number and email.",
@@ -115,7 +113,6 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     />
 
                     <SectionCard
-
                         title="2. Identity check"
                         subtitle="Used to confirm legitimacy of providers"
                         items={[
@@ -125,7 +122,6 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     />
 
                     <SectionCard
-
                         title="3. Background screening"
                         subtitle="Philippines: Police Clearance should be recent"
                         items={[
@@ -134,7 +130,6 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     />
 
                     <SectionCard
-
                         title="4. Provider agreement"
                         items={[
                             "Follow local laws.",
@@ -144,7 +139,6 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     />
 
                     <SectionCard
-
                         title="5. Role-specific add-ons"
                         subtitle={
                             role === "Creator"
@@ -159,7 +153,7 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                     />
                 </MotiView>
 
-                {/* Confirmation */}
+                {/* Confirmation - Requirements */}
                 <Pressable
                     onPress={() => setConfirmed((v) => !v)}
                     className="flex-row items-center mt-2"
@@ -174,13 +168,40 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                             color={confirmed ? "#fff" : "transparent"}
                         />
                     </View>
-                    <Text className="flex-1 text-sm font-onest text-black/70">
-                        I understand these requirements and I’m ready to proceed.
+                    <Text className="flex-1 font-onest text-sm text-black/90">
+                        I understand these requirements and I'm ready to proceed.
                     </Text>
                 </Pressable>
 
+                {/* Confirmation - Terms of Service */}
+                <Pressable
+                    onPress={() => setAgreedToTerms((v) => !v)}
+                    className="flex-row items-center mt-3"
+                >
+                    <View
+                        className={`w-6 h-6 rounded-md items-center justify-center mr-3 ${agreedToTerms ? "bg-primary" : "bg-black/10"
+                            }`}
+                    >
+                        <Ionicons
+                            name={agreedToTerms ? "checkmark" : "remove"}
+                            size={16}
+                            color={agreedToTerms ? "#fff" : "transparent"}
+                        />
+                    </View>
+
+                </Pressable>
+
+                <Text className="flex-1 font-onest text-sm text-black/90">
+                    By selecting Agree and continue, I indicate my agreement to Itinera's{" "}
+                    <Text
+                        className="text-blue-500 underline font-onest-medium"
+                        onPress={() => router.push("/(shared)/Terms")}
+                    >
+                        Terms of Service
+                    </Text>
+                </Text>
                 {/* Actions */}
-                <View className="flex-row gap-3 mt-6">
+                <View className="flex-row gap-3 mt-8">
                     <Pressable
                         onPress={onBack}
                         className="flex-1 rounded-xl py-4 items-center bg-gray-200"
@@ -190,8 +211,8 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
 
                     <Pressable
                         onPress={onNext}
-                        disabled={!confirmed}
-                        className={`flex-1  py-4  px-8 rounded-xl items-center ${confirmed ? "bg-[#191313]" : "bg-black/40"
+                        disabled={!canContinue}
+                        className={`flex-1 py-4 px-8 rounded-xl items-center ${canContinue ? "bg-[#191313]" : "bg-black/40"
                             }`}
                     >
                         <Text className="font-onest-semibold text-white/90">Continue</Text>

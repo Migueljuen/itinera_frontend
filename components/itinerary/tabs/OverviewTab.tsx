@@ -30,7 +30,7 @@ export function OverviewTab({ itinerary, serviceAssignments = [], onAddToCalenda
 
     return (
         <ScrollView className="flex-1 px-6 mx-4 mt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-            <View className=''>
+            {/* <View className=''>
                 <View className='flex justify-between flex-row items-center'>
                     <Text className='text-2xl text-onest'>Itinerary Notes</Text>
                     <Pressable>
@@ -38,7 +38,7 @@ export function OverviewTab({ itinerary, serviceAssignments = [], onAddToCalenda
                     </Pressable>
                 </View>
                 <Text className='text-black/50 mt-4'>{itinerary.notes}</Text>
-            </View>
+            </View> */}
 
             {/* Tour Guide Section */}
             {/* {guideAssignments.length > 0 && (
@@ -552,7 +552,7 @@ function UpcomingSection({
     onViewAll: () => void;
 }) {
     return (
-        <View className="mt-12">
+        <View className="">
             <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-2xl text-onest text-black/90">Coming Up</Text>
                 <Pressable onPress={onViewAll}>

@@ -480,7 +480,7 @@ const ConversationsScreen = ({ userRole }: ConversationsScreenProps) => {
                     onPress={handleNewChat}
                 >
                     <Ionicons name="create-outline" size={20} color="#E5E7EB" />
-                    <Text className="ml-2 text-gray-200 font-onest-medium">New Chat</Text>
+                    <Text className="ml-2 text-white/90 font-onest-medium">New Chat</Text>
                 </TouchableOpacity>
             )}
         </SafeAreaView>

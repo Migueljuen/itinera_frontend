@@ -27,12 +27,12 @@ export default function Step00RoleSelection({
   onNext,
 }: Props) {
   const roles: RoleItem[] = [
-    {
-      role_id: "Creator",
-      name: "Share Activity",
-      description: "Offer activities and experiences to travelers",
-      image: require("../../../../assets/images/category.png"),
-    },
+    // {
+    //   role_id: "Creator",
+    //   name: "Share Activity",
+    //   description: "Offer activities and experiences to travelers",
+    //   image: require("../../../../assets/images/category.png"),
+    // },
     {
       role_id: "Guide",
       name: "Tour Guide",
@@ -70,7 +70,7 @@ export default function Step00RoleSelection({
       </View>
 
       {/* Role Grid */}
-      <View className="flex-col justify-between gap-4">
+      <View className="flex-col justify-between ">
         {roles.map((role) => {
           const selected = formData.creator_role === role.role_id;
 
@@ -80,11 +80,11 @@ export default function Step00RoleSelection({
               from={{ opacity: 0, translateY: 10 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 250 }}
-              style={{ width: "90%", marginHorizontal: "auto" }}
+              style={{ width: "90%", marginHorizontal: "auto", paddingBottom: 4 }}
             >
               <Pressable
                 onPress={() => handleRoleSelect(role)}
-                className="rounded-2xl p-12 bg-[#fff]"
+                className="rounded-2xl bg-[#fff]"
                 style={{
                   shadowColor: "#000",
                   shadowOpacity: 0.08,
@@ -93,8 +93,8 @@ export default function Step00RoleSelection({
                   elevation: 4,
                 }}
               >
-                <View className="items-center">
-                  <View className="w-20 h-20 rounded-2xl items-center justify-center overflow-hidden mb-4 bg-black/5">
+                <View className="items-center flex flex-row  gap-6 py-4 px-8">
+                  <View className="w-16 h-16 rounded-2xl items-center justify-center overflow-hidden ">
                     <Image
                       source={role.image}
                       style={{ width: 64, height: 64 }}
@@ -102,13 +102,15 @@ export default function Step00RoleSelection({
                     />
                   </View>
 
-                  <Text className="text-xl font-onest-medium text-black/90 text-center">
-                    {role.name}
-                  </Text>
+                  <View className="items-start">
+                    <Text className="text-lg font-onest-medium text-black/90 ">
+                      {role.name}
+                    </Text>
 
-                  <Text className="text-base text-black/50 text-center mt-2">
-                    {role.description}
-                  </Text>
+                    <Text className="text-sm text-black/50  mt-2 w-5/6">
+                      {role.description}
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             </MotiView>

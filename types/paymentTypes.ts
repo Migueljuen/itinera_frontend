@@ -57,3 +57,35 @@ export interface PaymentSummary {
     paidCount: number;
     totalCount: number;
 }
+
+// Refund types
+export interface Refund {
+    refund_id: number;
+    booking_id: number;
+    itinerary_id: number;
+    traveler_id: number;
+    activity_price: number;
+    payment_status_at_cancel: 'Unpaid' | 'Partial' | 'Paid';
+    refund_amount: number;
+    gcash_number: string | null;
+    gcash_name: string | null;
+    cancellation_reason: string | null;
+    admin_notes: string | null;
+    status: 'pending' | 'processing' | 'completed' | 'rejected';
+    requested_at: string;
+    processed_at: string | null;
+    completed_at: string | null;
+    processed_by: number | null;
+    // Joined fields from queries
+    experience_name?: string;
+    itinerary_title?: string;
+}
+
+// Refund summary for UI
+export interface RefundSummary {
+    totalRefunds: number;
+    pendingCount: number;
+    completedCount: number;
+    totalPendingAmount: number;
+    totalRefundedAmount: number;
+}
