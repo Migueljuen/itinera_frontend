@@ -169,37 +169,18 @@ export default function Step00Requirements({ formData, onNext, onBack }: Props) 
                         />
                     </View>
                     <Text className="flex-1 font-onest text-sm text-black/90">
-                        I understand these requirements and I'm ready to proceed.
+                        I understand these requirements and I'm ready to proceed.  By selecting Agree and continue, I indicate my agreement to Itinera's{" "}
+                        <Text
+                            className="text-blue-500 underline font-onest-medium"
+                            onPress={() => router.push("/(shared)/Terms")}
+                        >
+                            Terms of Service
+                        </Text>
                     </Text>
-                </Pressable>
-
-                {/* Confirmation - Terms of Service */}
-                <Pressable
-                    onPress={() => setAgreedToTerms((v) => !v)}
-                    className="flex-row items-center mt-3"
-                >
-                    <View
-                        className={`w-6 h-6 rounded-md items-center justify-center mr-3 ${agreedToTerms ? "bg-primary" : "bg-black/10"
-                            }`}
-                    >
-                        <Ionicons
-                            name={agreedToTerms ? "checkmark" : "remove"}
-                            size={16}
-                            color={agreedToTerms ? "#fff" : "transparent"}
-                        />
-                    </View>
 
                 </Pressable>
 
-                <Text className="flex-1 font-onest text-sm text-black/90">
-                    By selecting Agree and continue, I indicate my agreement to Itinera's{" "}
-                    <Text
-                        className="text-blue-500 underline font-onest-medium"
-                        onPress={() => router.push("/(shared)/Terms")}
-                    >
-                        Terms of Service
-                    </Text>
-                </Text>
+
                 {/* Actions */}
                 <View className="flex-row gap-3 mt-8">
                     <Pressable

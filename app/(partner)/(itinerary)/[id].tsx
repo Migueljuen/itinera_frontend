@@ -113,7 +113,7 @@ export default function GuideItineraryDetailScreen() {
         );
         const data: any = response.data;
 
-        if (data.access_level === "partner" && data.partner_type === "Guide" && data.partner_info) {
+        if (data.access_level === "partner" && (data.partner_type === "Guide" || data.partner_type === "Driver") && data.partner_info) {
           const pi = data.partner_info;
 
           setItinerary(data.itinerary);

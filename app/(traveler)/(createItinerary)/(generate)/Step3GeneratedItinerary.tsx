@@ -485,9 +485,15 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
           <Text className="text-black/50 font-onest text-sm">
             {formData.preferences?.travelerCount &&
               formData.preferences.travelerCount > 1
-              ? `≈ ₱${perPersonCost.toLocaleString()} per person • This is an estimate`
+              ? `≈ ₱${perPersonCost.toLocaleString()} per person • `
               : "This is an estimate. Final total will be calculated after saving."}
           </Text>
+          {/* Note about estimates */}
+          {formData.items.some(item => !item.price && item.price_estimate) && (
+            <Text className="text-black/70 font-onest text-sm mt-2">
+              Some activities have variable pricing (e.g., dining) and are not included in this total.
+            </Text>
+          )}
 
           {/* Stats Row */}
           <View className="flex-row justify-between items-center mt-6 pt-6  border-gray-100">

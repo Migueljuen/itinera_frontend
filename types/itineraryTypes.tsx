@@ -47,6 +47,7 @@ export interface ItineraryItem {
   images?: string[];
   primary_image?: string;
   price?: number;
+  price_estimate?: string;
   unit?: string;
 }
 

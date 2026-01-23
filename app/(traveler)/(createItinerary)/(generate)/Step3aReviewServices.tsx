@@ -140,7 +140,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       const params = new URLSearchParams();
       params.append("capacity", String(capacity));
 
-      if (formData.city) params.append("city", formData.city);
+
       if (formData.start_date) params.append("start_date", formData.start_date);
       if (formData.end_date) params.append("end_date", formData.end_date);
 

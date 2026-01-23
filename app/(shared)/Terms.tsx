@@ -114,10 +114,13 @@ export default function TermsOfServiceScreen() {
                     <SectionCard
                         title="4. Roles and Partner Verification"
                         items={[
-                            "Partners may be asked for additional information for verification (e.g., ID, vehicle info, certifications, Background Checks).",
+                            "Partners may be asked for additional information for verification (e.g., government-issued ID, vehicle information, certifications, background checks).",
+                            "Partners offering paid Experiences or services may be required to submit a valid business permit or proof of legal authority to operate, in accordance with applicable local laws.",
+                            "Failure to provide required documents may result in delayed approval, listing removal, or account suspension.",
                             "Verification may reduce risk but is not a guarantee of quality or safety.",
                         ]}
                     />
+
 
                     <SectionCard
                         title="5. Bookings and Itineraries"
