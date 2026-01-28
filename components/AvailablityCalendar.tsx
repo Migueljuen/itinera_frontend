@@ -1,6 +1,6 @@
 // AvailabilityCalendar.tsx
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     ScrollView,
@@ -15,7 +15,13 @@ type TimeSlot = {
     availability_id?: number;
     start_time: string;
     end_time: string;
+
     price_per_guest?: number; // may still arrive as string at runtime; handled below
+
+    // NEW: capacity fields returned by backend (per date)
+    max_guests?: number;
+    used_guests?: number;
+    remaining_guests?: number;
 };
 
 type AvailabilityDay = {
@@ -48,31 +54,90 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     pricePerGuest = 0,
     priceEstimate = null,
 }) => {
-    const [availabilityData, setAvailabilityData] = useState<AvailabilityData | null>(null);
+    // NEW: store slots per actual date (YYYY-MM-DD)
+    const [slotsByDate, setSlotsByDate] = useState<Record<string, TimeSlot[]>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const tripStart = new Date(tripStartDate);
-    const tripEnd = new Date(tripEndDate);
+    const tripStart = useMemo(() => new Date(tripStartDate), [tripStartDate]);
+    const tripEnd = useMemo(() => new Date(tripEndDate), [tripEndDate]);
+
+    const toYYYYMMDD = (d: Date) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const getTripDates = () => {
+        const dates: Date[] = [];
+        const currentDate = new Date(tripStart);
+        currentDate.setHours(0, 0, 0, 0);
+
+        const end = new Date(tripEnd);
+        end.setHours(0, 0, 0, 0);
+
+        while (currentDate <= end) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        return dates;
+    };
+
+    const tripDates = useMemo(() => getTripDates(), [tripStart, tripEnd]);
 
     useEffect(() => {
-        const fetchAvailability = async () => {
+        let cancelled = false;
+
+        const fetchAvailabilityForTrip = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${API_URL}/experience/availability/${experienceId}`);
-                if (!response.ok) throw new Error("Failed to fetch availability data");
-                const data = await response.json();
-                setAvailabilityData(data);
-            } catch (error) {
-                console.error("Error fetching availability data:", error);
-                setError("Could not load availability information");
+                setError(null);
+
+                const results: Record<string, TimeSlot[]> = {};
+
+                // fetch for each date so remaining_guests is correct per date
+                await Promise.all(
+                    tripDates.map(async (dateObj) => {
+                        const dateStr = toYYYYMMDD(dateObj);
+                        const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+                        const resp = await fetch(
+                            `${API_URL}/experience/availability/${experienceId}?date=${encodeURIComponent(dateStr)}`
+                        );
+
+                        if (!resp.ok) {
+                            // Don't crash the whole calendar if one date fails
+                            results[dateStr] = [];
+                            return;
+                        }
+
+                        const data: AvailabilityData = await resp.json();
+
+                        const day = data?.availability?.find((d) => d.day_of_week === dayName);
+                        const slots = Array.isArray(day?.time_slots) ? day!.time_slots : [];
+
+                        results[dateStr] = slots;
+                    })
+                );
+
+                if (!cancelled) {
+                    setSlotsByDate(results);
+                }
+            } catch (e) {
+                console.error("Error fetching availability data:", e);
+                if (!cancelled) setError("Could not load availability information");
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
-        fetchAvailability();
-    }, [experienceId]);
+        fetchAvailabilityForTrip();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [experienceId, tripDates]);
 
     const formatTime = (timeString: string) => {
         const [hours, minutes] = timeString.split(":");
@@ -95,18 +160,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         return [...slots].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     };
 
-    const getTripDates = () => {
-        const dates: Date[] = [];
-        const currentDate = new Date(tripStart);
-        while (currentDate <= tripEnd) {
-            dates.push(new Date(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-        return dates;
-    };
-
-    const tripDates = getTripDates();
-
     const formatDateHeader = (date: Date) => {
         return date.toLocaleDateString("en-US", {
             weekday: "long",
@@ -121,7 +174,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
     const formatPrice = (price: number) => `₱${price.toLocaleString()}`;
 
-    // ---------- Price fallback helpers (same idea as FloatingActions) ----------
+    // ---------- Price fallback helpers ----------
     const toValidPriceNumber = (val: unknown): number | null => {
         if (val === null || val === undefined || val === "") return null;
         const n = Number(val);
@@ -133,7 +186,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         if (typeof estimate !== "string") return null;
         const trimmed = estimate.trim();
         if (!trimmed || trimmed === "null" || trimmed === "undefined") return null;
-        // If user already stored "₱" in estimate, strip it so we don’t double-prefix
         return trimmed.replace(/^₱\s*/i, "");
     };
 
@@ -143,21 +195,23 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
         const estimate = getCleanEstimate(priceEstimate);
 
-        if (slotPrice != null) {
-            return `${formatPrice(slotPrice)} / guest`;
-        }
-
-        if (fallbackPrice != null) {
-            return `${formatPrice(fallbackPrice)} / guest`;
-        }
-
-        if (estimate) {
-            return `Est. ₱${estimate} / guest`;
-        }
-
+        if (slotPrice != null) return `${formatPrice(slotPrice)} / guest`;
+        if (fallbackPrice != null) return `${formatPrice(fallbackPrice)} / guest`;
+        if (estimate) return `Est. ₱${estimate} / guest`;
         return "—";
     };
-    // ------------------------------------------------------------------------
+    // ------------------------------------------
+
+    const renderSlotsLeft = (slot: TimeSlot) => {
+        const remaining = slot.remaining_guests;
+        if (remaining === null || remaining === undefined) return null;
+
+        const n = Number(remaining);
+        if (!Number.isFinite(n)) return null;
+
+        if (n <= 0) return "Full";
+        return `${n} slots left`;
+    };
 
     if (loading) {
         return (
@@ -186,7 +240,10 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         );
     }
 
-    if (!availabilityData?.availability?.length) {
+    // If every date has 0 slots, show empty state
+    const hasAnySlots = Object.values(slotsByDate).some((arr) => Array.isArray(arr) && arr.length > 0);
+
+    if (!hasAnySlots) {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 64 }}>
                 <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
@@ -199,11 +256,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
             </View>
         );
     }
-
-    const availabilityMap = new Map<string, TimeSlot[]>();
-    availabilityData.availability.forEach((day) => {
-        availabilityMap.set(day.day_of_week, day.time_slots);
-    });
 
     return (
         <View style={{ flex: 1 }}>
@@ -225,11 +277,15 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
             </View>
 
             {/* Scrollable Time Slots */}
-            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ paddingBottom: 40 }}
+            >
                 {tripDates.map((date, dateIndex) => {
-                    const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-                    const daySlots = availabilityMap.get(dayName);
-                    const sortedSlots = daySlots ? sortTimeSlots(daySlots) : [];
+                    const dateStr = toYYYYMMDD(date);
+                    const daySlots = slotsByDate[dateStr] || [];
+                    const sortedSlots = daySlots.length ? sortTimeSlots(daySlots) : [];
 
                     if (sortedSlots.length === 0) return null;
 
@@ -242,6 +298,8 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
                             {/* Time Slot Cards - View Only */}
                             {sortedSlots.map((slot, slotIndex) => {
+                                const slotsLeftText = renderSlotsLeft(slot);
+
                                 return (
                                     <View
                                         key={slotIndex}
@@ -254,15 +312,32 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                                             paddingVertical: 14,
                                             marginBottom: 12,
                                         }}
+
                                     >
                                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={{ fontSize: 16, fontWeight: "500", color: "#000" }}>
-                                                    {formatTimeRange(slot.start_time, slot.end_time)}
-                                                </Text>
-                                                <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
+                                                <View className="flex font-onest  flex-row items-center justify-between">
+                                                    <Text style={{ fontSize: 18, fontWeight: "400", color: "#000" }}>
+                                                        {formatTimeRange(slot.start_time, slot.end_time)}
+                                                    </Text>
+                                                    {!!slotsLeftText && (
+                                                        <Text
+                                                            className="font-onest-medium text-black/50"
+                                                            style={{
+                                                                fontSize: 14,
+
+                                                                fontWeight: slotsLeftText === "Full" ? "600" : "500",
+                                                            }}
+                                                        >
+                                                            {slotsLeftText}
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                                <Text className="font-onest" style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
                                                     {renderPriceLine(slot)}
                                                 </Text>
+
+
                                             </View>
                                         </View>
                                     </View>

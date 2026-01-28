@@ -136,6 +136,7 @@ const PartnerProfileScreen: React.FC = () => {
     }
   };
 
+
   const fetchPartnerProfile = async () => {
     try {
       const response = await fetch(`${API_URL}/partner-mobile/profile`, {
@@ -602,13 +603,24 @@ const PartnerProfileScreen: React.FC = () => {
             </View>
 
             {partnerProfile.vehicles.slice(0, 2).map((vehicle, index) => (
-              <View
+              <Pressable
                 key={vehicle.vehicle_id}
-                className={`flex-row items-center ${index < partnerProfile.vehicles!.length - 1 ? 'mb-3' : ''}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(partner)/(vehicles)/[vehicleId]",
+                    params: { vehicleId: String(vehicle.vehicle_id) },
+                  })
+                }
+                className={`flex-row items-center ${index < partnerProfile.vehicles!.length - 1 ? "mb-3" : ""
+                  }`}
+                android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: false }}
+                style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
               >
+
                 <View className="w-12 h-12 rounded-xl bg-gray-100 items-center justify-center mr-3">
                   <Ionicons name="car-outline" size={24} color="#6B7280" />
                 </View>
+
                 <View className="flex-1">
                   <Text className="text-sm font-onest text-black/90">
                     {vehicle.brand} {vehicle.model}
@@ -617,11 +629,16 @@ const PartnerProfileScreen: React.FC = () => {
                     {vehicle.plate_number} • {vehicle.color} • {vehicle.passenger_capacity} seats
                   </Text>
                 </View>
-                <Text className="text-sm font-onest-semibold text-primary">
-                  ₱{vehicle.price_per_day?.toLocaleString()}/day
-                </Text>
-              </View>
+
+                <View className="items-end">
+                  <Text className="text-sm font-onest-semibold text-primary">
+                    ₱{vehicle.price_per_day?.toLocaleString()}/day
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </View>
+              </Pressable>
             ))}
+
           </View>
         )}
 

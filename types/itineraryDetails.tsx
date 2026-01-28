@@ -58,6 +58,41 @@ export interface PaymentInfo {
     payment_complete_message?: string;
 }
 
+/* ---------------- FOOD SUGGESTIONS ---------------- */
+
+export interface ItineraryFoodSuggestion {
+    // DB / snapshot fields
+    experience_id: number;                 // the food spot experience_id
+    near_experience_id: number | null;     // which generated activity it's near
+    near_experience_name: string | null;   // snapshot text label
+    sort_order: number;
+
+    // Optional fields your UI may already render (safe to have if backend returns them)
+    experience_name?: string;
+    title?: string;
+    experience_description?: string;
+    description?: string;
+
+    destination_name?: string;
+    destination_city?: string;
+
+    images?: string[];
+    primary_image?: string | null;
+
+    price?: number | null;
+    price_estimate?: string | null;
+    unit?: string | null;
+
+    // Optional for "xx km away from xx" (if you return coords later)
+    destination_latitude?: number | null;
+    destination_longitude?: number | null;
+
+    // Optional for precomputed distance (backend-calculated)
+    distance_km?: number | null;
+}
+
+/* ---------------- MEETING POINTS ---------------- */
+
 export interface MeetingPointRequested {
     name: string;
     address: string;
@@ -68,7 +103,7 @@ export interface MeetingPointRequested {
 }
 
 export interface MeetingPointGuideResponse {
-    type: 'confirmed' | 'suggested_alternative';
+    type: "confirmed" | "suggested_alternative";
     suggested_name: string | null;
     suggested_address: string | null;
     suggested_latitude: number | null;
@@ -84,8 +119,10 @@ export interface MeetingPoint {
     guide_response: MeetingPointGuideResponse | null;
     traveler_accepted: boolean;
     traveler_responded_at: string | null;
-    status: 'pending' | 'confirmed' | 'negotiating';
+    status: "pending" | "confirmed" | "negotiating";
 }
+
+/* ---------------- SERVICE ASSIGNMENTS ---------------- */
 
 export interface ServiceProvider {
     provider_id: number;
@@ -103,9 +140,15 @@ export interface ServiceProvider {
 
 export interface ServiceAssignment {
     assignment_id: number;
-    service_type: 'Guide' | 'Driver';
-    status: 'Pending' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled';
-    decline_reason: 'Scheduling conflict' | 'Health reasons' | 'Overlapping booking' | 'Weather issues' | 'Other' | null;
+    service_type: "Guide" | "Driver";
+    status: "Pending" | "Accepted" | "Declined" | "Expired" | "Cancelled";
+    decline_reason:
+    | "Scheduling conflict"
+    | "Health reasons"
+    | "Overlapping booking"
+    | "Weather issues"
+    | "Other"
+    | null;
     price: number | null;
     responded_at: string | null;
     created_at: string;
@@ -114,6 +157,8 @@ export interface ServiceAssignment {
     has_pending_meeting_points: boolean;
     all_meeting_points_confirmed: boolean;
 }
+
+/* ---------------- ITINERARY ITEMS ---------------- */
 
 export interface ItineraryItem {
     item_id: number;
@@ -134,6 +179,8 @@ export interface ItineraryItem {
     primary_image: string;
 }
 
+/* ---------------- ITINERARY ---------------- */
+
 export interface Itinerary {
     itinerary_id: number;
     traveler_id: number;
@@ -146,6 +193,9 @@ export interface Itinerary {
     items: ItineraryItem[];
     payments: PaymentInfo[];
     service_assignments?: ServiceAssignment[];
+
+    // ✅ NEW: persisted/snapshotted suggestions to display in Itinerary Details
+    food_suggestions?: ItineraryFoodSuggestion[];
 }
 
 export interface EditCapabilities {

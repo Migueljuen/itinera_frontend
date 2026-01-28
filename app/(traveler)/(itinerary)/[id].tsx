@@ -1,4 +1,4 @@
-// screens/ItineraryDetailScreen.tsx main file
+// screens/ItineraryDetailScreen.tsx
 
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,23 +26,26 @@ import { PaymentTab } from "@/components/itinerary/tabs/PaymentTab";
 import { TripPlanTab } from "@/components/itinerary/tabs/TripPlanTab";
 
 // Hooks
+import { useBookingPayments } from "@/hooks/useBookingPayments";
 import { useCalendarIntegration } from "@/hooks/useCalendar";
 import { useEditCapabilities } from "@/hooks/useEditCapabilities";
 import { useFoodStopsAlongRoute } from "@/hooks/useFoodStopsAlongRoutes";
 import { useItinerary } from "@/hooks/useItinerary";
 import { useItineraryNavigation } from "@/hooks/useNavigation";
-import { usePaymentSummary } from "@/hooks/usePaymentSummary";
 import { useRefunds } from "@/hooks/useRefunds";
 
 // Utils
 import { formatDate } from "@/utils/itinerary-utils";
 
 // Types
+import { BookingPayment } from "@/types/bookingPayment";
 import { ItineraryItem } from "@/types/itineraryDetails";
 
 export default function ItineraryDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+
+  // ✅ allow refresh flag
+  const { id, refresh } = useLocalSearchParams<{ id: string; refresh?: string }>();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<TabType>("overview");
@@ -59,12 +62,26 @@ export default function ItineraryDetailScreen() {
   // Hooks
   const { itinerary, serviceAssignments, loading, accessLevel, refetch } = useItinerary(id);
 
-  // Refunds hook - fetch refunds for this itinerary
+  const {
+    bookings: bookingPayments,
+    summary: paymentSummary,
+    loading: paymentsLoading,
+    refetch: refetchPayments,
+  } = useBookingPayments(itinerary?.itinerary_id);
+
+
+  useEffect(() => {
+    console.log('=== BOOKING PAYMENTS DEBUG ===');
+    console.log('itinerary_id:', itinerary?.itinerary_id);
+    console.log('paymentsLoading:', paymentsLoading);
+    console.log('bookingPayments:', bookingPayments);
+  }, [itinerary?.itinerary_id, paymentsLoading, bookingPayments]);
+
+
   const { refunds, refetch: refetchRefunds } = useRefunds(itinerary?.itinerary_id);
 
   const { addItineraryToCalendar } = useCalendarIntegration();
   const { getEditCapabilities, getDayHeaderStyle } = useEditCapabilities(itinerary);
-  const paymentSummary = usePaymentSummary(itinerary?.payments?.[0]);
 
   const {
     loading: foodStopsLoading,
@@ -83,7 +100,6 @@ export default function ItineraryDetailScreen() {
   // ---- IMPORTANT: cancel pending fetch timers ----
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Optional: always use the latest userLocation inside the delayed callback
   const userLocationRef = useRef<Location.LocationObject | null | undefined>(userLocation);
   useEffect(() => {
     userLocationRef.current = userLocation;
@@ -91,7 +107,6 @@ export default function ItineraryDetailScreen() {
 
   useEffect(() => {
     return () => {
-      // cleanup on unmount
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
     };
   }, []);
@@ -114,7 +129,6 @@ export default function ItineraryDetailScreen() {
     }).start(() => setTooltipVisible(false));
   }, [fadeAnim]);
 
-  // Tooltip content
   const tooltipContent = {
     title: "Trip Information",
     description:
@@ -143,22 +157,15 @@ export default function ItineraryDetailScreen() {
     ],
   };
 
-  // Render tooltip modal
   const renderTooltip = () => {
     if (!tooltipVisible) return null;
 
     return (
-      <Modal
-        visible={true}
-        transparent
-        animationType="none"
-        onRequestClose={hideTooltip}
-      >
+      <Modal visible transparent animationType="none" onRequestClose={hideTooltip}>
         <TouchableWithoutFeedback onPress={hideTooltip}>
           <View className="flex-1 bg-black/50 justify-center items-center ">
             <TouchableWithoutFeedback>
               <View className="bg-[#fff] rounded-2xl p-6 w-full max-w-md">
-                {/* Header */}
                 <View className="flex-row items-center mb-4">
                   <Ionicons name="information-circle" size={28} color="#4F46E5" />
                   <Text className="text-xl font-onest-semibold flex-1 text-black/90 ml-3">
@@ -166,12 +173,10 @@ export default function ItineraryDetailScreen() {
                   </Text>
                 </View>
 
-                {/* Description */}
                 <Text className="text-black/70 font-onest text-sm mb-8 leading-6">
                   {tooltipContent.description}
                 </Text>
 
-                {/* Tips */}
                 <View className="mb-6">
                   {tooltipContent.tips.map((tip, index) => (
                     <View key={index} className="flex-row items-start mb-4">
@@ -190,7 +195,6 @@ export default function ItineraryDetailScreen() {
                   ))}
                 </View>
 
-                {/* Got it Button */}
                 <TouchableOpacity
                   onPress={hideTooltip}
                   className="bg-primary py-3 rounded-xl"
@@ -208,16 +212,16 @@ export default function ItineraryDetailScreen() {
     );
   };
 
-  // Calculate payment badge
-  const paymentBadge =
-    paymentSummary && !paymentSummary.isPaid
-      ? paymentSummary.totalCount - paymentSummary.paidCount
-      : 0;
+  const paymentBadge = paymentSummary
+    ? paymentSummary.unpaidCount + paymentSummary.pendingCount
+    : 0;
 
-  // Handlers
-  const handlePayNow = useCallback(() => {
-    router.push(`/(traveler)/(payment)/${itinerary?.itinerary_id}`);
-  }, [router, itinerary?.itinerary_id]);
+  const handlePayNow = useCallback(
+    (booking: BookingPayment) => {
+      router.push(`/(traveler)/(payment)/${booking.booking_id}`);
+    },
+    [router]
+  );
 
   const handleAddToCalendar = useCallback(() => {
     if (itinerary) addItineraryToCalendar(itinerary);
@@ -234,24 +238,16 @@ export default function ItineraryDetailScreen() {
 
   const handleShowFoodStops = useCallback(
     (dayNumber: number, dayItems: ItineraryItem[]) => {
-      console.log("0. Button pressed");
-      console.log("1. Opening modal");
-
-      // Cancel any pending delayed fetch from a previous press
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
         fetchTimeoutRef.current = null;
       }
 
-      // Clear old route data so the sheet doesn't briefly show stale results
       clearRouteData();
-
       setSelectedDayForFood(dayNumber);
       setFoodStopsVisible(true);
 
-      // Delay to let the modal render first
       fetchTimeoutRef.current = setTimeout(() => {
-        console.log("2. Starting fetch (after delay)");
         fetchRouteWithFoodStops(dayItems, userLocationRef.current ?? undefined);
         fetchTimeoutRef.current = null;
       }, 300);
@@ -260,7 +256,6 @@ export default function ItineraryDetailScreen() {
   );
 
   const handleCloseFoodStops = useCallback(() => {
-    // Cancel pending delayed fetch if the user closes quickly
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = null;
@@ -274,24 +269,31 @@ export default function ItineraryDetailScreen() {
     setActiveTab(tab);
   }, []);
 
-  // Refetch both itinerary and refunds after cancellation
   const handleRefresh = useCallback(() => {
     refetch();
+    refetchPayments();
     refetchRefunds();
-  }, [refetch, refetchRefunds]);
+  }, [refetch, refetchPayments, refetchRefunds]);
 
-  // Refetch when screen comes back into focus (e.g., after cancellation)
+  /**
+   * ✅ IMPORTANT CHANGE:
+   * Only refetch on focus if we were explicitly told to refresh (refresh=1).
+   * This prevents the annoying reload when simply going back from nested screens.
+   */
   useFocusEffect(
     useCallback(() => {
-      // Only refetch if we have an itinerary (not on initial load)
-      if (itinerary) {
+      if (refresh === "1" && itinerary) {
         handleRefresh();
+
+        // consume the flag so it doesn't refresh again next focus
+        router.setParams({ refresh: "0" } as any);
       }
-    }, [itinerary?.itinerary_id])
+    }, [refresh, itinerary?.itinerary_id, handleRefresh, router])
   );
 
-  // Loading state
-  if (loading) {
+  // ✅ IMPORTANT CHANGE:
+  // Only show the full-page loader on FIRST load (when itinerary is not available yet).
+  if (loading && !itinerary) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 justify-center items-center">
@@ -302,7 +304,6 @@ export default function ItineraryDetailScreen() {
     );
   }
 
-  // Empty state
   if (!itinerary) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -332,6 +333,7 @@ export default function ItineraryDetailScreen() {
         return (
           <TripPlanTab
             itinerary={itinerary}
+            bookingPayments={bookingPayments}
             collapsedDays={collapsedDays}
             getDayHeaderStyle={getDayHeaderStyle}
             onToggleDayCollapse={toggleDayCollapse}
@@ -348,11 +350,7 @@ export default function ItineraryDetailScreen() {
 
       case "payment":
         return (
-          <PaymentTab
-            payments={itinerary.payments}
-            refunds={refunds}
-            onPayNow={handlePayNow}
-          />
+          <PaymentTab bookings={bookingPayments} refunds={refunds} onPayNow={handlePayNow} />
         );
 
       default:
@@ -364,23 +362,15 @@ export default function ItineraryDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#fff]">
-      {/* Header Section */}
-      <View className="px-6 mt-12 pt-4 pb-4 " >
+      <View className="px-6 mt-12 pt-4 pb-4 ">
         <View className="flex-row justify-between items-baseline">
           <View className="flex-1 px-4">
             <Text className="text-3xl font-onest-semibold text-black/90">Trip to</Text>
             <Text className="text-3xl font-onest-semibold text-black/90">{itinerary.title}</Text>
           </View>
-          {/* Info Button */}
-          <Pressable
-            onPress={showTooltip}
-            className="p-2 rounded-full"
-          >
-            <Ionicons
-              name="information-circle"
-              size={24}
-              color="#191313"
-            />
+
+          <Pressable onPress={showTooltip} className="p-2 rounded-full">
+            <Ionicons name="information-circle" size={24} color="#191313" />
           </Pressable>
         </View>
 
@@ -388,15 +378,14 @@ export default function ItineraryDetailScreen() {
           <Ionicons name="calendar-outline" size={16} color="#000000cc" />
           <Text className="text-sm text-black/90 font-onest ml-2">{dateRangeText}</Text>
         </View>
+
+
       </View>
 
-      {/* Tab Navigation */}
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} paymentBadge={paymentBadge} />
 
-      {/* Tab Content */}
       <View className="flex-1">{renderTabContent()}</View>
 
-      {/* Food Stops Sheet */}
       <FoodStopsSheet
         visible={foodStopsVisible}
         onClose={handleCloseFoodStops}
@@ -405,7 +394,6 @@ export default function ItineraryDetailScreen() {
         dayNumber={selectedDayForFood}
       />
 
-      {/* Render Tooltip Modal */}
       {renderTooltip()}
     </SafeAreaView>
   );

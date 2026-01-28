@@ -1,3 +1,4 @@
+// app/(traveler)/(payment)/[id].tsx
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -18,66 +19,81 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import API_URL from "../../../constants/api";
 
+interface BookingPaymentInfo {
+  booking_id: number;
+  itinerary_id: number;
+  experience_name: string;
+  service_type: 'experience' | 'guide' | 'driver';
+  activity_price: number;
+  payment_status: 'Unpaid' | 'Pending' | 'Paid';
+  payment_proof: string | null;
+  payment_submitted_at: string | null;
+  payment_verified_at: string | null;
+  payment_rejected_at: string | null;
+  payment_reject_reason: string | null;
+  booking_status: string;
+  booking_date: string | null;
+  traveler_name: string;
+  creator_name: string;
+  creator_gcash_number?: string;
+  creator_gcash_name?: string;
+  creator_qr_code?: string;
+}
+
 const PaymentScreen = () => {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id: booking_id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
-  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [bookingInfo, setBookingInfo] = useState<BookingPaymentInfo | null>(null);
   const [uploading, setUploading] = useState(false);
   const [proofImage, setProofImage] = useState<string | null>(null);
-  const [isPartialPayment, setIsPartialPayment] = useState(false);
 
-  const DOWN_PAYMENT_PERCENTAGE = 0.5;
-
-  // Calculate amounts (UPDATED to include cash collected)
-  const totalAmount = paymentInfo?.total_amount
-    ? parseFloat(paymentInfo.total_amount)
+  const activityPrice = bookingInfo?.activity_price
+    ? parseFloat(String(bookingInfo.activity_price))
     : 0;
 
-  const amountPaidOnline = paymentInfo?.amount_paid
-    ? parseFloat(paymentInfo.amount_paid)
-    : 0;
+  const isPaid = bookingInfo?.payment_status === 'Paid';
+  const isPending = bookingInfo?.payment_status === 'Pending';
+  const wasRejected = bookingInfo?.payment_rejected_at !== null;
 
-  const totalCashCollected = paymentInfo?.total_creator_cash_collected
-    ? parseFloat(paymentInfo.total_creator_cash_collected)
-    : 0;
-
-  // Total paid = online + cash collected
-  const totalPaid = amountPaidOnline + totalCashCollected;
-
-  // Use actual_remaining_balance from backend (accounts for cash collected)
-  const remainingBalance = paymentInfo?.actual_remaining_balance !== undefined
-    ? parseFloat(paymentInfo.actual_remaining_balance)
-    : totalAmount - totalPaid;
-
-  const downPaymentAmount = totalAmount * DOWN_PAYMENT_PERCENTAGE;
-  const remainingAfterDownPayment = totalAmount - downPaymentAmount;
-
-  // Amount to pay online
-  const amountToPay = isPartialPayment ? downPaymentAmount : remainingBalance;
-
-  // Check if payment is complete
-  const isPaymentComplete = paymentInfo?.is_payment_complete === true;
-
-  // Fetch payment info
+  // Fetch booking payment info
   useEffect(() => {
-    const getPayment = async () => {
+    const getBookingPayment = async () => {
       try {
-        const res = await fetch(`${API_URL}/payment/${id}/info`);
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          toast.error("Authentication required");
+          router.back();
+          return;
+        }
+
+
+        const res = await fetch(`${API_URL}/payment/booking/${booking_id}/payment`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const data = await res.json();
-        console.log("Full API Response:", data);
-        console.log("Payment Info:", data.payment);
-        setPaymentInfo(data.payment);
+
+        if (data.success) {
+          setBookingInfo(data.booking);
+        } else {
+          toast.error(data.message || "Failed to load payment details");
+          router.back();
+        }
       } catch (error) {
-        console.error("Error fetching payment:", error);
+        console.error("Error fetching booking payment:", error);
         Alert.alert("Error", "Failed to load payment details.");
+        router.back();
       } finally {
         setLoading(false);
       }
     };
 
-    getPayment();
-  }, [id]);
+    if (booking_id) {
+      getBookingPayment();
+    }
+  }, [booking_id]);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -91,18 +107,18 @@ const PaymentScreen = () => {
     }
   };
 
-
   const handleSubmitPayment = async () => {
     if (!proofImage) {
       toast.error("Please upload your proof of payment");
       return;
     }
 
-    const paymentType = isPartialPayment ? "down payment" : totalPaid > 0 ? "remaining balance" : "full payment";
-
     Alert.alert(
       "Submit Payment",
-      `Send ${paymentType} proof of ₱${amountToPay.toFixed(2)} now?`,
+      `Send payment proof of ₱${activityPrice.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} for "${bookingInfo?.experience_name}"?`,
       [
         { text: "Cancel" },
         {
@@ -110,7 +126,6 @@ const PaymentScreen = () => {
           onPress: async () => {
             setUploading(true);
             try {
-              // Get auth token
               const token = await AsyncStorage.getItem("token");
               if (!token) {
                 toast.error("Authentication required");
@@ -118,21 +133,14 @@ const PaymentScreen = () => {
                 return;
               }
 
-              // Upload to backend — using FormData
               const formData = new FormData();
-              formData.append("proof", {
+              formData.append("payment_proof", {
                 uri: proofImage,
                 name: "payment.jpg",
                 type: "image/jpeg",
               } as any);
-              formData.append("itinerary_id", id as string);
-              formData.append(
-                "payment_type",
-                isPartialPayment ? "partial" : "full"
-              );
-              formData.append("amount_paid", amountToPay.toString());
 
-              const res = await fetch(`${API_URL}/payment/upload`, {
+              const res = await fetch(`${API_URL}/payment/booking/${booking_id}/payment`, {
                 method: "POST",
                 body: formData,
                 headers: {
@@ -144,15 +152,9 @@ const PaymentScreen = () => {
               const data = await res.json();
 
               if (data.success) {
-                toast.success(
-                  isPartialPayment
-                    ? `Down payment submitted! Please wait for us to verify it.`
-                    : "Payment submitted successfully!"
-                );
-
-                // Small delay to show toast before navigation
+                toast.success("Payment submitted! Awaiting verification from partner.");
                 setTimeout(() => {
-                  router.replace(`/(traveler)/(itinerary)/${id}`);
+                  router.back();
                 }, 1500);
               } else {
                 toast.error(data.message || "Failed to submit payment");
@@ -169,16 +171,29 @@ const PaymentScreen = () => {
     );
   };
 
+  const getServiceTypeLabel = (type: string) => {
+    switch (type) {
+      case 'experience':
+        return 'Experience';
+      case 'guide':
+        return 'Guide Service';
+      case 'driver':
+        return 'Driver Service';
+      default:
+        return type;
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
-        <ActivityIndicator size="large" color="#1f2937" />
+        <ActivityIndicator size="large" color="#4F46E5" />
       </SafeAreaView>
     );
   }
 
-  // If payment is complete, show message and go back
-  if (isPaymentComplete) {
+  // If payment is already completed
+  if (isPaid) {
     return (
       <View className="flex-1 bg-[#fff]">
         <StatusBar />
@@ -190,7 +205,36 @@ const PaymentScreen = () => {
             Payment Complete!
           </Text>
           <Text className="text-sm font-onest text-black/60 text-center mb-8">
-            All payments for this itinerary have been completed.
+            Payment for "{bookingInfo?.experience_name}" has been verified.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="bg-primary py-3 px-8 rounded-full"
+          >
+            <Text className="text-white font-onest-semibold">Go Back</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // If payment is pending verification
+  if (isPending && !wasRejected) {
+    return (
+      <View className="flex-1 bg-[#fff]">
+        <StatusBar />
+        <SafeAreaView className="flex-1 justify-center items-center px-6">
+          <View className="w-20 h-20 rounded-full bg-yellow-100 items-center justify-center mb-6">
+            <Ionicons name="time" size={40} color="#D97706" />
+          </View>
+          <Text className="text-xl font-onest-semibold text-black/90 mb-2">
+            Awaiting Verification
+          </Text>
+          <Text className="text-sm font-onest text-black/60 text-center mb-2">
+            Your payment for "{bookingInfo?.experience_name}" is being reviewed.
+          </Text>
+          <Text className="text-sm font-onest text-black/40 text-center mb-8">
+            {bookingInfo?.creator_name} will verify your payment shortly.
           </Text>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -216,8 +260,8 @@ const PaymentScreen = () => {
                 <Ionicons name="arrow-back" size={24} color="black" />
               </TouchableOpacity>
 
-              <Text className="text-black/90 text-lg font-onest-semibold">
-                QR Payment
+              <Text className="text-black/90 text-lg font-onest-semibold w-4/6 text-center">
+                {bookingInfo?.experience_name}
               </Text>
 
               <View className="p-2 w-10" />
@@ -226,199 +270,64 @@ const PaymentScreen = () => {
         </SafeAreaView>
       </View>
 
-      {/* Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6">
-          {/* QR Code */}
-          <View className="bg-[#fff] mb-8">
-            <View className="items-center">
-              <Image
-                source={require("../../../assets/images/qr.png")}
-                className="w-64 h-64 rounded-lg"
-                resizeMode="contain"
-              />
-            </View>
-
-            <Text className="text-center mt-4 font-onest text-black/60">
-              Scan this QR with GCash to pay.
-            </Text>
-          </View>
-
-          {/* Show already paid amount if exists (UPDATED to include cash) */}
-          {totalPaid > 0 && (
-            <View className="mb-4 py-4 rounded-2xl">
-              <Text className="font-onest-semibold  text-black/90">
-                Total Paid: ₱{totalPaid.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </Text>
-
-              {/* Breakdown of online vs cash */}
-              {(amountPaidOnline > 0 || totalCashCollected > 0) && (
-                <View className="mt-2 pt-2 border-t border-gray-200">
-                  {amountPaidOnline > 0 && (
-                    <Text className="font-onest text-sm text-black/60">
-                      Online: ₱{amountPaidOnline.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  )}
-                  {totalCashCollected > 0 && (
-                    <Text className="font-onest text-sm text-black/60">
-                      Cash Collected: ₱{totalCashCollected.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  )}
+          {/* Rejection Notice */}
+          {wasRejected && (
+            <View className="mb-6 p-4 bg-red-50 rounded-2xl border border-red-200">
+              <View className="flex-row items-start">
+                <Ionicons name="close-circle" size={20} color="#DC2626" />
+                <View className="ml-3 flex-1">
+                  <Text className="font-onest-semibold text-sm text-red-800 mb-1">
+                    Payment Rejected
+                  </Text>
+                  <Text className="font-onest text-sm text-red-700">
+                    {bookingInfo?.payment_reject_reason || "Please resubmit with a valid payment proof."}
+                  </Text>
                 </View>
-              )}
-
-              <Text className="font-onest text-sm text-black/60 mt-2">
-                Remaining Balance: ₱{remainingBalance.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </Text>
+              </View>
             </View>
           )}
 
-          {/* Cash Due Notice (NEW) */}
-          {/* {paymentInfo?.total_creator_cash_due > 0 &&
-            paymentInfo?.total_creator_cash_due > totalCashCollected && (
-              <View className="mb-4 p-4 bg-yellow-50 rounded-2xl border border-yellow-200">
-                <View className="flex-row items-start">
-                  <Ionicons name="information-circle" size={18} color="#D97706" />
-                  <View className="ml-2 flex-1">
-                    <Text className="font-onest-semibold text-sm text-yellow-800">
-                      Cash Payment Required
-                    </Text>
-                    <Text className="font-onest text-sm text-yellow-700 mt-1">
-                      ₱{(paymentInfo.total_creator_cash_due - totalCashCollected).toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} will be collected in cash by the creator(s) during your activities.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )} */}
 
-          {/* Payment Options Toggle */}
-          <View className="mb-6">
-            <Text className="font-onest-semibold text-base mb-3 text-black/90">
-              Payment Option
+
+
+
+          {/* QR Code */}
+          <View className=" mb-6">
+            <View className="items-center p-4 rounded-2xl  ">
+              {bookingInfo?.creator_qr_code ? (
+                <Image
+                  source={{ uri: `${API_URL}/${bookingInfo.creator_qr_code}` }}
+                  className="w-64 h-64 rounded-lg"
+                  resizeMode="contain"
+                />
+              ) : (
+                <Image
+                  source={require("@/assets/images/default-qr.jpg")}
+                  className="w-64 h-64 rounded-lg"
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+
+            <Text className="text-center mt-4 font-onest text-black/60">
+              Transfer fees may apply.
             </Text>
-
-            {/* Full Payment Option */}
-            <Pressable
-              onPress={() => setIsPartialPayment(false)}
-              className={`mb-3 p-4 rounded-2xl border ${!isPartialPayment
-                ? "border-primary bg-indigo-50"
-                : "border-gray-200 bg-white"
-                }`}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1">
-                  <View className="flex-row items-center mb-1">
-                    <View
-                      className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${!isPartialPayment
-                        ? "border-primary bg-primary"
-                        : "border-gray-300"
-                        }`}
-                    >
-                      {!isPartialPayment && (
-                        <View className="w-2 h-2 rounded-full bg-white" />
-                      )}
-                    </View>
-                    <Text className="font-onest-semibold text-base text-black/90">
-                      {totalPaid > 0 ? "Pay Remaining Balance" : "Full Payment"}
-                    </Text>
-                  </View>
-                  <Text className="text-black/60 font-onest text-sm ml-8">
-                    {totalPaid > 0
-                      ? "Complete your payment"
-                      : "Pay the complete amount now"
-                    }
-                  </Text>
-                </View>
-                <Text className="font-onest-bold text-lg text-black/90">
-                  ₱
-                  {remainingBalance.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </Text>
-              </View>
-            </Pressable>
-
-            {/* Down Payment Option - Only show if nothing paid yet */}
-            {totalPaid === 0 && (
-              <Pressable
-                onPress={() => setIsPartialPayment(true)}
-                className={`p-4 rounded-2xl border ${isPartialPayment
-                  ? "border-primary bg-indigo-50"
-                  : "border-gray-200 bg-white"
-                  }`}
-              >
-                <View className="flex-row items-center justify-between mb-2">
-                  <View className="flex-1">
-                    <View className="flex-row items-center mb-1">
-                      <View
-                        className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${isPartialPayment
-                          ? "border-primary bg-primary"
-                          : "border-gray-300"
-                          }`}
-                      >
-                        {isPartialPayment && (
-                          <View className="w-2 h-2 rounded-full bg-white" />
-                        )}
-                      </View>
-                      <Text className="font-onest-semibold text-base text-black/90">
-                        Down Payment (50%)
-                      </Text>
-                    </View>
-                    <Text className="text-black/60 font-onest text-sm ml-8">
-                      Pay 50% now, rest later
-                    </Text>
-                  </View>
-                  <Text className="font-onest-bold text-lg text-black/90">
-                    ₱
-                    {downPaymentAmount.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </Text>
-                </View>
-
-                {isPartialPayment && (
-                  <View className="mt-2 pt-3 border-t border-indigo-200 ml-8">
-                    <Text className="text-black/60 font-onest text-sm">
-                      Remaining balance: ₱
-                      {remainingAfterDownPayment.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            )}
           </View>
 
-          {/* Refund Policy Notice */}
-          <View className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-200">
-            <View className="flex-row items-start">
-              {/* <Ionicons name="warning-outline" size={18} color="#D97706" /> */}
-              <View className="ml-2 flex-1">
-                <Text className="font-onest-semibold text-base mb-3 text-blue-700">
-                  Refund Policy
+          {/* Creator Payment Info */}
+          <View className="mb-6  ">
+
+
+            <View className=" flex items-center justify-center mb-4">
+
+              <View className="flex-1">
+                <Text className="text-2xl font-onest-semibold text-black/90">
+                  {bookingInfo?.creator_gcash_name || bookingInfo?.creator_name || "Itinera Travel"}
                 </Text>
-                <Text className="font-onest text-sm text-blue-700 leading-loose">
-                  • Down payments are <Text className="font-onest-semibold">non-refundable</Text>.{"\n"}
-                  • Full payments are <Text className="font-onest-semibold">50% refundable</Text> if cancelled at least 48 hours before the itinerary start.{"\n"}
+                <Text className="text-sm font-onest text-black/60 text-center mt-4">
+                  GCash: {bookingInfo?.creator_gcash_number || "09123456789"}
                 </Text>
               </View>
             </View>
@@ -432,7 +341,7 @@ const PaymentScreen = () => {
               </Text>
               <Text className="text-2xl font-onest-bold text-[#191313]">
                 ₱
-                {amountToPay.toLocaleString("en-US", {
+                {activityPrice.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -443,7 +352,7 @@ const PaymentScreen = () => {
           {/* Upload Proof */}
           <View className="rounded-2xl mb-6">
             <Text className="font-onest-semibold text-base mb-4 text-black/90">
-              Upload Proof of Payment :
+              Upload Proof of Payment
             </Text>
 
             {proofImage ? (
@@ -485,7 +394,7 @@ const PaymentScreen = () => {
               <>
                 <Ionicons name="send-outline" size={20} color="white" />
                 <Text className="ml-2 font-onest-semibold text-white text-base">
-                  Submit {isPartialPayment ? "Down Payment" : totalPaid > 0 ? "Remaining Balance" : "Payment"}
+                  {wasRejected ? "Resubmit Payment" : "Submit Payment"}
                 </Text>
               </>
             )}

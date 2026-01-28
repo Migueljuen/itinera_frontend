@@ -1,7 +1,7 @@
 // components/itinerary/tabs/OverviewTab.tsx
 
 import API_URL from '@/constants/api';
-import { usePaymentSummary } from '@/hooks/usePaymentSummary';
+
 import { Itinerary, ItineraryItem, ServiceAssignment } from '@/types/itineraryDetails';
 import { getImageUri } from '@/utils/itinerary-utils';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,6 @@ interface Props {
 }
 
 export function OverviewTab({ itinerary, serviceAssignments = [], onAddToCalendar, onNavigateToTab }: Props) {
-    const paymentSummary = usePaymentSummary(itinerary.payments?.[0]);
 
     const stats = calculateTripStats(itinerary);
     const upcomingActivities = getUpcomingActivities(itinerary, 2);
@@ -70,12 +69,7 @@ export function OverviewTab({ itinerary, serviceAssignments = [], onAddToCalenda
                 <HighlightsSection highlights={highlights} />
             )}
 
-            {paymentSummary && (
-                <PaymentPreviewCard
-                    summary={paymentSummary}
-                    onViewDetails={() => onNavigateToTab('payment')}
-                />
-            )}
+
         </ScrollView>
     );
 }
@@ -498,49 +492,6 @@ function ServiceSection({
     );
 }
 
-function PaymentPreviewCard({
-    summary,
-    onViewDetails,
-}: {
-    summary: NonNullable<ReturnType<typeof usePaymentSummary>>;
-    onViewDetails: () => void;
-}) {
-    const { isPaid, totalPaid, remainingBalance } = summary;
-
-    const statusText = isPaid ? 'Payment Complete' : 'Payment Pending';
-    const amountText = isPaid
-        ? `₱${totalPaid.toLocaleString()} paid`
-        : `₱${remainingBalance.toLocaleString()} remaining`;
-
-    return (
-        <>
-            <Text className="text-2xl mt-12 text-onest text-black/90">Payment Details</Text>
-            <Pressable
-                onPress={onViewDetails}
-                className="flex-row items-center justify-between mt-4"
-            >
-                <View className="flex-row items-center flex-1">
-                    <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${isPaid ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                        <Ionicons
-                            name={isPaid ? 'checkmark-circle' : 'card'}
-                            size={20}
-                            color={isPaid ? '#059669' : '#D97706'}
-                        />
-                    </View>
-                    <View className="flex-1">
-                        <Text className="text-sm text-onest text-black/90">
-                            {statusText}
-                        </Text>
-                        <Text className="text-xs font-onest text-black/50 mt-0.5">
-                            {amountText}
-                        </Text>
-                    </View>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </Pressable>
-        </>
-    );
-}
 
 function UpcomingSection({
     activities,
@@ -606,12 +557,13 @@ function HighlightsSection({ highlights }: { highlights: ItineraryItem[] }) {
                 {highlights.map((item, index) => (
                     <View
                         key={item.item_id}
-                        className={`w-40 ${index < highlights.length - 1 ? 'mr-3' : ''}`}
+                        className={`${index < highlights.length - 1 ? 'mr-3' : ''}`}
+                        style={{ width: 240 }}
                     >
                         {item.primary_image && (
                             <Image
                                 source={{ uri: getImageUri(item.primary_image, API_URL) }}
-                                className="w-40 h-28 rounded-xl"
+                                className="w-full h-48 rounded-xl"
                                 resizeMode="cover"
                             />
                         )}

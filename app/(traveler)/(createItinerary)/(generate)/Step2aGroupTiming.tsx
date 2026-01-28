@@ -128,7 +128,7 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1"
     >
-      <View className="flex-1">
+      <View className="flex-1 flex justify-between">
         <ScrollView
           showsVerticalScrollIndicator={false}
           className="flex-1"
@@ -214,32 +214,33 @@ const Step2aGroupTiming: React.FC<StepProps> = ({
               )}
             </View>
 
-            {/* Navigation Buttons */}
-            <View className="flex-row justify-between mt-4 pt-4 border-t border-gray-200 pb-4">
-              <TouchableOpacity
-                onPress={onBack}
-                className="py-4 px-6 rounded-xl border border-gray-200"
-                activeOpacity={1}
-              >
-                <Text className="text-center font-onest-medium text-base text-gray-700">
-                  Back
-                </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleNext}
-                className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
-                  }`}
-                disabled={!isValid()}
-                activeOpacity={1}
-              >
-                <Text className="text-center font-onest-medium text-base text-white">
-                  Next step
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
+        {/* Navigation Buttons */}
+        <View className="flex-row justify-between mt-4 pt-4  pb-4 sticky bottom-0 left-0 right-0">
+          <TouchableOpacity
+            onPress={onBack}
+            className="py-4 px-6 rounded-xl border border-gray-200"
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-gray-700">
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleNext}
+            className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
+              }`}
+            disabled={!isValid()}
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-white">
+              Next step
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,13 +14,13 @@ import {
   Platform,
   Pressable,
   Text,
-
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AvailabilityCalendar from "../../../components/AvailablityCalendar";
 import ReviewsSection from "../../../components/ReviewsSection";
 import { ItineraryItem } from "../../../types/itineraryTypes";
+
 // Local imports
 import AvailabilityModal from "@/components/AvailabilityModal";
 import FloatingActions from "@/components/FloatingActions";
@@ -36,6 +36,20 @@ import {
   getProfilePicUrl,
 } from "@/utils/formatters";
 
+type TimeSlot = {
+  start_time: string; // "09:00" or "09:00:00"
+  end_time: string; // "18:00" or "18:00:00"
+};
+
+type AvailabilityDay = {
+  day_of_week: string;
+  time_slots: TimeSlot[];
+};
+
+type AvailabilityData = {
+  availability: AvailabilityDay[];
+};
+
 export default function ExperienceDetail() {
   const router = useRouter();
   const {
@@ -43,7 +57,7 @@ export default function ExperienceDetail() {
     tripStartDate: paramTripStart,
     tripEndDate: paramTripEnd,
     itineraryItemId,
-    viewOnly: viewOnlyParam
+    viewOnly: viewOnlyParam,
   } = useLocalSearchParams();
 
   const isViewOnly = viewOnlyParam === "true";
@@ -55,7 +69,7 @@ export default function ExperienceDetail() {
   const { experience, loading, isSaved, toggleSave } = useExperience(experienceId);
   const { reviews, loading: reviewsLoading } = useReviews(experienceId);
 
-  // NEW: Fetch itinerary context if viewing from itinerary
+  // Fetch itinerary context if viewing from itinerary
   const { itineraryItem, loading: itineraryLoading } = useItineraryItem(
     itineraryItemId ? Number(itineraryItemId) : null
   );
@@ -76,6 +90,83 @@ export default function ExperienceDetail() {
     (paramTripEnd as string) || getNextWeekDateString()
   );
   const [selectedItems, setSelectedItems] = useState<ItineraryItem[]>([]);
+
+  // ===== Header hours (Food only) =====
+  const [availabilityTimeSlots, setAvailabilityTimeSlots] = useState<TimeSlot[]>([]);
+  const [availabilityHeaderLoading, setAvailabilityHeaderLoading] = useState(false);
+
+  const tripStart = useMemo(() => new Date(tripStartDate), [tripStartDate]);
+  const tripEnd = useMemo(() => new Date(tripEndDate), [tripEndDate]);
+
+  const toYYYYMMDD = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const tripDates = useMemo(() => {
+    const dates: Date[] = [];
+    const currentDate = new Date(tripStart);
+    currentDate.setHours(0, 0, 0, 0);
+
+    const end = new Date(tripEnd);
+    end.setHours(0, 0, 0, 0);
+
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return dates;
+  }, [tripStart, tripEnd]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Only fetch for Food category and only after experience is ready
+    if (!experience || experience.category_id !== 3) return;
+
+    const fetchHeaderSlots = async () => {
+      try {
+        setAvailabilityHeaderLoading(true);
+
+        const slotsCollected: TimeSlot[] = [];
+
+        await Promise.all(
+          tripDates.map(async (dateObj) => {
+            const dateStr = toYYYYMMDD(dateObj);
+            const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+            const resp = await fetch(
+              `${API_URL}/experience/availability/${experienceId}?date=${encodeURIComponent(dateStr)}`
+            );
+
+            if (!resp.ok) return;
+
+            const data: AvailabilityData = await resp.json();
+            const day = data?.availability?.find((d) => d.day_of_week === dayName);
+            const slots = Array.isArray(day?.time_slots) ? day!.time_slots : [];
+
+            slotsCollected.push(...slots);
+          })
+        );
+
+        if (!cancelled) setAvailabilityTimeSlots(slotsCollected);
+      } catch (e) {
+        console.warn("Failed to fetch header availability slots", e);
+        if (!cancelled) setAvailabilityTimeSlots([]);
+      } finally {
+        if (!cancelled) setAvailabilityHeaderLoading(false);
+      }
+    };
+
+    fetchHeaderSlots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [experience, experienceId, tripDates]);
+  // ===================================
 
   // Handlers
   const handleOpenMap = async () => {
@@ -132,13 +223,11 @@ export default function ExperienceDetail() {
   };
 
   // Loading state
-  if (loading || itineraryLoading) {
+  if (loading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
         <ActivityIndicator size="large" color="#1f2937" />
-        <Text className="mt-4 text-black/60 font-onest">
-          Loading experience...
-        </Text>
+        <Text className="mt-4 text-black/60 font-onest">Loading experience...</Text>
       </SafeAreaView>
     );
   }
@@ -164,6 +253,8 @@ export default function ExperienceDetail() {
     );
   }
 
+  const isFoodCategory = experience.category_id === 3;
+
   return (
     <View className="flex-1 bg-gray-50 pb-36">
       <Animated.ScrollView
@@ -180,8 +271,6 @@ export default function ExperienceDetail() {
 
         {/* Content Card */}
         <View className="px-6 pt-2 -mt-5 rounded-3xl bg-white">
-
-
           {/* Title and Description */}
           <ExperienceHeader
             title={experience.title}
@@ -189,32 +278,33 @@ export default function ExperienceDetail() {
             tags={experience.tags}
             expanded={expanded}
             onToggleExpanded={() => setExpanded(!expanded)}
+            category_id={experience.category_id}
+            timeSlots={availabilityTimeSlots}
+            timeSlotsLoading={availabilityHeaderLoading}
           />
-
-
 
           {/* Content based on active tab */}
           {activeTab === "details" ? (
             <View className="py-4">
               {/* Creator Information */}
-              {experience.creator && (
-                <CreatorSection creator={experience.creator} />
-              )}
+              {experience.creator && <CreatorSection creator={experience.creator} />}
 
               {/* Location Information */}
               {experience.destination && (
                 <LocationSection destination={experience.destination} />
               )}
 
-              {/* Steps Section */}
-              {experience.steps && experience.steps.length > 0 && (
-                <StepsSection steps={experience.steps} />
-              )}
+              {/* Steps Section (hide for Food) */}
+              {experience.category_id !== 3 &&
+                experience.steps &&
+                experience.steps.length > 0 && <StepsSection steps={experience.steps} />}
 
-              {/* Inclusions Section */}
-              {experience.inclusions && experience.inclusions.length > 0 && (
-                <InclusionsSection inclusions={experience.inclusions} />
-              )}
+              {/* Inclusions Section (hide for Food) */}
+              {experience.category_id !== 3 &&
+                experience.inclusions &&
+                experience.inclusions.length > 0 && (
+                  <InclusionsSection inclusions={experience.inclusions} />
+                )}
 
               {/* Reviews Section */}
               {reviewsLoading ? (
@@ -224,17 +314,12 @@ export default function ExperienceDetail() {
               )}
 
               {/* Location Button */}
-              <MapPreview
-                destination={experience.destination}
-                onPress={handleOpenMap}
-              />
+              <MapPreview destination={experience.destination} onPress={handleOpenMap} />
+
               <View className="p-4 my-12">
-                <View className="flex-row items-center justify-center mb-2">
-
-
-                </View>
                 <Text className="text-sm font-onest text-center text-black/50 leading-5">
-                  All partners of Itinera have been carefully vetted and verified to ensure professional, safe, and quality service for your travels.
+                  All partners of Itinera have been carefully vetted and verified to
+                  ensure professional, safe, and quality service for your travels.
                 </Text>
               </View>
             </View>
@@ -260,24 +345,11 @@ export default function ExperienceDetail() {
         onCalendarPress={() => setShowAvailabilityModal(true)}
         itineraryContext={itineraryItem}
         viewOnly={isViewOnly}
+        hideCalendar={experience.category_id === 3}
       />
 
       {/* Availability Modal - Only show when NOT from itinerary */}
-      {/* {!isFromItinerary && (
-        <AvailabilityModal
-          visible={showAvailabilityModal}
-          onClose={() => setShowAvailabilityModal(false)}
-          experienceId={experienceId}
-          tripStartDate={tripStartDate}
-          tripEndDate={tripEndDate}
-          selectedItems={selectedItems}
-          onTimeSlotSelect={handleTimeSlotSelect}
-          onTimeSlotDeselect={handleTimeSlotDeselect}
-          onConfirm={handleConfirmSelection}
-        />
-      )} */}
       {!isFromItinerary && !isViewOnly && (
-
         <AvailabilityModal
           visible={showAvailabilityModal}
           onClose={() => setShowAvailabilityModal(false)}
@@ -292,14 +364,18 @@ export default function ExperienceDetail() {
   );
 }
 
+// ============ COMPONENTS ============
 
-// ============ EXISTING COMPONENTS (unchanged) ============
 type ExperienceHeaderProps = {
   title: string;
   description: string;
   tags?: string[];
   expanded: boolean;
   onToggleExpanded: () => void;
+
+  category_id?: number;
+  timeSlots?: TimeSlot[];
+  timeSlotsLoading?: boolean;
 };
 
 const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
@@ -308,44 +384,95 @@ const ExperienceHeader: React.FC<ExperienceHeaderProps> = ({
   tags = [],
   expanded,
   onToggleExpanded,
-}) => (
-  <View className="mb-4">
-    <View className="flex-row justify-between">
-      <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-black/90">
-        {title}
-      </Text>
-    </View>
+  category_id,
+  timeSlots = [],
+  timeSlotsLoading = false,
+}) => {
+  const isFood = category_id === 3;
 
-    <Text className="mt-4 text-black/60 font-onest">
-      {expanded
-        ? description
-        : description?.length > 100
-          ? `${description.substring(0, 100)}...`
-          : description}
-    </Text>
+  const normalizeTime = (t: string) => (t ? t.slice(0, 5) : "00:00"); // HH:MM
+  const toMinutes = (t: string) => {
+    const [hh, mm] = normalizeTime(t).split(":").map(Number);
+    return hh * 60 + mm;
+  };
 
-    {description?.length > 100 && (
-      <Pressable onPress={onToggleExpanded}>
-        <Text className="text-black/90 mt-2 font-onest-medium">
-          {expanded ? "Read Less" : "Read More"}
+  const formatTime = (t: string) => {
+    const [hhStr, mmStr] = normalizeTime(t).split(":");
+    const hh = Number(hhStr);
+    const mm = Number(mmStr);
+    const ampm = hh >= 12 ? "PM" : "AM";
+    const displayHour = hh % 12 || 12;
+    return `${displayHour}:${String(mm).padStart(2, "0")} ${ampm}`;
+  };
+
+  const openRange = useMemo(() => {
+    if (!isFood || timeSlots.length === 0) return null;
+
+    let earliest = timeSlots[0].start_time;
+    let latest = timeSlots[0].end_time;
+
+    for (const s of timeSlots) {
+      if (toMinutes(s.start_time) < toMinutes(earliest)) earliest = s.start_time;
+      if (toMinutes(s.end_time) > toMinutes(latest)) latest = s.end_time;
+    }
+
+    return { earliest, latest };
+  }, [isFood, timeSlots]);
+
+  return (
+    <View className="mb-4">
+      <View className="flex-row justify-between">
+        <Text className="text-2xl font-onest-semibold mt-4 w-9/12 text-black/90">
+          {title}
         </Text>
-      </Pressable>
-    )}
-
-    {!!tags?.length && (
-      <View className="flex-row flex-wrap mt-4">
-        {tags.map((tag, idx) => (
-          <View
-            key={`${tag}-${idx}`}
-            className="bg-blue-50 rounded-full px-3 py-1 mr-2 mb-2"
-          >
-            <Text className="text-blue-600 font-onest text-sm">{tag}</Text>
-          </View>
-        ))}
       </View>
-    )}
-  </View>
-);
+
+      {/* ✅ Show only for Food */}
+      {isFood && (
+        <View className="mt-2">
+          {timeSlotsLoading ? (
+            <Text className="text-black/40 font-onest">Loading hours…</Text>
+          ) : openRange ? (
+            <Text className="text-black/70 text-lg font-onest-medium">
+              Open at {formatTime(openRange.earliest)} to {formatTime(openRange.latest)}
+            </Text>
+          ) : (
+            <Text className="text-black/40 font-onest">Hours not available</Text>
+          )}
+        </View>
+      )}
+
+      <Text className="mt-4 text-black/60 font-onest">
+        {expanded
+          ? description
+          : description?.length > 100
+            ? `${description.substring(0, 100)}...`
+            : description}
+      </Text>
+
+      {description?.length > 100 && (
+        <Pressable onPress={onToggleExpanded}>
+          <Text className="text-black/90 mt-2 font-onest-medium">
+            {expanded ? "Read Less" : "Read More"}
+          </Text>
+        </Pressable>
+      )}
+
+      {!!tags?.length && (
+        <View className="flex-row flex-wrap mt-4">
+          {tags.map((tag, idx) => (
+            <View
+              key={`${tag}-${idx}`}
+              className="bg-blue-50 rounded-full px-3 py-1 mr-2 mb-2"
+            >
+              <Text className="text-blue-600 font-onest text-sm">{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
 
 type CreatorSectionProps = {
   creator: Experience["creator"];
@@ -434,11 +561,7 @@ const CreatorSection: React.FC<CreatorSectionProps> = ({ creator }) => {
             {startingChat ? (
               <ActivityIndicator size="small" color="#1f2937" />
             ) : (
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={24}
-                color="#1f2937"
-              />
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1f2937" />
             )}
           </Pressable>
         </View>
@@ -473,7 +596,6 @@ const LocationSection: React.FC<LocationSectionProps> = ({ destination }) => (
           </Text>
           <Text className="text-gray-400 font-onest">{destination.city}</Text>
         </View>
-
       </View>
     </View>
   </View>
@@ -516,9 +638,15 @@ const InclusionsSection: React.FC<InclusionsSectionProps> = ({ inclusions }) => 
 
       {/* Disclaimer */}
       <View className="mt-6 py-4 rounded-xl flex-row items-start">
-        <Ionicons name="information-circle-outline" size={20} color="#1d1d1d" style={{ marginTop: 2 }} />
+        <Ionicons
+          name="information-circle-outline"
+          size={20}
+          color="#1d1d1d"
+          style={{ marginTop: 2 }}
+        />
         <Text className="flex-1 ml-3 text-black/90 font-onest text-sm leading-5">
-          Only items listed above are included in the price. Any additional services or expenses are at your own cost.
+          Only items listed above are included in the price. Any additional services
+          or expenses are at your own cost.
         </Text>
       </View>
     </View>
@@ -555,4 +683,3 @@ const StepsSection: React.FC<StepsSectionProps> = ({ steps }) => {
     </View>
   );
 };
-

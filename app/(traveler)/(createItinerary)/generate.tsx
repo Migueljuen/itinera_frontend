@@ -4,31 +4,28 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StepIndicator from "react-native-step-indicator";
-// Step components
+
 import { useAuth } from "@/contexts/AuthContext";
 
+// Step components
 import MeetingPointStep from "./(generate)/MeetingPointStep";
 import Step2Interests from "./(generate)/Step2Interests";
 import Step2aGroupTiming from "./(generate)/Step2aGroupTiming";
 import Step2bPaceConstraints from "./(generate)/Step2bPaceConstraints";
-
+import Step2cFoodSuggestions from "./(generate)/Step2cFoodSuggestions"; // ✅ NEW STEP
 import Step3GeneratedItinerary from "./(generate)/Step3GeneratedItinerary";
 import Step3aReviewServices from "./(generate)/Step3aReviewServices";
 import Step4PaymentConfirmation from "./(generate)/step4PaymentConfirmation";
 import Step1SelectLocation from "./(manual)/Step1SelectLocation"; // Reusing from manual
 
-import {
-  ActivityIntensity,
-  Budget,
-  Experience,
-  ExploreTime,
-  TravelCompanion,
-  TravelDistance,
-} from "@/types/experienceTypes";
+import type { Experience } from "@/types/experienceTypes";
+import type {
+  FoodSuggestion,
+  GuestBreakdown,
+  ItineraryFormData,
+} from "@/types/itineraryTypes";
 
-
-
-
+/* ---------------- Local types (only those NOT in shared types) ---------------- */
 
 interface LocationData {
   name: string;
@@ -51,18 +48,6 @@ interface ItineraryItem {
   primary_image?: string;
   price?: number;
   unit?: string;
-}
-
-interface Accommodation {
-  name: string;
-  address: string;
-  latitude?: number;
-  longitude?: number;
-  check_in?: string;
-  check_out?: string;
-  booking_link?: string;
-  check_in_time?: string;
-  check_out_time?: string;
 }
 
 interface TourGuide {
@@ -99,27 +84,9 @@ interface CarService {
   review_count: number;
 }
 
-interface ItineraryFormData {
-  traveler_id: number;
-  start_date: string;
-  end_date: string;
-  title: string;
-  notes?: string;
-  city: string;
+// If your shared ItineraryFormData doesn't include these fields, extend it locally.
+type GenerateFormData = ItineraryFormData & {
   items: ItineraryItem[];
-  accommodation?: Accommodation;
-  preferences?: {
-    experienceIds?: number[];
-    experiences: Experience[];
-    travelerCount: number;
-    travelCompanion?: TravelCompanion;
-    travelCompanions?: TravelCompanion[];
-    exploreTime?: ExploreTime;
-    budget?: Budget;
-    activityIntensity?: ActivityIntensity;
-    travelDistance?: TravelDistance;
-  };
-  // Additional services from Step3a
   tourGuide?: TourGuide | null;
   carService?: CarService | null;
   additionalServices?: {
@@ -127,9 +94,20 @@ interface ItineraryFormData {
     carCost: number;
     totalAdditionalCost: number;
   };
-}
 
-// Progress bar component
+  // ✅ Keep generated Places-to-eat suggestions across steps
+  foodSuggestions?: FoodSuggestion[];
+
+  // ✅ NEW (optional, stored in preferences)
+  preferences?:
+  | (ItineraryFormData["preferences"] & {
+    includeFoodSuggestions?: boolean;
+  })
+  | undefined;
+};
+
+/* ---------------- Progress bar component ---------------- */
+
 interface ProgressBarProps {
   currentStep: number;
   totalSteps: number;
@@ -151,19 +129,22 @@ const ProgressBar: React.FC<ProgressBarProps> = React.memo(
   }
 );
 
-// Key changes to GenerateItineraryForm in generate.tsx
+/* ---------------- Main component ---------------- */
 
 const GenerateItineraryForm: React.FC = () => {
   const router = useRouter();
   const { user, token, loading: authLoading } = useAuth();
+
   const [step, setStep] = useState<number>(1);
-  const stepCount = 7;
+
+  // ✅ was 7, now 8 because we added Step2cFoodSuggestions
+  const stepCount = 8;
 
   const [savedItineraryId, setSavedItineraryId] = useState<number>(0);
   const [meetingPoint, setMeetingPoint] = useState<LocationData | null>(null);
   const [showMeetingPointModal, setShowMeetingPointModal] = useState(false);
 
-  const [formData, setFormData] = useState<ItineraryFormData>({
+  const [formData, setFormData] = useState<GenerateFormData>({
     traveler_id: 0,
     start_date: "",
     end_date: "",
@@ -171,13 +152,21 @@ const GenerateItineraryForm: React.FC = () => {
     notes: "Add notes here...",
     city: "",
     items: [] as ItineraryItem[],
+
+    // ✅ init so Step3 can store + Step3a can save
+    foodSuggestions: [],
+
     preferences: {
-      experiences: [],
+      experiences: [] as Experience[],
       travelerCount: 1,
+
+      guestBreakdown: { adult: 1, child: 0, infant: 0 } as GuestBreakdown,
       travelCompanions: [],
+
+      includeFoodSuggestions: undefined,
     },
   });
-  // Update traveler_id when user is available
+
   useEffect(() => {
     if (user?.user_id && formData.traveler_id !== user.user_id) {
       setFormData((prev) => ({
@@ -190,35 +179,19 @@ const GenerateItineraryForm: React.FC = () => {
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepCount));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // Modified handler for Step3a - handles both with and without services
+  // ✅ was setStep(7); now Step4 is step 8
   const handleStep3aSave = (itineraryId: number) => {
     setSavedItineraryId(itineraryId);
-    setStep(7);
-
+    setStep(8);
   };
 
   const handleSelectMeetingPoint = () => {
-    // Navigate to meeting point selection (we'll use a modal or separate screen)
-    // For now, just show an alert - you can implement a modal or navigate
     setShowMeetingPointModal(true);
   };
 
   const handleMeetingPointConfirmed = (location: LocationData) => {
     setMeetingPoint(location);
     setShowMeetingPointModal(false);
-  };
-
-  const getTotalDays = () => {
-    if (!formData.start_date || !formData.end_date) return 0;
-    const start = new Date(formData.start_date);
-    const end = new Date(formData.end_date);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  };
-
-  const handleFinalCompletion = () => {
-    console.log("Itinerary process fully completed");
-    router.replace("/");
   };
 
   const calculateActivityCost = (): number => {
@@ -242,6 +215,10 @@ const GenerateItineraryForm: React.FC = () => {
 
   const calculateTotalCost = (): number => {
     return calculateActivityCost();
+  };
+
+  const handleFinalCompletion = () => {
+    router.replace("/");
   };
 
   const renderStep = () => {
@@ -280,12 +257,24 @@ const GenerateItineraryForm: React.FC = () => {
           <Step2bPaceConstraints
             formData={formData}
             setFormData={setFormData}
-            onNext={handleNext}
+            onNext={handleNext} // ✅ now goes to Step2c
             onBack={handleBack}
           />
         );
 
+      // ✅ NEW STEP: ask about dining suggestions
       case 5:
+        return (
+          <Step2cFoodSuggestions
+            formData={formData}
+            setFormData={setFormData}
+            onNext={handleNext} // ✅ goes to Step3GeneratedItinerary
+            onBack={handleBack}
+          />
+        );
+
+      // ✅ Step3 shifts to 6
+      case 6:
         return (
           <Step3GeneratedItinerary
             formData={formData}
@@ -295,7 +284,8 @@ const GenerateItineraryForm: React.FC = () => {
           />
         );
 
-      case 6:
+      // ✅ Step3a shifts to 7
+      case 7:
         return (
           <Step3aReviewServices
             formData={formData}
@@ -307,7 +297,8 @@ const GenerateItineraryForm: React.FC = () => {
           />
         );
 
-      case 7:
+      // ✅ Payment shifts to 8
+      case 8:
         return (
           <Step4PaymentConfirmation
             formData={formData}
@@ -322,7 +313,6 @@ const GenerateItineraryForm: React.FC = () => {
         return null;
     }
   };
-
 
   if (authLoading) {
     return (
@@ -351,7 +341,7 @@ const GenerateItineraryForm: React.FC = () => {
       <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
         {renderStep()}
       </View>
-      {/* Meeting Point Modal */}
+
       <Modal
         visible={showMeetingPointModal}
         animationType="slide"
@@ -367,7 +357,6 @@ const GenerateItineraryForm: React.FC = () => {
   );
 };
 
-// Progress bar styles
 const loadingBarStyles = {
   stepIndicatorSize: 0,
   currentStepIndicatorSize: 0,

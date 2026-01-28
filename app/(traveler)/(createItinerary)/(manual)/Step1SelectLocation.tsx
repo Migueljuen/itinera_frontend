@@ -1,4 +1,3 @@
-
 import type { TravelCompanion } from "@/types/experienceTypes";
 import type { ItineraryFormData } from "@/types/itineraryTypes";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,35 +15,24 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import API_URL from "../../../../constants/api";
 
-// step prop
+/* ---------------- Types ---------------- */
+
+type GuestBreakdown = {
+  adult: number;
+  child: number;
+  infant: number;
+};
+
 interface StepProps {
   formData: ItineraryFormData;
   setFormData: React.Dispatch<React.SetStateAction<ItineraryFormData>>;
   onNext: () => void;
 }
-
-// itinerary type
-// export interface ItineraryFormData {
-//   traveler_id: number;
-//   start_date: string;
-//   end_date: string;
-//   title: string;
-//   notes?: string;
-//   city: string;
-//   items: ItineraryItem[];
-//   preferences?: {
-//     experiences: any[];
-//     experienceIds?: number[];
-//     travelerCount: number;
-//     travelCompanion?: TravelCompanion;
-//     exploreTime?: string;
-//   };
-// }
 
 // itinerary type
 export interface ItineraryItem {
@@ -55,7 +43,6 @@ export interface ItineraryItem {
   custom_note?: string;
 }
 
-// Updated city type to match experience API
 interface City {
   location: string; // Original location from API
   normalizedCity: string; // Normalized city name
@@ -64,14 +51,13 @@ interface City {
   experienceCount: number; // Number of experiences in this city
 }
 
-// Helper function to normalize city names
+/* ---------------- Helpers ---------------- */
+
 const normalizeCityName = (location: string): string => {
   if (!location) return "";
 
-  // Convert to lowercase for comparison
   const lower = location.toLowerCase().trim();
 
-  // Handle specific cases - merge similar city names
   const cityMappings: Record<string, string> = {
     "bacolod city": "Bacolod",
     bacolod: "Bacolod",
@@ -81,19 +67,14 @@ const normalizeCityName = (location: string): string => {
     manila: "Manila",
     "cebu city": "Cebu",
     cebu: "Cebu",
-    // Add more mappings as needed
   };
 
-  // Return mapped city or capitalize the original
-  return (
-    cityMappings[lower] || location.charAt(0).toUpperCase() + location.slice(1)
-  );
+  return cityMappings[lower] || location.charAt(0).toUpperCase() + location.slice(1);
 };
 
-// Updated API service function to fetch destinations from experiences
 const fetchDestinations = async (): Promise<City[]> => {
   try {
-    const response = await fetch(`${API_URL}/experience`);
+    const response = await fetch(`${API_URL}/experience/active`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch experiences");
@@ -101,26 +82,22 @@ const fetchDestinations = async (): Promise<City[]> => {
 
     const experiences = await response.json();
 
-    // Extract unique locations and normalize them
     const locationMap = new Map<string, { city: City; count: number }>();
 
     experiences.forEach((experience: any) => {
       if (experience.location) {
         const normalizedCity = normalizeCityName(experience.location);
 
-        // Use normalized city as the key to prevent duplicates
         if (locationMap.has(normalizedCity)) {
-          // Increment count if city already exists
           const existing = locationMap.get(normalizedCity)!;
           existing.count += 1;
         } else {
-          // Add new city
           locationMap.set(normalizedCity, {
             city: {
-              location: experience.location, // Keep original
-              normalizedCity: normalizedCity,
-              label: normalizedCity, // Use normalized name for display
-              value: normalizedCity.toLowerCase().replace(/\s+/g, "_"), // Create slug
+              location: experience.location,
+              normalizedCity,
+              label: normalizedCity,
+              value: normalizedCity.toLowerCase().replace(/\s+/g, "_"),
               experienceCount: 1,
             },
             count: 1,
@@ -129,7 +106,6 @@ const fetchDestinations = async (): Promise<City[]> => {
       }
     });
 
-    // Convert map to array, set experience counts, and sort alphabetically
     const uniqueCities = Array.from(locationMap.values())
       .map((item) => ({
         ...item.city,
@@ -144,55 +120,86 @@ const fetchDestinations = async (): Promise<City[]> => {
   }
 };
 
+/* ---------------- Component ---------------- */
+
 const Step1SelectLocation: React.FC<StepProps> = ({
   formData,
   setFormData,
   onNext,
 }) => {
-  // Companion options
   const companionOptions: TravelCompanion[] = useMemo(
     () => ["Solo", "Partner", "Friends", "Family", "Any"],
     []
   );
 
-  // Add title state
+  // title + city
   const [title, setTitle] = useState<string>(formData.title || "");
-  const [localCity, setLocalCity] = useState<string | null>(
-    formData.city || null
-  );
-  // Animation value for dropdown height - DECLARE THIS FIRST
+  const [localCity, setLocalCity] = useState<string | null>(formData.city || null);
+
+  // dropdown animation
   const dropdownHeight = useRef(new Animated.Value(0)).current;
-
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [selectedLabel, setSelectedLabel] = useState<string>("Select a city...");
 
-  const [selectedLabel, setSelectedLabel] =
-    useState<string>("Select a city...");
-
-  // Calendar states
+  // calendar states
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [startDate, setStartDate] = useState<string>(formData.start_date || "");
   const [endDate, setEndDate] = useState<string>(formData.end_date || "");
   const [markedDates, setMarkedDates] = useState<any>({});
   const [selectingEndDate, setSelectingEndDate] = useState<boolean>(false);
 
-  // Traveler companion and count states
+  // Companion selection
   const [selectedCompanion, setSelectedCompanion] =
-    useState<TravelCompanion | null>(
-      formData.preferences?.travelCompanion || null
-    );
-  const [travelerCount, setTravelerCount] = useState<number>(
-    formData.preferences?.travelerCount || 1
-  );
+    useState<TravelCompanion | null>(formData.preferences?.travelCompanion || null);
 
-  // Screen dimensions for dropdown max height - memoized
+  /* ---------- NEW: Guest breakdown ---------- */
+  const [guestBreakdown, setGuestBreakdown] = useState<GuestBreakdown>(() => {
+    const saved = (formData.preferences as any)?.guestBreakdown as GuestBreakdown | undefined;
+    if (saved) return saved;
+
+    const fallback = formData.preferences?.travelerCount || 1;
+    return { adult: fallback, child: 0, infant: 0 };
+  });
+
+  const totalGuests = useMemo(() => {
+    return guestBreakdown.adult + guestBreakdown.child + guestBreakdown.infant;
+  }, [guestBreakdown]);
+
+  const updateGuest = (key: keyof GuestBreakdown, delta: number) => {
+    setGuestBreakdown((prev) => {
+      const next = { ...prev, [key]: prev[key] + delta };
+
+      // no negatives
+      next.adult = Math.max(0, next.adult);
+      next.child = Math.max(0, next.child);
+      next.infant = Math.max(0, next.infant);
+
+      // rule: if child/infant exists -> require 1 adult
+      if ((next.child > 0 || next.infant > 0) && next.adult === 0) {
+        next.adult = 1;
+      }
+
+      // rule: total must be at least 1
+      if (next.adult + next.child + next.infant === 0) {
+        next.adult = 1;
+      }
+
+      // max 20 (keep your old cap)
+      if (next.adult + next.child + next.infant > 20) return prev;
+
+      return next;
+    });
+  };
+
+  /* ---------- Cities ---------- */
+
   const { height: screenHeight } = Dimensions.get("window");
   const maxDropdownHeight = useMemo(() => screenHeight * 0.4, [screenHeight]);
-  // Dynamic cities state
+
   const [cities, setCities] = useState<City[]>([]);
   const [loadingCities, setLoadingCities] = useState<boolean>(true);
   const [cityError, setCityError] = useState<string | null>(null);
 
-  // Fetch cities from experiences on component mount
   useEffect(() => {
     const loadCities = async () => {
       try {
@@ -211,7 +218,8 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     loadCities();
   }, []);
 
-  // Update parent formData when title changes
+  /* ---------- Sync to parent formData ---------- */
+
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
@@ -219,7 +227,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }));
   }, [title]);
 
-  // Update parent formData when localCity changes
   useEffect(() => {
     if (localCity) {
       setFormData({
@@ -229,7 +236,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }
   }, [localCity]);
 
-  // Update formData when dates change
   useEffect(() => {
     if (startDate || endDate) {
       setFormData({
@@ -240,7 +246,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }
   }, [startDate, endDate]);
 
-  // Initialize marked dates if dates already exist in formData
   useEffect(() => {
     if (formData.start_date && formData.end_date) {
       setStartDate(formData.start_date);
@@ -249,17 +254,13 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }
   }, []);
 
-  // Update selected label when component mounts or city changes
   useEffect(() => {
     if (localCity && cities.length > 0) {
-      const selectedCity = cities.find((city) => city.value === localCity);
-      if (selectedCity) {
-        setSelectedLabel(selectedCity.label);
-      }
+      const selectedCity = cities.find((c) => c.value === localCity);
+      if (selectedCity) setSelectedLabel(selectedCity.label);
     }
   }, [localCity, cities]);
 
-  // Animate dropdown opening and closing
   useEffect(() => {
     Animated.timing(dropdownHeight, {
       toValue: dropdownOpen ? maxDropdownHeight : 0,
@@ -268,26 +269,17 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }).start();
   }, [dropdownOpen, maxDropdownHeight]);
 
+  /* ---------- UI actions ---------- */
+
   const toggleDropdown = () => {
-    console.log("Before toggle:", dropdownOpen);
-    console.log("Max height:", maxDropdownHeight);
-
-    setDropdownOpen((prev) => {
-      console.log("Setting to:", !prev);
-      return !prev;
-    });
-
-    if (showCalendar) {
-      setShowCalendar(false);
-    }
+    setDropdownOpen((prev) => !prev);
+    if (showCalendar) setShowCalendar(false);
     Keyboard.dismiss();
   };
 
   const toggleCalendar = () => {
     setShowCalendar(!showCalendar);
-    if (dropdownOpen) {
-      setDropdownOpen(false);
-    }
+    if (dropdownOpen) setDropdownOpen(false);
     Keyboard.dismiss();
   };
 
@@ -297,20 +289,22 @@ const Step1SelectLocation: React.FC<StepProps> = ({
       localCity !== null &&
       startDate !== "" &&
       endDate !== "" &&
-      selectedCompanion !== null
+      selectedCompanion !== null &&
+      totalGuests > 0
     );
   };
 
   const handleNext = () => {
     if (!isValid()) return;
 
-    // Update formData with companion and traveler count
     setFormData((prev) => ({
       ...prev,
       preferences: {
         ...(prev.preferences ?? { travelerCount: 1, experiences: [] }),
         travelCompanion: selectedCompanion!,
-        travelerCount: selectedCompanion === "Solo" ? 1 : travelerCount,
+        // NEW
+        guestBreakdown,
+        travelerCount: totalGuests,
       },
     }));
 
@@ -326,38 +320,33 @@ const Step1SelectLocation: React.FC<StepProps> = ({
   const selectCompanion = (companion: TravelCompanion) => {
     setSelectedCompanion(companion);
 
-    if (companion === "Solo") setTravelerCount(1);
-    else if (companion === "Partner") setTravelerCount(2);
-    else if (companion === "Friends") setTravelerCount(3);
-    else if (companion === "Family") setTravelerCount(4);
-    else setTravelerCount(1);
+    // Set a sensible default breakdown
+    if (companion === "Solo") setGuestBreakdown({ adult: 1, child: 0, infant: 0 });
+    else if (companion === "Partner") setGuestBreakdown({ adult: 2, child: 0, infant: 0 });
+    else if (companion === "Friends") setGuestBreakdown({ adult: 3, child: 0, infant: 0 });
+    else if (companion === "Family") setGuestBreakdown({ adult: 2, child: 1, infant: 0 });
+    else setGuestBreakdown({ adult: 1, child: 0, infant: 0 });
   };
 
-  // Retry loading cities
   const retryLoadCities = async () => {
-    const loadCities = async () => {
-      try {
-        setLoadingCities(true);
-        setCityError(null);
-        const fetchedCities = await fetchDestinations();
-        setCities(fetchedCities);
-      } catch (error) {
-        setCityError("Failed to load cities. Please try again.");
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-    await loadCities();
+    try {
+      setLoadingCities(true);
+      setCityError(null);
+      const fetchedCities = await fetchDestinations();
+      setCities(fetchedCities);
+    } catch {
+      setCityError("Failed to load cities. Please try again.");
+    } finally {
+      setLoadingCities(false);
+    }
   };
 
-  // Format date for display
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return format(date, "MMM dd, yyyy");
   };
 
-  // Handle date selection on calendar
   const handleDayPress = (day: { dateString: string }) => {
     const selectedDate = day.dateString;
 
@@ -384,11 +373,11 @@ const Step1SelectLocation: React.FC<StepProps> = ({
         setSelectingEndDate(false);
         setShowCalendar(false);
 
-        const markedDateRange = getDateRange(
+        const markedRange = getDateRange(
           startDate,
           selectedDate < startDate ? startDate : selectedDate
         );
-        setMarkedDates(markedDateRange);
+        setMarkedDates(markedRange);
       }
     } else {
       setStartDate(selectedDate);
@@ -405,7 +394,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     }
   };
 
-  // Create date range markers for the calendar
   const getDateRange = (startDateStr: string, endDateStr: string) => {
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
@@ -436,7 +424,6 @@ const Step1SelectLocation: React.FC<StepProps> = ({
     return range;
   };
 
-  // Render companion card
   const renderCompanionCard = (companion: TravelCompanion) => {
     const selected = selectedCompanion === companion;
     const subtitle =
@@ -461,9 +448,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
           <View className="flex flex-row items-center justify-between">
             <Text className="text-lg font-onest text-black/90">{companion}</Text>
             {selected && (
-              <View>
-                <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
-              </View>
+              <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
             )}
           </View>
           <Text className="text-xs text-black/50 font-onest mt-1">{subtitle}</Text>
@@ -482,9 +467,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ flexGrow: 1 }}
-        onScrollBeginDrag={() => {
-          Keyboard.dismiss();
-        }}
+        onScrollBeginDrag={() => Keyboard.dismiss()}
       >
         <View className="flex-1 p-4">
           <View className="text-center py-2">
@@ -496,7 +479,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
             </Text>
 
             <View className="flex justify-evenly gap-4 border-t pt-8 border-gray-200 relative">
-              {/* Title Input Field */}
+              {/* Title */}
               <View className="pb-4 z-10">
                 <Text className="font-onest-medium py-2">Itinerary Title</Text>
                 <TextInput
@@ -517,12 +500,9 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 )}
               </View>
 
-              {/* Custom Dropdown for City Selection */}
+              {/* City */}
               <View className="pb-4 z-10">
-                <Text className="font-onest-medium py-2">
-                  Where are you going?
-                </Text>
-                {/* Dropdown Button */}
+                <Text className="font-onest-medium py-2">Where are you going?</Text>
                 <TouchableOpacity
                   className={`flex-row items-center justify-between px-3 py-3 border ${dropdownOpen ? "border-primary" : "border-gray-300"
                     } rounded-xl`}
@@ -533,9 +513,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                   {loadingCities ? (
                     <View className="flex-row items-center">
                       <ActivityIndicator size="small" color="#4F46E5" />
-                      <Text className="text-black/50 ml-2">
-                        Loading destinations...
-                      </Text>
+                      <Text className="text-black/50 ml-2">Loading destinations...</Text>
                     </View>
                   ) : (
                     <Text
@@ -551,24 +529,18 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                     color={dropdownOpen ? "#4F46E5" : "gray"}
                   />
                 </TouchableOpacity>
-                {/* Error Message */}
+
                 {cityError && (
                   <View className="mt-2 p-2 bg-red-50 rounded-xl">
-                    <Text className="text-red-600 text-sm font-onest">
-                      {cityError}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={retryLoadCities}
-                      className="mt-1"
-                      activeOpacity={0.7}
-                    >
+                    <Text className="text-red-600 text-sm font-onest">{cityError}</Text>
+                    <TouchableOpacity onPress={retryLoadCities} className="mt-1" activeOpacity={0.7}>
                       <Text className="text-red-600 text-sm font-onest-medium underline">
                         Retry
                       </Text>
                     </TouchableOpacity>
                   </View>
                 )}
-                {/* Dropdown List */}
+
                 {dropdownOpen && (
                   <View
                     style={{
@@ -597,22 +569,16 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                         cities.map((city, index) => (
                           <TouchableOpacity
                             key={`${city.value}-${index}`}
-                            className={`px-4 py-3 ${index < cities.length - 1
-                              ? "border-b border-gray-200"
-                              : ""
+                            className={`px-4 py-3 ${index < cities.length - 1 ? "border-b border-gray-200" : ""
                               }`}
                             onPress={() => selectCity(city)}
                             activeOpacity={0.7}
                           >
                             <View className="flex-row justify-between items-center">
-                              <Text className="text-base font-onest">
-                                {city.label}
-                              </Text>
+                              <Text className="text-base font-onest">{city.label}</Text>
                               <Text className="text-xs text-black/50 font-onest">
                                 {city.experienceCount}{" "}
-                                {city.experienceCount === 1
-                                  ? "Activity"
-                                  : "Activities"}
+                                {city.experienceCount === 1 ? "Activity" : "Activities"}
                               </Text>
                             </View>
                           </TouchableOpacity>
@@ -623,7 +589,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 )}
               </View>
 
-              {/* Date Selection */}
+              {/* Dates */}
               <View className="pb-4 mt-4 z-9">
                 <Text className="font-onest-medium py-2">When are you traveling?</Text>
                 <TouchableOpacity
@@ -637,9 +603,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                       }`}
                   >
                     {startDate && endDate
-                      ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(
-                        endDate
-                      )}`
+                      ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`
                       : startDate
                         ? `${formatDisplayDate(startDate)} - Select end date`
                         : "Select travel dates"}
@@ -651,9 +615,8 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                   />
                 </TouchableOpacity>
 
-                {/* Calendar popup */}
                 {showCalendar && (
-                  <View className="border border-gray-200 rounded-xl mt-1  z-20">
+                  <View className="border border-gray-200 rounded-xl mt-1 z-20">
                     <Calendar
                       onDayPress={handleDayPress}
                       markedDates={markedDates}
@@ -667,50 +630,33 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                         textSectionTitleColor: "#6B7280",
                         arrowColor: "#4F46E5",
                       }}
-                      style={{
-                        height: 350,
-                      }}
+                      style={{ height: 350 }}
                     />
                     <View className="p-3 border-t border-gray-200">
                       <Text className="text-center text-sm text-black/50 font-onest mb-1">
-                        {selectingEndDate
-                          ? "Now select your end date"
-                          : "Select your travel dates"}
+                        {selectingEndDate ? "Now select your end date" : "Select your travel dates"}
                       </Text>
                     </View>
                   </View>
                 )}
 
-                {/* Date selection indicator */}
                 {startDate && !showCalendar && (
                   <View className="flex-row justify-between mt-2">
                     <View className="flex-1">
-                      <Text className="text-xs text-black/50 font-onest">
-                        Start Date
-                      </Text>
-                      <Text className="text-sm font-onest-medium">
-                        {formatDisplayDate(startDate)}
-                      </Text>
+                      <Text className="text-xs text-black/50 font-onest">Start Date</Text>
+                      <Text className="text-sm font-onest-medium">{formatDisplayDate(startDate)}</Text>
                     </View>
                     <View className="flex-1">
-                      <Text className="text-xs text-black/50 font-onest">
-                        End Date
-                      </Text>
+                      <Text className="text-xs text-black/50 font-onest">End Date</Text>
                       <Text className="text-sm font-onest-medium">
                         {endDate ? formatDisplayDate(endDate) : "Not selected"}
                       </Text>
                     </View>
                     {startDate && endDate && (
                       <View className="flex-1">
-                        <Text className="text-xs text-black/50 font-onest">
-                          Duration
-                        </Text>
+                        <Text className="text-xs text-black/50 font-onest">Duration</Text>
                         <Text className="text-sm font-onest-medium">
-                          {differenceInDays(
-                            new Date(endDate),
-                            new Date(startDate)
-                          ) + 1}{" "}
-                          days
+                          {differenceInDays(new Date(endDate), new Date(startDate)) + 1} days
                         </Text>
                       </View>
                     )}
@@ -718,55 +664,111 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 )}
               </View>
 
-              {/* Who Section - Companion Selection */}
+              {/* Companion */}
               <View className="pb-4 mt-4">
-                <Text className="font-onest-medium py-2 text-lg">
-                  Who's traveling?
-                </Text>
+                <Text className="font-onest-medium py-2 text-lg">Who's traveling?</Text>
                 <Text className="text-sm text-black/50 font-onest mb-4">
                   Group size affects pricing suggestions.
                 </Text>
 
                 <View className="flex-row flex-wrap justify-between">
-                  {companionOptions.map((companion) =>
-                    renderCompanionCard(companion)
-                  )}
+                  {companionOptions.map((companion) => renderCompanionCard(companion))}
                 </View>
 
-                {/* Traveler count - only if not Solo */}
+                {/* NEW Guest Breakdown UI (replaces old travelerCount stepper) */}
                 {selectedCompanion && selectedCompanion !== "Solo" && (
-                  <View className="mt-4  py-4">
-                    <Text className="font-onest-medium py-2 text-lg">
-                      Exact number of guests
+                  <View className="mt-4 py-4">
+                    <Text className="font-onest-medium py-2 text-lg">Guest breakdown</Text>
+                    <Text className="text-sm text-black/50 font-onest mb-3">
+                      Enter the number of adults, children, and infants.
                     </Text>
 
-                    <View className="flex-row items-center mt-4 justify-between">
-                      <Pressable
-                        onPress={() =>
-                          setTravelerCount((prev) => Math.max(2, prev - 1))
-                        }
-                        className="bg-white border border-gray-200 rounded-xl p-3"
-                      >
-                        <Ionicons name="remove" size={20} color="#374151" />
-                      </Pressable>
-
-                      <View className="items-center">
-                        <Text className="font-onest-bold text-3xl text-black/90">
-                          {travelerCount}
-                        </Text>
-                        <Text className="text-xs text-black/50 font-onest mt-1">
-                          travelers
-                        </Text>
+                    {/* Adults */}
+                    <View className="flex-row items-center justify-between py-2">
+                      <View>
+                        <Text className="font-onest-medium text-base text-black/90">Adults</Text>
+                        <Text className="text-xs text-black/50 font-onest">Age 13+</Text>
                       </View>
+                      <View className="flex-row items-center gap-3">
+                        <Pressable
+                          onPress={() => updateGuest("adult", -1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="remove" size={20} color="#374151" />
+                        </Pressable>
+                        <Text className="font-onest-bold text-lg w-6 text-center">
+                          {guestBreakdown.adult}
+                        </Text>
+                        <Pressable
+                          onPress={() => updateGuest("adult", +1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="add" size={20} color="#374151" />
+                        </Pressable>
+                      </View>
+                    </View>
 
-                      <Pressable
-                        onPress={() =>
-                          setTravelerCount((prev) => Math.min(20, prev + 1))
-                        }
-                        className="bg-white border border-gray-200 rounded-xl p-3"
-                      >
-                        <Ionicons name="add" size={20} color="#374151" />
-                      </Pressable>
+                    {/* Children */}
+                    <View className="flex-row items-center justify-between py-2">
+                      <View>
+                        <Text className="font-onest-medium text-base text-black/90">Children</Text>
+                        <Text className="text-xs text-black/50 font-onest">Age 3–12</Text>
+                      </View>
+                      <View className="flex-row items-center gap-3">
+                        <Pressable
+                          onPress={() => updateGuest("child", -1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="remove" size={20} color="#374151" />
+                        </Pressable>
+                        <Text className="font-onest-bold text-lg w-6 text-center">
+                          {guestBreakdown.child}
+                        </Text>
+                        <Pressable
+                          onPress={() => updateGuest("child", +1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="add" size={20} color="#374151" />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {/* Infants */}
+                    <View className="flex-row items-center justify-between py-2">
+                      <View>
+                        <Text className="font-onest-medium text-base text-black/90">Infants</Text>
+                        <Text className="text-xs text-black/50 font-onest">Age 0–2</Text>
+                      </View>
+                      <View className="flex-row items-center gap-3">
+                        <Pressable
+                          onPress={() => updateGuest("infant", -1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="remove" size={20} color="#374151" />
+                        </Pressable>
+                        <Text className="font-onest-bold text-lg w-6 text-center">
+                          {guestBreakdown.infant}
+                        </Text>
+                        <Pressable
+                          onPress={() => updateGuest("infant", +1)}
+                          className="bg-white border border-gray-200 rounded-xl p-3"
+                        >
+                          <Ionicons name="add" size={20} color="#374151" />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {/* Total */}
+                    <View className="mt-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                      <Text className="text-sm text-indigo-700 font-onest">
+                        Total guests: <Text className="font-onest-bold">{totalGuests}</Text>
+                      </Text>
+                      {(guestBreakdown.child > 0 || guestBreakdown.infant > 0) &&
+                        guestBreakdown.adult === 0 && (
+                          <Text className="text-xs text-indigo-700 font-onest mt-1">
+                            At least 1 adult is required when traveling with children or infants.
+                          </Text>
+                        )}
                     </View>
                   </View>
                 )}
@@ -780,7 +782,7 @@ const Step1SelectLocation: React.FC<StepProps> = ({
                 )}
               </View>
 
-              {/* Submit Button */}
+              {/* Submit */}
               <TouchableOpacity
                 onPress={handleNext}
                 className={`mt-4 p-4 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"

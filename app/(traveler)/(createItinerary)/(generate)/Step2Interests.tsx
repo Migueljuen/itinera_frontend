@@ -21,10 +21,13 @@ import {
 const CATEGORY_IMAGES: Record<string, any> = {
   "Arts & Creativity": require("@/assets/images/category.png"),
   "Health & Wellness": require("@/assets/images/category1.png"),
-  "Food & Drinks": require("@/assets/images/category2.png"),
+  // ❌ Food removed
   "Heritage & Culture": require("@/assets/images/category3.png"),
   "Nature & Adventure": require("@/assets/images/category4.png"),
 };
+
+// ❌ category names to exclude from the UI
+const EXCLUDED_CATEGORIES = new Set(["Food & Drinks", "Food and Drinks"]);
 
 // API response interfaces
 interface Tag {
@@ -81,6 +84,9 @@ const Step2Interests: React.FC<StepProps> = ({
     Array<{ id: number; name: string }>
   >([]);
 
+  const filterExcludedCategories = (cats: Category[]) =>
+    cats.filter((c) => !EXCLUDED_CATEGORIES.has(c.category_name));
+
   // Fetch categories and tags from API
   useEffect(() => {
     const fetchCategories = async () => {
@@ -91,7 +97,9 @@ const Step2Interests: React.FC<StepProps> = ({
         if (!response.ok) throw new Error("Failed to fetch categories");
 
         const data: ApiResponse = await response.json();
-        setCategories(data.categories);
+
+        // ✅ exclude Food & Drinks (and variants)
+        setCategories(filterExcludedCategories(data.categories));
         setError(null);
       } catch (err) {
         console.error("Error fetching categories:", err);
@@ -221,7 +229,9 @@ const Step2Interests: React.FC<StepProps> = ({
               setLoading(true);
               const res = await fetch(`${API_URL}/tags/preference`);
               const data: ApiResponse = await res.json();
-              setCategories(data.categories);
+
+              // ✅ exclude Food & Drinks (and variants)
+              setCategories(filterExcludedCategories(data.categories));
             } catch {
               setError("Failed to load categories. Please try again.");
             } finally {
@@ -242,7 +252,7 @@ const Step2Interests: React.FC<StepProps> = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1"
     >
-      <View className="flex-1">
+      <View className="flex-1 flex justify-between">
         <ScrollView
           showsVerticalScrollIndicator={false}
           className="flex-1"
@@ -325,11 +335,7 @@ const Step2Interests: React.FC<StepProps> = ({
                                 }`}
                             >
                               {checkbox.icon && (
-                                <Ionicons
-                                  name={checkbox.icon}
-                                  size={14}
-                                  color="#fff"
-                                />
+                                <Ionicons name={checkbox.icon} size={14} color="#fff" />
                               )}
                             </View>
                           </Pressable>
@@ -373,9 +379,7 @@ const Step2Interests: React.FC<StepProps> = ({
                               <Text className="text-xs text-gray-500 font-onest">
                                 Tip: choose a few favorites for better results
                               </Text>
-                              <Pressable
-                                onPress={() => toggleSelectAllInCategory(category)}
-                              >
+                              <Pressable onPress={() => toggleSelectAllInCategory(category)}>
                                 <Text className="text-xs text-primary font-onest-medium">
                                   {allSelected ? "Clear" : "Select all"}
                                 </Text>
@@ -395,33 +399,34 @@ const Step2Interests: React.FC<StepProps> = ({
                 )}
               </View>
 
-              {/* Navigation Buttons */}
-              <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200 pb-4">
-                <TouchableOpacity
-                  onPress={onBack}
-                  className="py-4 px-6 rounded-xl border border-gray-200"
-                  activeOpacity={1}
-                >
-                  <Text className="text-center font-onest-medium text-base text-gray-700">
-                    Back
-                  </Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleNext}
-                  className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
-                    }`}
-                  disabled={!isValid()}
-                  activeOpacity={1}
-                >
-                  <Text className="text-center font-onest-medium text-base text-white">
-                    Next step
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
+        {/* Navigation Buttons */}
+        <View className="flex-row justify-between sticky bottom-0 left-0 right-0 mt-4 pt-2 border-t border-gray-200 pb-4">
+          <TouchableOpacity
+            onPress={onBack}
+            className="py-4 px-6 rounded-xl border border-gray-200"
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-gray-700">
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleNext}
+            className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
+              }`}
+            disabled={!isValid()}
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-white">
+              Next step
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );

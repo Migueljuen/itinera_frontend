@@ -296,23 +296,76 @@ const Step2DaySelection: React.FC<StepProps> = ({
         return dayDate;
     }, [formData.start_date, selectedDayChip]);
 
-    // Calculate total cost (only includes items with actual price, not price_estimate)
-    const totalCost = useMemo(() => {
+    // ---- Helpers for parsing price_estimate like "200-400", "₱1,000 – ₱2,000", "Free" ----
+    const parsePriceEstimate = (estimate?: string | null): { min: number; max: number } | null => {
+        if (!estimate) return null;
+
+        const raw = String(estimate).trim();
+        if (!raw) return null;
+
+        const lower = raw.toLowerCase();
+
+        // common "free" values
+        if (["free", "0", "₱0", "php0", "none", "n/a", "-", "—"].includes(lower)) {
+            return { min: 0, max: 0 };
+        }
+
+        // extract all numbers (supports commas and currency)
+        const nums = raw
+            .replace(/,/g, "")
+            .match(/\d+(\.\d+)?/g)
+            ?.map((n) => Number(n))
+            .filter((n) => Number.isFinite(n)) ?? [];
+
+        if (nums.length === 0) return null;
+
+        const min = Math.min(...nums);
+        const max = Math.max(...nums);
+
+        return { min, max };
+    };
+
+    const formatPeso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
+
+    // ✅ Estimated Budget (includes price_estimate when price is missing)
+    const estimatedBudget = useMemo(() => {
         const travelerCount = formData.preferences?.travelerCount || 1;
 
-        return formData.items.reduce((sum, item) => {
-            const price = Number(item.price || 0);
-            if (price <= 0) return sum;
+        let minTotal = 0;
+        let maxTotal = 0;
+        let hasEstimatedRanges = false;
 
-            if (
-                item.unit?.toLowerCase() === "entry" ||
-                item.unit?.toLowerCase() === "person"
-            ) {
-                return sum + price * travelerCount;
+        for (const item of formData.items) {
+            const unit = String(item.unit || "").toLowerCase();
+            const multiplier = unit === "entry" || unit === "person" ? travelerCount : 1;
+
+            const price = Number(item.price || 0);
+
+            // 1) If we have an actual price, treat it as fixed
+            if (price > 0) {
+                minTotal += price * multiplier;
+                maxTotal += price * multiplier;
+                continue;
             }
 
-            return sum + price;
-        }, 0);
+            // 2) Otherwise, try to use price_estimate as range
+            const est = parsePriceEstimate(item.price_estimate);
+            if (est) {
+                minTotal += est.min * multiplier;
+                maxTotal += est.max * multiplier;
+                hasEstimatedRanges = hasEstimatedRanges || est.min !== est.max;
+                continue;
+            }
+
+            // 3) If neither exists, ignore (unknown)
+        }
+
+        return {
+            min: minTotal,
+            max: maxTotal,
+            hasEstimatedRanges,
+            hasAnyEstimate: formData.items.some((i) => !Number(i.price || 0) && !!parsePriceEstimate(i.price_estimate)),
+        };
     }, [formData.items, formData.preferences?.travelerCount]);
 
     // Handlers
@@ -422,26 +475,32 @@ const Step2DaySelection: React.FC<StepProps> = ({
                     <View className="flex-row justify-between items-center">
                         <View>
                             <Text className="text-black/50 font-onest text-sm">
-                                Estimated Total
+                                Estimated Budget
                             </Text>
+
                             <Text className="text-2xl font-onest-bold text-black/90">
-                                ₱{totalCost.toLocaleString()}
+                                {estimatedBudget.min === estimatedBudget.max
+                                    ? formatPeso(estimatedBudget.min)
+                                    : `${formatPeso(estimatedBudget.min)} – ${formatPeso(estimatedBudget.max)}`}
                             </Text>
                         </View>
+
                         <View className="bg-blue-50 rounded-xl px-3 py-2">
                             <Text className="text-blue-700 font-onest-semibold text-sm">
                                 {formData.items.length} {formData.items.length === 1 ? "experience" : "experiences"}
                             </Text>
                         </View>
                     </View>
+
                     {/* Note about estimates */}
-                    {formData.items.some(item => !item.price && item.price_estimate) && (
+                    {estimatedBudget.hasAnyEstimate && (
                         <Text className="text-black/50 font-onest text-xs mt-2">
-                            Some activities have variable pricing (e.g., dining) and are not included in this total.
+                            Includes estimated pricing for activities without a fixed price.
                         </Text>
                     )}
                 </View>
             )}
+
             {/* Horizontal Day Chips */}
             {dayChips.length > 0 && (
                 <View className="mb-4">
@@ -603,6 +662,7 @@ const Step2DaySelection: React.FC<StepProps> = ({
                     tripEndDate={formData.end_date}
                     selectedDayNumber={selectedDayChip}
                     selectedDayDate={selectedDayDate}
+                    travelerCount={formData.preferences?.travelerCount ?? 1}
                     existingItems={formData.items}
                     onAddExperience={handleExperienceAdded}
                     onClose={() => setShowBrowserModal(false)}

@@ -8,6 +8,45 @@ import {
   TravelDistance,
 } from "@/types/experienceTypes";
 
+export interface GuestBreakdown {
+  adult: number;
+  child: number;
+  infant: number;
+}
+
+/** ✅ NEW: saved/generated "Places to eat" suggestion */
+export interface FoodSuggestion {
+  experience_id: number;
+
+  experience_name?: string;
+  title?: string;
+  experience_description?: string;
+  description?: string;
+  experience_notes?: string;
+  notes?: string;
+
+  destination_name?: string;
+  destination_city?: string;
+
+  images?: string[];
+  primary_image?: string | null;
+
+  price?: number | null;
+  price_estimate?: string | null;
+  unit?: string | null;
+
+  near_experience_name?: string | null;
+  near_experience_id?: number | null;
+
+  // optional if you later add distance/km
+  latitude?: number | null;
+  longitude?: number | null;
+  near_latitude?: number | null;
+  near_longitude?: number | null;
+
+  sort_order?: number | null;
+}
+
 export interface ItineraryFormData {
   traveler_id: number;
   start_date: string;
@@ -16,18 +55,25 @@ export interface ItineraryFormData {
   notes?: string;
   city: string;
   items: ItineraryItem[];
+
+  /** ✅ NEW: snapshot list to persist on save */
+  foodSuggestions?: FoodSuggestion[];
+
   preferences?: {
     experiences: Experience[];
     travelerCount: number;
+    guestBreakdown?: GuestBreakdown;
     travelCompanion?: TravelCompanion;
     travelCompanions?: TravelCompanion[];
     exploreTime?: ExploreTime;
     budget?: Budget;
     activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
-  };
-  services?: {
 
+    includeFoodSuggestions?: boolean;
+  };
+
+  services?: {
     tour_guide_id?: number;
     car_service_id?: number;
   };
@@ -62,4 +108,6 @@ export interface GeneratedItinerary {
   status: string;
   travel_companions?: TravelCompanion[];
   items: ItineraryItem[];
+
+  food_suggestions?: FoodSuggestion[];
 }

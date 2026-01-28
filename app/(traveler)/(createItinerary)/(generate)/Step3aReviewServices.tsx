@@ -261,6 +261,16 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         });
       }
 
+      const foodSuggestionsPayload = (formData as any).foodSuggestions
+        ? (formData as any).foodSuggestions.map((p: any, idx: number) => ({
+          experience_id: p.experience_id,
+          near_experience_id: p.near_experience_id ?? null,
+          near_experience_name: p.near_experience_name ?? null,
+          sort_order: idx,
+        }))
+        : [];
+
+
       const meetingPointData =
         hasServices && meetingPoint
           ? {
@@ -270,6 +280,8 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             requested_longitude: meetingPoint.longitude,
           }
           : undefined;
+
+      console.log("Sending food suggestions payload:", foodSuggestionsPayload);
 
       const response = await fetch(`${API_URL}/itinerary/save`, {
         method: "POST",
@@ -281,8 +293,13 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
           title: formData.title,
           notes: formData.notes,
           items: formData.items,
+          guest_count: formData.preferences?.travelerCount ?? 1,
+          guest_breakdown: formData.preferences?.guestBreakdown ?? null,
+
           total_cost: totalActivityCost,
-          traveler_count: travelerCount,
+
+          food_suggestions: foodSuggestionsPayload,
+
           service_assignments: serviceAssignments,
           meeting_point: meetingPointData,
         }),

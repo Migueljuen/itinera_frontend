@@ -18,9 +18,9 @@ interface GuideInfo {
 
 interface ItineraryResponse {
   itinerary: Itinerary;
-  payments: any[];
-  service_assignments: ServiceAssignment[]; // Add this
-  access_level: "owner" | "guide";
+  payments?: any[];
+  service_assignments?: ServiceAssignment[];
+  access_level?: "owner" | "partner" | "guide" | "driver"; // ✅ allow what backend may return
   guide_info?: GuideInfo;
   currentActivity?: any;
 }
@@ -29,10 +29,10 @@ export const useItinerary = (id: string | string[] | undefined) => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-  const [serviceAssignments, setServiceAssignments] = useState<ServiceAssignment[]>([]); // Add this
-  const [accessLevel, setAccessLevel] = useState<"owner" | "guide" | null>(
-    null
-  );
+  const [serviceAssignments, setServiceAssignments] = useState<ServiceAssignment[]>([]);
+  const [accessLevel, setAccessLevel] = useState<
+    "owner" | "partner" | "guide" | "driver" | null
+  >(null);
   const [guideInfo, setGuideInfo] = useState<GuideInfo | null>(null);
 
   const fetchItineraryDetails = useCallback(async () => {
@@ -53,10 +53,7 @@ export const useItinerary = (id: string | string[] | undefined) => {
 
       if (!response.ok) {
         if (response.status === 403) {
-          Alert.alert(
-            "Access Denied",
-            "You don't have permission to view this itinerary"
-          );
+          Alert.alert("Access Denied", "You don't have permission to view this itinerary");
           router.back();
           return;
         }
@@ -65,21 +62,31 @@ export const useItinerary = (id: string | string[] | undefined) => {
 
       const data: ItineraryResponse = await response.json();
 
-      console.log('API Response:', data); // Debug log
-      console.log('Service Assignments from API:', data.service_assignments); // Debug log
+      console.log("API Response:", data);
+      console.log("Service Assignments from API:", data.service_assignments);
 
-      const itineraryWithPayments = {
-        ...(data.itinerary || data),
-        payments: data.payments || [],
-      };
+      // ✅ always use data.itinerary shape
+      const baseItinerary: any = data.itinerary ?? (data as any).itinerary ?? (data as any);
+
+      // ✅ keep ALL itinerary fields (including food_suggestions) + add payments
+      const itineraryWithPayments: Itinerary = {
+        ...baseItinerary,
+        payments: data.payments ?? baseItinerary?.payments ?? [],
+        // ✅ optional: ensure food_suggestions exists as array (won’t crash UI)
+        food_suggestions: Array.isArray(baseItinerary?.food_suggestions)
+          ? baseItinerary.food_suggestions
+          : [],
+      } as any;
 
       setItinerary(itineraryWithPayments);
-      setServiceAssignments(data.service_assignments || []); // Add this
-      setAccessLevel(data.access_level);
 
-      // Set guide info if available
+      setServiceAssignments(Array.isArray(data.service_assignments) ? data.service_assignments : []);
+      setAccessLevel((data.access_level as any) ?? null);
+
       if (data.guide_info) {
         setGuideInfo(data.guide_info);
+      } else {
+        setGuideInfo(null);
       }
     } catch (error) {
       console.error("Error fetching itinerary details:", error);
@@ -98,11 +105,13 @@ export const useItinerary = (id: string | string[] | undefined) => {
   return {
     loading,
     itinerary,
-    serviceAssignments, // Add this to return object
+    serviceAssignments,
     accessLevel,
     guideInfo,
     isOwner: accessLevel === "owner",
     isGuide: accessLevel === "guide",
+    isDriver: accessLevel === "driver",
+    isPartner: accessLevel === "partner" || accessLevel === "guide" || accessLevel === "driver",
     refetch: fetchItineraryDetails,
   };
 };

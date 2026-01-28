@@ -121,12 +121,11 @@ export default function TermsOfServiceScreen() {
                         ]}
                     />
 
-
                     <SectionCard
                         title="5. Bookings and Itineraries"
                         items={[
                             "An itinerary may include multiple Experiences and services.",
-                            "A \"Booking\" is considered confirmed only when the payment has been acknowledged by the admin.",
+                            'A "Booking" is considered confirmed only when the payment has been acknowledged by the admin.',
                             "Time slots, price, and meeting locations are set by Partners and may change with notice.",
                         ]}
                     />
@@ -195,7 +194,7 @@ export default function TermsOfServiceScreen() {
                     <SectionCard
                         title="13. Disclaimers"
                         items={[
-                            "The Platform is provided \"as is\" and \"as available.\"",
+                            'The Platform is provided "as is" and "as available."',
                             "We do not guarantee uninterrupted service or that all listings will be error-free.",
                         ]}
                     />
@@ -251,7 +250,6 @@ export default function TermsOfServiceScreen() {
                         ]}
                     />
 
-
                     <SectionCard
                         title="C. No-Show Policy"
                         items={[
@@ -264,6 +262,8 @@ export default function TermsOfServiceScreen() {
                         title="D. Partner-Initiated Cancellation"
                         items={[
                             "If the Partner cancels a confirmed booking (except force majeure/safety), the Traveler is entitled to a full refund of amounts paid (downpayment or full).",
+                            "The Partner must provide valid proof/reason for cancelling the booking.",
+                            "Frequent or repeated Partner-initiated cancellations may result in warnings, temporary suspension, or account termination.",
                         ]}
                     />
 

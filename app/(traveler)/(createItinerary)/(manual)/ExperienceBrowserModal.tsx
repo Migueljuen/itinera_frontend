@@ -26,6 +26,10 @@ interface ItineraryItem {
     start_time: string;
     end_time: string;
     custom_note?: string;
+
+    // ✅ IMPORTANT so saveItinerary can reserve capacity
+    slot_id?: number;
+
     experience_name?: string;
     experience_description?: string;
     destination_name?: string;
@@ -50,11 +54,16 @@ interface Experience {
     images: string[];
 }
 
+// ✅ Add capacity fields to match backend
 interface TimeSlot {
     slot_id?: number;
     availability_id?: number;
     start_time: string;
     end_time: string;
+
+    max_guests?: number | null;
+    used_guests?: number | null;
+    remaining_guests?: number | null;
 }
 
 interface AvailabilityDay {
@@ -74,7 +83,7 @@ interface ExperienceBrowserModalProps {
     onAddExperience: (item: ItineraryItem) => void;
     onClose: () => void;
     onViewExperience: (experienceId: number) => void;
-
+    travelerCount: number;
 }
 
 // Filter options - matching your category table
@@ -112,16 +121,12 @@ const convertToFormTimeFormat = (timeString: string) => {
 };
 
 const timeToMinutes = (timeString: string) => {
-    const [hours, minutes] = timeString
-        .split(":")
-        .map((num) => parseInt(num, 10));
+    const [hours, minutes] = timeString.split(":").map((num) => parseInt(num, 10));
     return hours * 60 + minutes;
 };
 
 const sortTimeSlots = (slots: TimeSlot[]) => {
-    return [...slots].sort((a, b) => {
-        return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
-    });
+    return [...slots].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
 };
 
 const formatTimeRange = (startTime: string, endTime: string) => {
@@ -131,19 +136,21 @@ const formatTimeRange = (startTime: string, endTime: string) => {
 const formatPrice = (price: number) => `₱${price.toLocaleString()}`;
 
 // Check if two time ranges overlap
-const hasTimeConflict = (
-    start1: string,
-    end1: string,
-    start2: string,
-    end2: string
-): boolean => {
+const hasTimeConflict = (start1: string, end1: string, start2: string, end2: string): boolean => {
     const start1Min = timeToMinutes(start1);
     const end1Min = timeToMinutes(end1);
     const start2Min = timeToMinutes(start2);
     const end2Min = timeToMinutes(end2);
 
-    // Two ranges overlap if one starts before the other ends
     return start1Min < end2Min && start2Min < end1Min;
+};
+
+// ✅ date helper
+const toYYYYMMDD = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
 };
 
 // --------------------
@@ -158,52 +165,48 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     existingItems,
     onAddExperience,
     onClose,
-    onViewExperience
+    onViewExperience,
+    travelerCount,
 }) => {
-
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedFilter, setSelectedFilter] = useState("all");
-    const [expandedExperienceId, setExpandedExperienceId] = useState<
-        number | null
-    >(null);
-    const [availabilityData, setAvailabilityData] = useState<{
-        [key: number]: AvailabilityDay[];
-    }>({});
-    const [loadingAvailability, setLoadingAvailability] = useState<number | null>(
-        null
-    );
+    const [expandedExperienceId, setExpandedExperienceId] = useState<number | null>(null);
 
+    // ✅ Cache slots by experience + date: key = `${experienceId}|${YYYY-MM-DD}`
+    const [slotsCache, setSlotsCache] = useState<Record<string, TimeSlot[]>>({});
+    const [loadingAvailabilityKey, setLoadingAvailabilityKey] = useState<string | null>(null);
 
     const handleViewExperience = (experienceId: number) => {
         onViewExperience(experienceId);
     };
 
-    // Get day of week for the selected date
     const selectedDayOfWeek = useMemo(() => {
         if (!selectedDayDate) return "";
         return selectedDayDate.toLocaleDateString("en-US", { weekday: "long" });
     }, [selectedDayDate]);
 
-    // Get existing items for the selected day only
+    const selectedDateStr = useMemo(() => {
+        if (!selectedDayDate) return null;
+        return toYYYYMMDD(selectedDayDate);
+    }, [selectedDayDate]);
+
     const existingItemsForDay = useMemo(() => {
         return existingItems.filter((item) => item.day_number === selectedDayNumber);
     }, [existingItems, selectedDayNumber]);
 
-    // Get IDs of experiences already added to this day
     const addedExperienceIds = useMemo(() => {
         return new Set(existingItemsForDay.map((item) => item.experience_id));
     }, [existingItemsForDay]);
 
-    // Filter out already-added experiences from the list
     const filteredExperiences = useMemo(() => {
         return experiences.filter((exp) => !addedExperienceIds.has(exp.id));
     }, [experiences, addedExperienceIds]);
 
-    // Fetch experiences
     useEffect(() => {
         fetchExperiences();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [city, selectedFilter]);
 
     const fetchExperiences = async () => {
@@ -212,7 +215,6 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             setError(null);
 
             let url = `${API_URL}/experience/active`;
-
             if (selectedFilter !== "all") {
                 url += `?category=${encodeURIComponent(selectedFilter)}`;
             }
@@ -227,70 +229,73 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         }
     };
 
-    // Fetch availability for a specific experience
-    const fetchAvailability = async (experienceId: number) => {
-        // Check if already fetched
-        if (availabilityData[experienceId]) {
-            return;
-        }
+    // ✅ Fetch availability for THIS selected date only (so no duplicates)
+    const fetchAvailabilityForSelectedDate = async (experienceId: number) => {
+        if (!selectedDayDate || !selectedDateStr) return;
+
+        const cacheKey = `${experienceId}|${selectedDateStr}`;
+        if (slotsCache[cacheKey]) return;
 
         try {
-            setLoadingAvailability(experienceId);
-            const response = await axios.get(
-                `${API_URL}/experience/${experienceId}/availability`
+            setLoadingAvailabilityKey(cacheKey);
+
+            // ✅ use the same endpoint style as AvailabilityCalendar
+            const resp = await axios.get(
+                `${API_URL}/experience/availability/${experienceId}?date=${encodeURIComponent(selectedDateStr)}`
             );
 
-            if (response.data?.availability) {
-                setAvailabilityData((prev) => ({
-                    ...prev,
-                    [experienceId]: response.data.availability,
-                }));
-            }
+            const availability: AvailabilityDay[] = resp.data?.availability || [];
+            const day = availability.find((d) => d.day_of_week === selectedDayOfWeek);
+            const slots = Array.isArray(day?.time_slots) ? day!.time_slots : [];
+
+            setSlotsCache((prev) => ({ ...prev, [cacheKey]: slots }));
         } catch (err) {
             console.error("Error fetching availability:", err);
+            setSlotsCache((prev) => ({ ...prev, [cacheKey]: [] }));
         } finally {
-            setLoadingAvailability(null);
+            setLoadingAvailabilityKey(null);
         }
     };
 
-    // Handle experience card press - toggle expansion and fetch availability
     const handleExperiencePress = async (experienceId: number) => {
         if (expandedExperienceId === experienceId) {
             setExpandedExperienceId(null);
         } else {
             setExpandedExperienceId(experienceId);
-            await fetchAvailability(experienceId);
+            await fetchAvailabilityForSelectedDate(experienceId);
         }
     };
 
-    // Check if a time slot has conflict with existing items
-    const getTimeSlotConflict = (
-        startTime: string,
-        endTime: string
-    ): ItineraryItem | null => {
+    const getTimeSlotConflict = (startTime: string, endTime: string): ItineraryItem | null => {
         const formattedStart = convertToFormTimeFormat(startTime);
         const formattedEnd = convertToFormTimeFormat(endTime);
 
         for (const item of existingItemsForDay) {
-            if (
-                hasTimeConflict(
-                    formattedStart,
-                    formattedEnd,
-                    item.start_time,
-                    item.end_time
-                )
-            ) {
+            if (hasTimeConflict(formattedStart, formattedEnd, item.start_time, item.end_time)) {
                 return item;
             }
         }
         return null;
     };
 
-    // Handle adding a time slot
+    // ✅ show "slots left"
+    const renderSlotsLeft = (slot: TimeSlot) => {
+        const remaining = slot.remaining_guests;
+        if (remaining === null || remaining === undefined) return null;
+        const n = Number(remaining);
+        if (!Number.isFinite(n)) return null;
+        if (n <= 0) return "Full";
+        return `${n} slots left`;
+    };
+
     const handleAddTimeSlot = (experience: Experience, slot: TimeSlot) => {
         const newItem: ItineraryItem = {
             experience_id: experience.id,
             day_number: selectedDayNumber,
+
+            // ✅ include slot_id for capacity reservation in saveItinerary/createItinerary
+            slot_id: slot.slot_id,
+
             start_time: convertToFormTimeFormat(slot.start_time),
             end_time: convertToFormTimeFormat(slot.end_time),
             price: parseFloat(experience.price) || 0,
@@ -299,34 +304,29 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             experience_description: experience.description,
             destination_name: experience.destination_name,
             images: experience.images,
-            price_estimate: experience.price_estimate, // Add this line
+            price_estimate: experience.price_estimate,
         };
 
         onAddExperience(newItem);
         onClose();
     };
-    // Get available slots for the selected day
-    const getAvailableSlotsForDay = (experienceId: number): TimeSlot[] => {
-        const availability = availabilityData[experienceId];
-        if (!availability) return [];
 
-        const dayAvailability = availability.find(
-            (a) => a.day_of_week === selectedDayOfWeek
-        );
-
-        if (!dayAvailability) return [];
-
-        return sortTimeSlots(dayAvailability.time_slots);
+    // ✅ get slots for selected date from cache
+    const getAvailableSlotsForSelectedDate = (experienceId: number): TimeSlot[] => {
+        if (!selectedDateStr) return [];
+        const key = `${experienceId}|${selectedDateStr}`;
+        return sortTimeSlots(slotsCache[key] || []);
     };
 
     const renderExperienceCard = ({ item }: { item: Experience }) => {
         const isExpanded = expandedExperienceId === item.id;
-        const availableSlots = getAvailableSlotsForDay(item.id);
-        const isLoadingSlots = loadingAvailability === item.id;
-        const hasAvailability = availabilityData[item.id] !== undefined;
+        const availableSlots = getAvailableSlotsForSelectedDate(item.id);
+
+        const cacheKey = selectedDateStr ? `${item.id}|${selectedDateStr}` : null;
+        const isLoadingSlots = !!cacheKey && loadingAvailabilityKey === cacheKey;
+        const hasFetched = !!cacheKey && slotsCache[cacheKey] !== undefined;
 
         return (
-            // ✅ Whole card navigates to details
             <Pressable
                 onPress={() => handleViewExperience(item.id)}
                 className="bg-white rounded-xl mb-4 overflow-hidden"
@@ -341,11 +341,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                 {/* Image */}
                 <View className="h-72">
                     {item.images && item.images.length > 0 ? (
-                        <Image
-                            source={{ uri: `${API_URL}/${item.images[0]}` }}
-                            className="w-full h-full"
-                            resizeMode="cover"
-                        />
+                        <Image source={{ uri: `${API_URL}/${item.images[0]}` }} className="w-full h-full" resizeMode="cover" />
                     ) : (
                         <View className="w-full h-full bg-gray-200 items-center justify-center">
                             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
@@ -374,23 +370,19 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                             </Text>
                         )}
 
-                        {/* ✅ ONLY this opens/closes slots (prevents navigating) */}
                         <Pressable
                             onPress={(e) => {
-                                e.stopPropagation(); // 👈 prevents the card navigation
+                                e.stopPropagation();
                                 handleExperiencePress(item.id);
                             }}
                             className="flex-row items-center"
                             hitSlop={10}
+                            disabled={!selectedDayDate}
                         >
                             <Text className="text-blue-600 font-onest-medium text-sm mr-1">
                                 {isExpanded ? "Hide slots" : "Select time"}
                             </Text>
-                            <Ionicons
-                                name={isExpanded ? "chevron-up" : "chevron-down"}
-                                size={16}
-                                color="#3B82F6"
-                            />
+                            <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color="#3B82F6" />
                         </Pressable>
                     </View>
                 </View>
@@ -398,7 +390,14 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                 {/* Expanded Time Slots Section */}
                 {isExpanded && (
                     <View className="px-4 pb-4 border-t border-gray-100 pt-4">
-                        {isLoadingSlots ? (
+                        {!selectedDayDate ? (
+                            <View className="py-4 items-center">
+                                <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
+                                <Text className="text-black/50 font-onest text-sm mt-2 text-center">
+                                    Select a day first to view slots
+                                </Text>
+                            </View>
+                        ) : isLoadingSlots ? (
                             <View className="py-4 items-center">
                                 <ActivityIndicator size="small" color="#3B82F6" />
                                 <Text className="text-black/50 font-onest text-sm mt-2">
@@ -407,28 +406,38 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                             </View>
                         ) : availableSlots.length > 0 ? (
                             <View>
-
                                 {availableSlots.map((slot, idx) => {
+                                    const remaining = Number(slot.remaining_guests ?? 0);
+
+                                    // ✅ disable if travelerCount > remaining (but only if remaining is a valid number)
+                                    const exceedsCapacity =
+                                        Number.isFinite(remaining) && remaining > 0 && travelerCount > remaining;
+
                                     const conflictingItem = getTimeSlotConflict(slot.start_time, slot.end_time);
                                     const hasConflict = conflictingItem !== null;
+
+                                    const slotsLeftText = renderSlotsLeft(slot);
+                                    const isFull = slotsLeftText === "Full";
+
+                                    const isDisabled = hasConflict || isFull || exceedsCapacity;
 
                                     const slotPrice = parseFloat(item.price) || 0;
 
                                     return (
                                         <TouchableOpacity
-                                            key={idx}
-                                            onPress={() => !hasConflict && handleAddTimeSlot(item, slot)}
-                                            disabled={hasConflict}
+                                            key={`${slot.slot_id ?? "slot"}-${idx}`}
+                                            onPress={() => !isDisabled && handleAddTimeSlot(item, slot)}
+                                            disabled={isDisabled}
                                             activeOpacity={0.8}
                                             style={{
                                                 borderWidth: 1,
                                                 borderColor: "#E5E7EB",
-                                                backgroundColor: hasConflict ? "#F9FAFB" : "#FFFFFF",
+                                                backgroundColor: isDisabled ? "#F9FAFB" : "#FFFFFF",
                                                 borderRadius: 12,
                                                 paddingHorizontal: 16,
                                                 paddingVertical: 14,
                                                 marginBottom: 12,
-                                                opacity: hasConflict ? 0.6 : 1,
+                                                opacity: isDisabled ? 0.6 : 1,
                                             }}
                                         >
                                             <View
@@ -439,29 +448,63 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                 }}
                                             >
                                                 <View style={{ flex: 1, paddingRight: 12 }}>
-                                                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                                        {hasConflict && (
-                                                            <Ionicons
-                                                                name="alert-circle"
-                                                                size={16}
-                                                                color="#9CA3AF"
-                                                                style={{ marginRight: 6 }}
-                                                            />
-                                                        )}
-
-                                                        <Text
+                                                    <View
+                                                        style={{
+                                                            flexDirection: "row",
+                                                            alignItems: "center",
+                                                            justifyContent: "space-between",
+                                                        }}
+                                                    >
+                                                        <View
                                                             style={{
-                                                                fontFamily: "Onest-SemiBold",
-                                                                fontSize: 16,
-                                                                fontWeight: "600",
-                                                                color: "#000",
+                                                                flexDirection: "row",
+                                                                alignItems: "center",
+                                                                flexShrink: 1,
                                                             }}
                                                         >
-                                                            {formatTimeRange(slot.start_time, slot.end_time)}
-                                                        </Text>
+                                                            {(hasConflict || isFull || exceedsCapacity) && (
+                                                                <Ionicons
+                                                                    name={
+                                                                        hasConflict
+                                                                            ? "alert-circle"
+                                                                            : isFull
+                                                                                ? "close-circle"
+                                                                                : "people"
+                                                                    }
+                                                                    size={16}
+                                                                    color="#9CA3AF"
+                                                                    style={{ marginRight: 6 }}
+                                                                />
+                                                            )}
+
+                                                            <Text
+                                                                style={{
+                                                                    fontFamily: "Onest-SemiBold",
+                                                                    fontSize: 16,
+                                                                    fontWeight: "600",
+                                                                    color: "#000",
+                                                                }}
+                                                                numberOfLines={1}
+                                                            >
+                                                                {formatTimeRange(slot.start_time, slot.end_time)}
+                                                            </Text>
+                                                        </View>
+
+                                                        {!!slotsLeftText && (
+                                                            <Text
+                                                                style={{
+                                                                    fontFamily: "Onest",
+                                                                    fontSize: 13,
+                                                                    color: "#6B7280",
+                                                                    fontWeight: slotsLeftText === "Full" ? "600" : "500",
+                                                                }}
+                                                            >
+                                                                {slotsLeftText}
+                                                            </Text>
+                                                        )}
                                                     </View>
 
-                                                    {/* price line (matches AvailabilityCalendar vibe) */}
+                                                    {/* price line */}
                                                     {slotPrice > 0 && (
                                                         <Text
                                                             style={{
@@ -475,7 +518,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                         </Text>
                                                     )}
 
-                                                    {/* conflict line */}
+                                                    {/* conflict/full/over-capacity line */}
                                                     {hasConflict && (
                                                         <Text
                                                             style={{
@@ -488,9 +531,35 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                             Conflicts with {conflictingItem?.experience_name || "another activity"}
                                                         </Text>
                                                     )}
+
+                                                    {!hasConflict && isFull && (
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Onest",
+                                                                fontSize: 12,
+                                                                color: "#9CA3AF",
+                                                                marginTop: 6,
+                                                            }}
+                                                        >
+                                                            This slot is currently full
+                                                        </Text>
+                                                    )}
+
+                                                    {!hasConflict && !isFull && exceedsCapacity && (
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Onest",
+                                                                fontSize: 12,
+                                                                color: "#9CA3AF",
+                                                                marginTop: 6,
+                                                            }}
+                                                        >
+                                                            Needs {travelerCount} slots • only {remaining} left
+                                                        </Text>
+                                                    )}
                                                 </View>
 
-                                                {!hasConflict && (
+                                                {!isDisabled && (
                                                     <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                                                 )}
                                             </View>
@@ -498,8 +567,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                     );
                                 })}
                             </View>
-
-                        ) : hasAvailability ? (
+                        ) : hasFetched ? (
                             <View className="py-4 items-center">
                                 <Ionicons name="calendar-outline" size={24} color="#9CA3AF" />
                                 <Text className="text-black/50 font-onest text-sm mt-2 text-center">
@@ -516,6 +584,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         )}
                     </View>
                 )}
+
             </Pressable>
         );
     };
@@ -523,55 +592,36 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     return (
         <View
             className="flex-1 bg-gray-50"
-            style={{
-                paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50,
-            }}
+            style={{ paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50 }}
         >
             {/* Header */}
             <View className="bg-white px-6 py-4 border-b border-gray-100">
                 <View className="flex-row items-center justify-between">
                     <View>
-                        <Text className="text-2xl font-onest-semibold text-black/90">
-                            Browse activities
-                        </Text>
+                        <Text className="text-2xl font-onest-semibold text-black/90">Browse activities</Text>
                         {selectedDayDate && (
                             <Text className="text-black/50 font-onest mt-1">
                                 Day {selectedDayNumber} · {formatDate(selectedDayDate)}
                             </Text>
                         )}
                     </View>
-                    <TouchableOpacity
-                        onPress={onClose}
-                        className="p-2 bg-gray-100 rounded-full"
-                    >
+                    <TouchableOpacity onPress={onClose} className="p-2 bg-gray-100 rounded-full">
                         <Ionicons name="close" size={24} color="#374151" />
                     </TouchableOpacity>
                 </View>
 
                 {/* Filter Chips */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mt-4 -mx-6 px-6"
-                >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4 -mx-6 px-6">
                     {FILTER_OPTIONS.map((filter) => (
                         <TouchableOpacity
                             key={filter.key}
                             onPress={() => setSelectedFilter(filter.key)}
-                            className={`
-                mr-2 px-4 py-2 rounded-full
-                ${selectedFilter === filter.key ? "bg-blue-500" : "bg-gray-100"}
-              `}
+                            className={`mr-2 px-4 py-2 rounded-full ${selectedFilter === filter.key ? "bg-blue-500" : "bg-gray-100"}`}
                             activeOpacity={0.7}
                         >
                             <Text
-                                className={`
-                  font-onest-medium text-sm
-                  ${selectedFilter === filter.key
-                                        ? "text-white"
-                                        : "text-black/70"
-                                    }
-                `}
+                                className={`font-onest-medium text-sm ${selectedFilter === filter.key ? "text-white" : "text-black/70"
+                                    }`}
                             >
                                 {filter.label}
                             </Text>
@@ -584,20 +634,13 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             {loading ? (
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color="#3B82F6" />
-                    <Text className="text-black/50 font-onest mt-4">
-                        Loading experiences...
-                    </Text>
+                    <Text className="text-black/50 font-onest mt-4">Loading experiences...</Text>
                 </View>
             ) : error ? (
                 <View className="flex-1 items-center justify-center px-6">
                     <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-                    <Text className="text-red-500 font-onest-medium text-center mt-4">
-                        {error}
-                    </Text>
-                    <TouchableOpacity
-                        onPress={fetchExperiences}
-                        className="mt-4 bg-blue-500 px-6 py-3 rounded-xl"
-                    >
+                    <Text className="text-red-500 font-onest-medium text-center mt-4">{error}</Text>
+                    <TouchableOpacity onPress={fetchExperiences} className="mt-4 bg-blue-500 px-6 py-3 rounded-xl">
                         <Text className="text-white font-onest-medium">Try Again</Text>
                     </TouchableOpacity>
                 </View>
@@ -605,9 +648,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                 <View className="flex-1 items-center justify-center px-6">
                     <Ionicons name="checkmark-circle-outline" size={48} color="#10B981" />
                     <Text className="text-black/70 font-onest-medium text-center mt-4">
-                        {experiences.length > 0
-                            ? "All available experiences have been added!"
-                            : "No experiences found"}
+                        {experiences.length > 0 ? "All available experiences have been added!" : "No experiences found"}
                     </Text>
                     <Text className="text-black/40 font-onest text-center mt-2">
                         {experiences.length > 0
@@ -624,17 +665,6 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                     showsVerticalScrollIndicator={false}
                 />
             )}
-
-            {/* Done Button */}
-            {/* <View className="bg-white px-6 py-4 border-t border-gray-100 pb-8">
-                <TouchableOpacity
-                    onPress={onClose}
-                    className="bg-primary py-4 rounded-xl items-center"
-                    activeOpacity={0.7}
-                >
-                    <Text className="text-white font-onest-semibold text-base">Done</Text>
-                </TouchableOpacity>
-            </View> */}
         </View>
     );
 };

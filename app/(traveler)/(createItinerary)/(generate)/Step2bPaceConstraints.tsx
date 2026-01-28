@@ -1,8 +1,5 @@
 // (traveler)/(createItinerary)/(generate)/Step2bPaceConstraints.tsx
-import {
-  Budget,
-  TravelDistance,
-} from "@/types/experienceTypes";
+import { Budget, TravelDistance } from "@/types/experienceTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -12,7 +9,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 // Itinerary interfaces (minimal: only what we touch here)
@@ -30,6 +27,9 @@ interface ItineraryFormData {
     travelerCount: number;
     budget?: Budget;
     travelDistance?: TravelDistance;
+
+    // ✅ NEW (optional, will be set in Step2c)
+    includeFoodSuggestions?: boolean;
   };
 }
 
@@ -63,7 +63,11 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
         label: "A moderate distance is fine",
         description: "Within 20 km",
       },
-      { value: "Far", label: "Willing to travel far", description: "20 km or more" },
+      {
+        value: "Far",
+        label: "Willing to travel far",
+        description: "20 km or more",
+      },
     ],
     []
   );
@@ -75,8 +79,7 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
   const [selectedTravelDistance, setSelectedTravelDistance] =
     useState<TravelDistance | null>(formData.preferences?.travelDistance || null);
 
-  const isValid = () =>
-    selectedBudget !== null && selectedTravelDistance !== null;
+  const isValid = () => selectedBudget !== null && selectedTravelDistance !== null;
 
   const handleNext = () => {
     if (!isValid()) return;
@@ -90,6 +93,7 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
       },
     }));
 
+    // ✅ now goes to Step2cFoodSuggestions in the parent flow
     onNext();
   };
 
@@ -112,7 +116,9 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
       >
         <View>
           <View className="flex flex-row items-center justify-between">
-            <Text className={`${fullWidth ? "text-base" : "text-lg"} font-onest text-black/90`}>
+            <Text
+              className={`${fullWidth ? "text-base" : "text-lg"} font-onest text-black/90`}
+            >
               {title}
             </Text>
 
@@ -138,7 +144,7 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1"
     >
-      <View className="flex-1">
+      <View className="flex-1 flex justify-between">
         <ScrollView
           showsVerticalScrollIndicator={false}
           className="flex-1"
@@ -207,32 +213,33 @@ const Step2bPaceConstraints: React.FC<StepProps> = ({
               )}
             </View>
 
-            {/* Navigation Buttons */}
-            <View className="flex-row justify-between mt-4 pt-2 border-t border-gray-200 pb-4">
-              <TouchableOpacity
-                onPress={onBack}
-                className="py-4 px-6 rounded-xl border border-gray-200"
-                activeOpacity={1}
-              >
-                <Text className="text-center font-onest-medium text-base text-gray-700">
-                  Back
-                </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleNext}
-                className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
-                  }`}
-                disabled={!isValid()}
-                activeOpacity={1}
-              >
-                <Text className="text-center font-onest-medium text-base text-white">
-                  Next step
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
+        {/* Navigation Buttons */}
+        <View className="flex-row justify-between sticky bottom-0 left-0 right-0 mt-4 pt-2  pb-4">
+          <TouchableOpacity
+            onPress={onBack}
+            className="py-4 px-6 rounded-xl border border-gray-200"
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-gray-700">
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleNext}
+            className={`py-4 px-8 rounded-xl ${isValid() ? "bg-primary" : "bg-gray-200"
+              }`}
+            disabled={!isValid()}
+            activeOpacity={1}
+          >
+            <Text className="text-center font-onest-medium text-base text-white">
+              Next step
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );

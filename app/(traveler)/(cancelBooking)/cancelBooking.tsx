@@ -157,8 +157,8 @@ export default function CancelBookingScreen() {
                         {refund.is_eligible ? (
                             <View className="w-full bg-green-50 rounded-2xl p-5 mb-4">
                                 <View className="flex-row items-center mb-3">
-                                    <Ionicons name="cash-outline" size={24} color="#16A34A" />
-                                    <Text className="text-lg font-onest-semibold text-green-800 ml-2">
+
+                                    <Text className="text-lg font-onest-semibold text-green-800 ">
                                         Refund Processing
                                     </Text>
                                 </View>

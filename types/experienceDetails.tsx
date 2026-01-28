@@ -38,6 +38,12 @@ export type Destination = {
     description: string;
 };
 
+type AvailabilityTimeSlot = {
+    start_time: string; // "09:00:00" or "09:00"
+    end_time: string;   // "18:00:00" or "18:00"
+};
+
+
 export type Experience = {
     id: number;
     title: string;
@@ -55,6 +61,8 @@ export type Experience = {
     is_saved?: boolean;
     destination: Destination;
     creator: Creator;
+    category_id: number;
+    timeSlots?: AvailabilityTimeSlot[];
 };
 
 export type Review = {
