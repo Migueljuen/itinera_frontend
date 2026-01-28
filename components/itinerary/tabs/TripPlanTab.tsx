@@ -24,7 +24,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 /* ---------------- Types ---------------- */
 
@@ -37,6 +37,7 @@ interface DayStyles {
 interface Props {
     itinerary: Itinerary;
     bookingPayments?: BookingPayment[];
+    readOnly?: boolean;
     collapsedDays: Set<number>;
     getDayHeaderStyle: (day: number) => DayStyles;
     onToggleDayCollapse: (day: number) => void;
@@ -71,6 +72,7 @@ export function TripPlanTab({
     itinerary,
     collapsedDays,
     bookingPayments,
+    readOnly = false,
     getDayHeaderStyle,
     onToggleDayCollapse,
     onNavigateAll,
@@ -84,6 +86,7 @@ export function TripPlanTab({
     const mainScrollRef = useRef<ScrollView>(null);
     const chipScrollRef = useRef<ScrollView>(null);
     const [selectedDayChip, setSelectedDayChip] = useState<number | null>(null);
+    const canEdit = !readOnly;
 
     const { clearCache } = useFoodStopsAlongRoute();
 
@@ -97,6 +100,12 @@ export function TripPlanTab({
     const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
     const [editingDayDate, setEditingDayDate] = useState<Date | null>(null);
     const [editingDayNumber, setEditingDayNumber] = useState<number | null>(null);
+
+    // Cancel Modal State (for unpaid bookings)
+    const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [cancellingItem, setCancellingItem] = useState<ItineraryItem | null>(null);
+    const [cancelLoading, setCancelLoading] = useState(false);
+    const [cancelSuccessVisible, setCancelSuccessVisible] = useState(false);
 
     const dayPositions = useRef<{ [key: number]: number }>({});
 
@@ -166,6 +175,8 @@ export function TripPlanTab({
         setEditingDayNumber(null);
     };
 
+    // ============ Cancel/Remove Handlers ============
+
     const handleRemoveItem = (item: ItineraryItem) => {
         // Wait for bookings to load
         if (!bookingPayments || bookingPayments.length === 0) {
@@ -180,25 +191,93 @@ export function TripPlanTab({
             (b) => b.item_id === item.item_id
         );
 
-        const activityPrice = booking?.activity_price || 0;
-        const paymentStatus = booking?.payment_status === 'Paid'
-            ? 'fully_paid'
-            : 'downpayment';
+        const paymentStatus = booking?.payment_status;
 
-        router.push({
-            pathname: "/(traveler)/(cancelBooking)/cancelBooking",
-            params: {
-                itemId: item.item_id.toString(),
-                itineraryId: itinerary.itinerary_id.toString(),
-                experienceName: item.experience_name,
-                destinationName: item.destination_name,
-                destinationCity: item.destination_city,
-                startTime: formatTime(item.start_time),
-                endTime: formatTime(item.end_time),
-                activityPrice: activityPrice.toString(),
-                paymentStatus: paymentStatus,
-            },
-        });
+        // Check if the booking has been paid (either fully or downpayment)
+        const isPaid = paymentStatus === 'Paid';
+
+        if (isPaid) {
+            // Navigate to cancel booking screen for refund process
+            const activityPrice = booking?.activity_price || 0;
+            const paymentStatusParam = paymentStatus === 'Paid'
+                ? 'fully_paid'
+                : 'downpayment';
+
+            router.push({
+                pathname: "/(traveler)/(cancelBooking)/cancelBooking",
+                params: {
+                    itemId: item.item_id.toString(),
+                    itineraryId: itinerary.itinerary_id.toString(),
+                    experienceName: item.experience_name,
+                    destinationName: item.destination_name,
+                    destinationCity: item.destination_city,
+                    startTime: formatTime(item.start_time),
+                    endTime: formatTime(item.end_time),
+                    activityPrice: activityPrice.toString(),
+                    paymentStatus: paymentStatusParam,
+                },
+            });
+        } else {
+            // Show confirmation modal for unpaid booking
+            setCancellingItem(item);
+            setCancelModalVisible(true);
+        }
+    };
+
+    const handleConfirmCancelUnpaid = async () => {
+        if (!cancellingItem) return;
+
+        setCancelLoading(true);
+
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "Please log in again");
+                setCancelLoading(false);
+                return;
+            }
+
+            // Use the bulk delete endpoint which does soft delete
+            const response = await fetch(
+                `${API_URL}/itinerary/${itinerary.itinerary_id}/items/bulk-delete`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        item_ids: [cancellingItem.item_id],
+                        cancellation_reason: "Cancelled by traveler",
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to cancel booking");
+            }
+
+            setCancelModalVisible(false);
+            setCancelSuccessVisible(true);
+
+        } catch (error: any) {
+            console.error("Error cancelling booking:", error);
+            Alert.alert("Error", error.message || "Failed to cancel booking. Please try again.");
+        } finally {
+            setCancelLoading(false);
+        }
+    };
+
+    const handleCloseCancelModal = () => {
+        setCancelModalVisible(false);
+        setCancellingItem(null);
+    };
+
+    const handleCloseSuccessModal = () => {
+        setCancelSuccessVisible(false);
+        setCancellingItem(null);
+        onRefresh?.();
     };
 
     const getOtherItemsOnDay = (dayNumber: number): ItineraryItem[] => {
@@ -360,6 +439,7 @@ export function TripPlanTab({
                             day={selectedDay}
                             itinerary={itinerary}
                             isExpanded={true}
+                            canEdit={canEdit}
                             forceExpanded={true}
                             onToggle={() => { }}
                             onNavigateSingle={onNavigateSingle}
@@ -392,6 +472,22 @@ export function TripPlanTab({
                 otherItemsOnDay={editingDayNumber ? getOtherItemsOnDay(editingDayNumber) : []}
             />
 
+            {/* Cancel Confirmation Modal (for unpaid bookings) */}
+            <CancelConfirmationModal
+                visible={cancelModalVisible}
+                item={cancellingItem}
+                loading={cancelLoading}
+                onConfirm={handleConfirmCancelUnpaid}
+                onClose={handleCloseCancelModal}
+            />
+
+            {/* Cancel Success Modal */}
+            <CancelSuccessModal
+                visible={cancelSuccessVisible}
+                item={cancellingItem}
+                onClose={handleCloseSuccessModal}
+            />
+
             {/* Bottom Action Bar */}
             {selectedDay && (
                 <TripPlanActionBar
@@ -399,11 +495,158 @@ export function TripPlanTab({
                     dayNumber={selectedDay.dayNumber}
                     isCompleted={isSelectedDayCompleted}
                     onNavigateAll={onNavigateAll}
+
                     onNavigateSingle={onNavigateSingle}
                     onShowFoodStops={onShowFoodStops}
                 />
             )}
         </View>
+    );
+}
+
+/* ---------------- Cancel Confirmation Modal ---------------- */
+
+interface CancelConfirmationModalProps {
+    visible: boolean;
+    item: ItineraryItem | null;
+    loading: boolean;
+    onConfirm: () => void;
+    onClose: () => void;
+}
+
+function CancelConfirmationModal({
+    visible,
+    item,
+    loading,
+    onConfirm,
+    onClose,
+}: CancelConfirmationModalProps) {
+    if (!item) return null;
+
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <View className="flex-1 bg-black/50 justify-center items-center px-6">
+                <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
+                    {/* Icon */}
+                    <View className="items-center mb-4">
+                        <View className="w-14 h-14 rounded-full bg-orange-100 items-center justify-center">
+                            <Ionicons name="alert-circle-outline" size={32} color="#F97316" />
+                        </View>
+                    </View>
+
+                    {/* Title */}
+                    <Text className="text-xl font-onest-semibold text-black/90 text-center mb-2">
+                        Cancel Activity?
+                    </Text>
+
+                    {/* Description */}
+                    <Text className="text-sm font-onest text-black/60 text-center mb-2">
+                        Are you sure you want to cancel
+                    </Text>
+                    <Text className="text-base font-onest-medium text-black/80 text-center mb-6">
+                        {item.experience_name}
+                    </Text>
+
+                    {/* Buttons */}
+                    <View className="flex-row gap-3">
+                        <TouchableOpacity
+                            onPress={onClose}
+                            disabled={loading}
+                            className="flex-1 py-3 rounded-xl bg-gray-100"
+                            activeOpacity={0.8}
+                        >
+                            <Text className="text-black/70 font-onest-medium text-center">
+                                Keep It
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={onConfirm}
+                            disabled={loading}
+                            className="flex-1 py-3 rounded-xl bg-[#191313]"
+                            activeOpacity={0.8}
+                        >
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Text className="text-white font-onest-medium text-center">
+                                    Cancel
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+/* ---------------- Cancel Success Modal ---------------- */
+
+interface CancelSuccessModalProps {
+    visible: boolean;
+    item: ItineraryItem | null;
+    onClose: () => void;
+}
+
+function CancelSuccessModal({
+    visible,
+    item,
+    onClose,
+}: CancelSuccessModalProps) {
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <View className="flex-1 bg-black/50 justify-center items-center px-6">
+                <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
+                    {/* Success Icon */}
+                    <View className="items-center mb-4">
+                        <View className="w-14 h-14 rounded-full bg-green-100 items-center justify-center">
+                            <Ionicons name="checkmark-circle" size={32} color="#22C55E" />
+                        </View>
+                    </View>
+
+                    {/* Title */}
+                    <Text className="text-xl font-onest-semibold text-black/90 text-center mb-2">
+                        Activity Cancelled
+                    </Text>
+
+                    {/* Description */}
+                    <Text className="text-sm font-onest text-black/60 text-center mb-6">
+                        {item?.experience_name ? (
+                            <>
+                                <Text className="font-onest-medium text-black/80">
+                                    {item.experience_name}
+                                </Text>
+                                {" "}has been removed from your itinerary.
+                            </>
+                        ) : (
+                            "The activity has been removed from your itinerary."
+                        )}
+                    </Text>
+
+                    {/* Done Button */}
+                    <TouchableOpacity
+                        onPress={onClose}
+                        className="py-3 rounded-xl bg-primary"
+                        activeOpacity={0.8}
+                    >
+                        <Text className="text-white font-onest-semibold text-center">
+                            Done
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
     );
 }
 
@@ -501,6 +744,7 @@ interface DayCardProps {
     onEditTime: (item: ItineraryItem) => void;
     onRemoveItem?: (item: ItineraryItem) => void;
     variant: "current" | "upcoming" | "completed";
+    canEdit: boolean;
 }
 
 function DayCard({
@@ -515,6 +759,7 @@ function DayCard({
     onEditTime,
     onRemoveItem,
     variant,
+    canEdit
 }: DayCardProps) {
     const { dayNumber, items, dateString, isToday } = day;
     const showExpanded = forceExpanded || isExpanded;
@@ -613,11 +858,12 @@ function DayCard({
                                         isLast={isLast && !nextItem}
                                         onPress={() => onItemPress(item)}
                                         onNavigate={() => onNavigateSingle(item)}
-                                        onEditTime={() => onEditTime(item)}
-                                        onRemove={onRemoveItem ? () => onRemoveItem(item) : undefined}
+                                        onEditTime={canEdit ? () => onEditTime(item) : undefined} // 
+                                        onRemove={canEdit && onRemoveItem ? () => onRemoveItem(item) : undefined} // 
                                         isCompleted={variant === "completed"}
-                                        swipeEnabled={variant !== "completed"}
+                                        swipeEnabled={canEdit && variant !== "completed"} // disables swipe for service
                                     />
+
                                 </View>
 
                                 {nextItem && (

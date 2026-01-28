@@ -69,7 +69,7 @@ export interface ItineraryFormData {
     budget?: Budget;
     activityIntensity?: ActivityIntensity;
     travelDistance?: TravelDistance;
-
+    includeFoodInItinerary?: boolean;
     includeFoodSuggestions?: boolean;
   };
 
@@ -110,4 +110,5 @@ export interface GeneratedItinerary {
   items: ItineraryItem[];
 
   food_suggestions?: FoodSuggestion[];
+
 }

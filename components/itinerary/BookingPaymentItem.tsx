@@ -94,7 +94,7 @@ export function BookingPaymentItem({ booking, onPayNow }: Props) {
 
                 {isUnpaid && (
                     <Pressable
-                        className="bg-primary px-3 py-1.5 rounded-full active:opacity-80"
+                        className="bg-primary px-4 py-2 rounded-full active:opacity-80"
                         onPress={() => onPayNow(booking)}
                     >
                         <Text className="text-sm font-onest-semibold text-white">Pay</Text>

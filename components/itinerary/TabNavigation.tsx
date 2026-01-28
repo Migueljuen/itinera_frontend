@@ -49,13 +49,7 @@ export function TabNavigation({ activeTab, onTabChange, paymentBadge }: Props) {
                                 {tab.label}
                             </Text>
 
-                            {/* {showBadge && (
-                                <View className=" bg-blue-500 rounded-full absolute  -right-1 min-w-[18px]  items-center">
-                                    <Text className="text-white text-xs font-onest-medium">
-                                        {badgeText}
-                                    </Text>
-                                </View>
-                            )} */}
+
                         </View>
 
                     </Pressable>

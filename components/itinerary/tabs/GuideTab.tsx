@@ -1,10 +1,10 @@
 // components/itinerary/tabs/GuideTab.tsx
-import API_URL from '@/constants/api';
-import { ServiceAssignment } from '@/types/itineraryDetails';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import API_URL from "@/constants/api";
+import { ServiceAssignment } from "@/types/itineraryDetails";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -14,7 +14,7 @@ import {
     ScrollView,
     Text,
     View,
-} from 'react-native';
+} from "react-native";
 
 interface Props {
     serviceAssignments: ServiceAssignment[];
@@ -23,8 +23,8 @@ interface Props {
 
 export function GuideTab({ serviceAssignments, itineraryId }: Props) {
     // Separate assignments by type
-    const guideAssignments = serviceAssignments.filter(a => a.service_type === 'Guide');
-    const driverAssignments = serviceAssignments.filter(a => a.service_type === 'Driver');
+    const guideAssignments = serviceAssignments.filter((a) => a.service_type === "Guide");
+    const driverAssignments = serviceAssignments.filter((a) => a.service_type === "Driver");
 
     const hasAssignments = guideAssignments.length > 0 || driverAssignments.length > 0;
 
@@ -40,6 +40,7 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
                     title="Tour Guide"
                     assignments={guideAssignments}
                     icon="map"
+                    itineraryId={itineraryId}
                 />
             )}
 
@@ -49,6 +50,7 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
                     title="Transportation"
                     assignments={driverAssignments}
                     icon="car"
+                    itineraryId={itineraryId}
                 />
             )}
 
@@ -67,18 +69,7 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
                 </View>
             )}
 
-            {/* Trust Badge - Only show when there are assignments */}
-            {hasAssignments && (
-                <View className="p-4 mt-12">
-                    <View className="flex-row items-center justify-center mb-2">
 
-
-                    </View>
-                    <Text className="text-sm font-onest text-center text-black/50 leading-5">
-                        All tour guides and drivers on Itinera have been carefully vetted and verified to ensure professional, safe, and quality service for your travels.
-                    </Text>
-                </View>
-            )}
         </ScrollView>
     );
 }
@@ -86,38 +77,43 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
 // ============ Helper Functions ============
 function getProfilePicUrl(profilePic: string | null): string | null {
     if (!profilePic) return null;
-    if (profilePic.startsWith('http://') || profilePic.startsWith('https://')) {
+    if (profilePic.startsWith("http://") || profilePic.startsWith("https://")) {
         return profilePic;
     }
-    return `${API_URL}${profilePic.startsWith('/') ? '' : '/'}${profilePic}`;
+    return `${API_URL}${profilePic.startsWith("/") ? "" : "/"}${profilePic}`;
 }
 
 // ============ Service Section Component ============
 function ServiceSection({
     assignments,
-    icon
+    icon,
+    itineraryId,
 }: {
     title: string;
     assignments: ServiceAssignment[];
-    icon: 'map' | 'car';
+    icon: "map" | "car";
+    itineraryId: number;
 }) {
     const router = useRouter();
     const [startingChat, setStartingChat] = useState<number | null>(null);
 
+    // cancel request state (per assignment)
+    const [cancellingAssignmentId, setCancellingAssignmentId] = useState<number | null>(null);
+
     const getStatusConfig = (status: string) => {
         switch (status) {
-            case 'Accepted':
-                return { bg: 'bg-green-100', text: 'text-green-600', icon: 'checkmark-circle' as const };
-            case 'Pending':
-                return { bg: 'bg-yellow-100', text: 'text-yellow-600', icon: 'time' as const };
-            case 'Declined':
-                return { bg: 'bg-red-100', text: 'text-red-600', icon: 'close-circle' as const };
-            case 'Expired':
-                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'hourglass' as const };
-            case 'Cancelled':
-                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'ban' as const };
+            case "Accepted":
+                return { bg: "bg-green-100", text: "text-green-600", icon: "checkmark-circle" as const };
+            case "Pending":
+                return { bg: "bg-yellow-100", text: "text-yellow-600", icon: "time" as const };
+            case "Declined":
+                return { bg: "bg-red-100", text: "text-red-600", icon: "close-circle" as const };
+            case "Expired":
+                return { bg: "bg-gray-100", text: "text-gray-600", icon: "hourglass" as const };
+            case "Cancelled":
+                return { bg: "bg-gray-100", text: "text-gray-600", icon: "ban" as const };
             default:
-                return { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'ellipse' as const };
+                return { bg: "bg-gray-100", text: "text-gray-600", icon: "ellipse" as const };
         }
     };
 
@@ -128,16 +124,16 @@ function ServiceSection({
     ) => {
         setStartingChat(assignmentId);
         try {
-            const token = await AsyncStorage.getItem('token');
+            const token = await AsyncStorage.getItem("token");
             if (!token) {
-                Alert.alert('Error', 'Please log in to start a conversation');
+                Alert.alert("Error", "Please log in to start a conversation");
                 return;
             }
 
             const response = await fetch(`${API_URL}/conversations`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
@@ -154,15 +150,15 @@ function ServiceSection({
             const conversationId = data.data.id;
 
             router.push({
-                pathname: '/(traveler)/(conversations)/[id]',
+                pathname: "/(traveler)/(conversations)/[id]",
                 params: {
                     id: String(conversationId),
                     name: providerName,
                 },
             });
         } catch (error) {
-            console.error('Error starting conversation:', error);
-            Alert.alert('Error', 'Failed to start conversation. Please try again.');
+            console.error("Error starting conversation:", error);
+            Alert.alert("Error", "Failed to start conversation. Please try again.");
         } finally {
             setStartingChat(null);
         }
@@ -171,22 +167,80 @@ function ServiceSection({
     const handleOpenLocation = (latitude: number, longitude: number, name: string) => {
         const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
         Linking.openURL(url).catch(() => {
-            Alert.alert('Error', 'Unable to open maps');
+            Alert.alert("Error", "Unable to open maps");
         });
+    };
+
+    // ✅ Cancel service booking by assignmentId (uses the backend route we designed)
+    const handleCancelService = async (assignmentId: number) => {
+        setCancellingAssignmentId(assignmentId);
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "Please log in to cancel this request");
+                return;
+            }
+
+            // Optional: collect reason later; keep it simple for now
+            const body = { cancellation_reason: "Traveler cancelled service booking" };
+
+            const res = await fetch(
+                `${API_URL}/services/${itineraryId}/service-assignments/${assignmentId}/cancel`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(body),
+                }
+            );
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(errText);
+            }
+
+            Alert.alert("Cancelled", "Your service booking has been cancelled.");
+            // Note: You can optionally trigger a refresh by navigating back with refresh=1,
+            // but since you already have that focus guard, you'd pass refresh=1 from here
+            // if you want immediate UI update.
+            // router.setParams({ refresh: "1" } as any);
+        } catch (e) {
+            console.error("Cancel service error:", e);
+            Alert.alert("Error", "Failed to cancel. Please try again.");
+        } finally {
+            setCancellingAssignmentId(null);
+        }
+    };
+
+    const confirmCancel = (assignmentId: number, label: string) => {
+        Alert.alert(
+            "Cancel request?",
+            `Do you want to cancel this ${label} request?`,
+            [
+                { text: "No", style: "cancel" },
+                { text: "Yes, cancel", style: "destructive", onPress: () => handleCancelService(assignmentId) },
+            ]
+        );
     };
 
     return (
         <View className="mb-8">
             {assignments.map((assignment, index) => {
                 const statusConfig = getStatusConfig(assignment.status);
-                const isDriver = assignment.service_type === 'Driver';
-                const isAccepted = assignment.status === 'Accepted';
-                const isPending = assignment.status === 'Pending';
+                const isDriver = assignment.service_type === "Driver";
+                const isAccepted = assignment.status === "Accepted";
+                const isPending = assignment.status === "Pending";
+
+                // allow cancelling for Pending or Accepted (if you want only Accepted, change here)
+                const canCancel = (isPending || isAccepted) && assignment.status !== "Cancelled";
+                const isCancelling = cancellingAssignmentId === assignment.assignment_id;
 
                 return (
                     <View
                         key={assignment.assignment_id}
-                        className={`rounded-xl py-4 ${index < assignments.length - 1 ? 'mb-6' : ''}`}
+                        className={`rounded-xl py-4 ${index < assignments.length - 1 ? "mb-6" : ""}`}
                     >
                         {/* Header Row */}
                         <View className="flex-row items-start mb-3">
@@ -231,22 +285,20 @@ function ServiceSection({
                             {/* Status Badge or Chat Button */}
                             {isAccepted ? (
                                 <Pressable
-                                    onPress={() => handleStartConversation(
-                                        assignment.provider.provider_id,
-                                        assignment.provider.name,
-                                        assignment.assignment_id
-                                    )}
+                                    onPress={() =>
+                                        handleStartConversation(
+                                            assignment.provider.provider_id,
+                                            assignment.provider.name,
+                                            assignment.assignment_id
+                                        )
+                                    }
                                     disabled={startingChat === assignment.assignment_id}
                                     className="bg-gray-100 p-3 rounded-full"
                                 >
                                     {startingChat === assignment.assignment_id ? (
                                         <ActivityIndicator size="small" color="#1f2937" />
                                     ) : (
-                                        <Ionicons
-                                            name="chatbubble-ellipses-outline"
-                                            size={20}
-                                            color="#1f2937"
-                                        />
+                                        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#1f2937" />
                                     )}
                                 </Pressable>
                             ) : (
@@ -273,14 +325,12 @@ function ServiceSection({
                             </Pressable>
                         )}
 
+
+
                         {/* Meeting Points Section - Guide Only */}
                         {!isDriver && isAccepted && assignment.meeting_points.length > 0 && (
                             <View className="mt-12">
                                 {assignment.meeting_points.map((meetingPoint) => {
-                                    const hasGuideResponse = meetingPoint.guide_response !== null;
-                                    const isConfirmed = meetingPoint.status === 'confirmed';
-                                    const isPendingResponse = meetingPoint.status === 'pending';
-
                                     return (
                                         <View key={meetingPoint.id} className="mb-4">
                                             <View className="flex-row justify-between items-baseline mb-3">
@@ -304,11 +354,13 @@ function ServiceSection({
                                                 {meetingPoint.requested.latitude && meetingPoint.requested.longitude && (
                                                     <View className="flex-row items-center justify-center py-3 rounded-xl mt-2">
                                                         <Pressable
-                                                            onPress={() => handleOpenLocation(
-                                                                meetingPoint.requested.latitude!,
-                                                                meetingPoint.requested.longitude!,
-                                                                meetingPoint.requested.name
-                                                            )}
+                                                            onPress={() =>
+                                                                handleOpenLocation(
+                                                                    meetingPoint.requested.latitude!,
+                                                                    meetingPoint.requested.longitude!,
+                                                                    meetingPoint.requested.name
+                                                                )
+                                                            }
                                                             className="flex-row items-center gap-2"
                                                         >
                                                             <Ionicons name="map-outline" size={24} color="#4F46E5" />
@@ -324,7 +376,7 @@ function ServiceSection({
                         )}
 
                         {/* Decline Reason */}
-                        {assignment.status === 'Declined' && assignment.decline_reason && (
+                        {assignment.status === "Declined" && assignment.decline_reason && (
                             <View className="border-t border-gray-100 pt-3 mt-3">
                                 <Text className="text-xs font-onest text-black/50">
                                     Reason: {assignment.decline_reason}
@@ -336,10 +388,32 @@ function ServiceSection({
                         {isPending && (
                             <View className="border-t border-gray-100 pt-3 mt-3">
                                 <Text className="text-xs font-onest text-black/50">
-                                    Waiting for {isDriver ? 'driver' : 'guide'} to accept your request
+                                    Waiting for {isDriver ? "driver" : "guide"} to accept your request
                                 </Text>
                             </View>
                         )}
+                        {canCancel && (
+                            <Pressable
+                                onPress={() => confirmCancel(assignment.assignment_id, isDriver ? "driver" : "guide")}
+                                disabled={isCancelling}
+                                className="flex-row items-center  mt-24 justify-center bg-red-50 py-3 rounded-xl "
+                            >
+
+                                <Text className="font-onest-medium text-red-800 ml-2">
+                                    Cancel {isPending ? "request" : "booking"}
+                                </Text>
+                            </Pressable>
+                        )}
+                        {/* Trust Badge - Only show when there are assignments */}
+
+                        <View className="p-4 ">
+                            <View className="flex-row items-center justify-center mb-2"></View>
+                            <Text className="text-sm font-onest text-center text-black/50 leading-5">
+                                All tour guides and drivers on Itinera have been carefully vetted and verified to
+                                ensure professional, safe, and quality service for your travels.
+                            </Text>
+                        </View>
+
                     </View>
                 );
             })}

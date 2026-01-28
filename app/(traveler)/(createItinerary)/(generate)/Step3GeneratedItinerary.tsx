@@ -826,16 +826,16 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                       <Pressable
                         key={`food-${place.experience_id}-${idx}`}
                         style={{ width: FOOD_CARD_WIDTH }}
-                        className="mr-4 border border-gray-200 rounded-2xl bg-white overflow-hidden"
+                        className="mr-4  rounded-2xl  overflow-hidden"
                         android_ripple={{ color: "rgba(0,0,0,0.05)" }}
                         onPress={() => {
                           // Navigate to experience details (adjust path to match your app route if needed)
-                          router.push(`/experience/${place.experience_id}`);
+                          router.push(`/(experience)/${place.experience_id}`);
                         }}
                       >
                         {/* Image / Placeholder */}
                         {imageUri ? (
-                          <View className="h-48 bg-gray-100">
+                          <View className="h-40 bg-gray-100">
                             <Image
                               source={{ uri: imageUri }}
                               style={{ width: "100%", height: "100%" }}
@@ -843,7 +843,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
                             />
                           </View>
                         ) : (
-                          <View className="h-48 bg-gray-50 border-b border-gray-200 items-center justify-center">
+                          <View className="h-40 bg-gray-50 border-b border-gray-200 items-center justify-center">
                             <Ionicons
                               name="restaurant-outline"
                               size={20}

@@ -27,7 +27,7 @@ export function PlacesToEatSection({
     allFoodSuggestions,
     dayItems,
     onFoodPress,
-    maxSuggestions = 12,
+    maxSuggestions = 10,
     cardWidth = 240,
 }: PlacesToEatSectionProps) {
     // Filter suggestions relevant to the current day's activities
@@ -79,7 +79,7 @@ export function PlacesToEatSection({
     };
 
     // Filter suggestions within max distance
-    const MAX_DISTANCE_KM = 12;
+    const MAX_DISTANCE_KM = 5;
 
     const suggestionsWithDistance = useMemo(() => {
         return filteredSuggestions
@@ -146,3 +146,4 @@ function PlacesToEatEmptyState() {
 }
 
 export { PlacesToEatEmptyState };
+

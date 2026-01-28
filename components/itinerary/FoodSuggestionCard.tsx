@@ -137,17 +137,17 @@ export function FoodSuggestionCard({
                 </View>
             )}
             <Text
-                className="  text-black/90 mt-2 font-onest-medium"
+                className="  text-black/90 mt-2 font-onest-semibold"
                 numberOfLines={1}
             >
                 {name}
             </Text>
             {distanceKm != null && !!nearLabel && (
                 <Text
-                    className="text-xs font-onest mt-2 text-black/70"
-                    numberOfLines={1}
+                    className="text-sm font-onest mt-2 text-black/70 w-11/12"
+                    numberOfLines={2}
                 >
-                    {distanceKm.toFixed(1)} km from {nearLabel}
+                    <Text className="font-onest-semibold text-black/90">{distanceKm.toFixed(1)} km</Text> from {nearLabel}
                 </Text>
             )}
         </Pressable>

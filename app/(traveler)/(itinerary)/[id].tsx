@@ -70,13 +70,6 @@ export default function ItineraryDetailScreen() {
   } = useBookingPayments(itinerary?.itinerary_id);
 
 
-  useEffect(() => {
-    console.log('=== BOOKING PAYMENTS DEBUG ===');
-    console.log('itinerary_id:', itinerary?.itinerary_id);
-    console.log('paymentsLoading:', paymentsLoading);
-    console.log('bookingPayments:', bookingPayments);
-  }, [itinerary?.itinerary_id, paymentsLoading, bookingPayments]);
-
 
   const { refunds, refetch: refetchRefunds } = useRefunds(itinerary?.itinerary_id);
 
@@ -342,6 +335,7 @@ export default function ItineraryDetailScreen() {
             onNavigateBetween={navigateBetweenItems}
             onShowFoodStops={handleShowFoodStops}
             onRefresh={handleRefresh}
+            readOnly={false}
           />
         );
 

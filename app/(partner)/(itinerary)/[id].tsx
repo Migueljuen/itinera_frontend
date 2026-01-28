@@ -624,53 +624,6 @@ export default function GuideItineraryDetailScreen() {
       >
 
 
-        {/* Earnings Breakdown */}
-        <View className="mx-10 mt-12">
-          <Text className="text-2xl font-onest text-black/90 ">Earnings breakdown</Text>
-          <View className=" rounded-2xl overflow-hidden  mt-4">
-            {/* Gross Fee */}
-            <View className="flex-row justify-between items-center p-4 border-b border-gray-100">
-              <View className="flex-row items-center flex-1">
-
-                <View className="flex-1">
-                  <Text className="font-onest text-black/90">Service Fee</Text>
-                  <Text className="font-onest text-xs text-black/50">Gross amount</Text>
-                </View>
-              </View>
-              <Text className="font-onest text-black/90">
-                ₱{grossFee.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Platform Fee */}
-            <View className="flex-row justify-between items-center p-4 border-b border-gray-100">
-              <View className="flex-row items-center flex-1">
-
-                <View className="flex-1">
-                  <Text className="font-onest text-black/90">Platform Fee</Text>
-                  <Text className="font-onest text-xs text-black/50">{platformFeePercentage}% service charge</Text>
-                </View>
-              </View>
-              <Text className="font-onest text-amber-600">
-                -₱{platformFee.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Net Earnings */}
-            <View className="flex-row justify-between items-center p-4 ">
-              <View className="flex-row items-center flex-1">
-
-                <View className="flex-1">
-                  <Text className="font-onest text-black/90">Net Earnings</Text>
-                  <Text className="font-onest text-xs text-black/50">Amount you'll receive</Text>
-                </View>
-              </View>
-              <Text className="font-onest text-green-600 text-lg">
-                ₱{netEarningsAmount.toLocaleString()}
-              </Text>
-            </View>
-          </View>
-        </View>
 
         {/* Traveler Payment Breakdown */}
         {earnings?.traveler_payment && (
@@ -749,19 +702,7 @@ export default function GuideItineraryDetailScreen() {
         </View>
 
 
-        {/* Info Note */}
-        <View className="mx-10 mt-12 mb-6">
-          <View className="bg-blue-50 rounded-xl p-4 flex-row">
-            <Ionicons name="information-circle-outline" size={20} color="#3b82f6" />
-            <View className="flex-1 ml-3">
-              <Text className="font-onest-medium text-blue-800 mb-1">About Platform Fees</Text>
-              <Text className="font-onest text-xs text-blue-700 leading-5">
-                A {platformFeePercentage}% platform fee is deducted from each booking to cover payment processing,
-                platform maintenance, and customer support services.
-              </Text>
-            </View>
-          </View>
-        </View>
+
       </ScrollView>
     );
   };
@@ -782,6 +723,8 @@ export default function GuideItineraryDetailScreen() {
             onNavigateSingle={handleSingleNavigation}
             onNavigateBetween={navigateBetweenItems}
             onShowFoodStops={() => { }}
+            readOnly={true}
+
           />
         );
       case 'earnings':
