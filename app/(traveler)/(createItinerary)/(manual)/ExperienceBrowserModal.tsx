@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -52,6 +52,12 @@ interface Experience {
     location: string;
     tags: string[];
     images: string[];
+
+
+    category_id?: number | null;
+    category_name?: string | null;
+    category_ids?: number[];
+    is_food?: boolean;
 }
 
 // ✅ Add capacity fields to match backend
@@ -115,9 +121,12 @@ const formatTime = (timeString: string) => {
     return `${formattedHour}:${minutes} ${ampm}`;
 };
 
-const convertToFormTimeFormat = (timeString: string) => {
-    const [hours, minutes] = timeString.split(":");
-    return `${hours}:${minutes}`;
+const toHHmmss = (timeString: string) => {
+    const parts = timeString.split(":");
+    const hh = (parts[0] ?? "00").padStart(2, "0");
+    const mm = (parts[1] ?? "00").padStart(2, "0");
+    const ss = (parts[2] ?? "00").padStart(2, "0");
+    return `${hh}:${mm}:${ss}`; // always HH:mm:ss
 };
 
 const timeToMinutes = (timeString: string) => {
@@ -153,6 +162,12 @@ const toYYYYMMDD = (d: Date) => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
+// Format day numbers for display (e.g., "Day 1", "Days 1, 3")
+const formatAddedDays = (days: number[]): string => {
+    if (days.length === 1) return `Added in Day ${days[0]}`;
+    return `Added in Days ${days.join(", ")}`;
+};
+
 // --------------------
 // Main Component
 // --------------------
@@ -176,7 +191,16 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
 
     // ✅ Cache slots by experience + date: key = `${experienceId}|${YYYY-MM-DD}`
     const [slotsCache, setSlotsCache] = useState<Record<string, TimeSlot[]>>({});
-    const [loadingAvailabilityKey, setLoadingAvailabilityKey] = useState<string | null>(null);
+
+    // ✅ allow multiple concurrent loads (prefetch batching)
+    const [loadingAvailabilityKeys, setLoadingAvailabilityKeys] = useState<Record<string, boolean>>({});
+
+    // ✅ used to show "checking availability..." and avoid race conditions
+    const prefetchSeq = useRef(0);
+    const [prefetchStatus, setPrefetchStatus] = useState<{
+        date: string | null;
+        status: "idle" | "loading" | "done";
+    }>({ date: null, status: "idle" });
 
     const handleViewExperience = (experienceId: number) => {
         onViewExperience(experienceId);
@@ -200,9 +224,16 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         return new Set(existingItemsForDay.map((item) => item.experience_id));
     }, [existingItemsForDay]);
 
-    const filteredExperiences = useMemo(() => {
-        return experiences.filter((exp) => !addedExperienceIds.has(exp.id));
-    }, [experiences, addedExperienceIds]);
+    // Track which days each experience has been added to (across ALL days)
+    const experienceDaysMap = useMemo(() => {
+        const map = new Map<number, number[]>();
+        for (const item of existingItems) {
+            const days = map.get(item.experience_id) || [];
+            if (!days.includes(item.day_number)) days.push(item.day_number);
+            map.set(item.experience_id, days.sort((a, b) => a - b));
+        }
+        return map;
+    }, [existingItems]);
 
     useEffect(() => {
         fetchExperiences();
@@ -228,18 +259,35 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             setLoading(false);
         }
     };
+    //  helper: detect food PER EXPERIENCE (works even when selectedFilter = "all")
+    const isFoodExperience = (exp: Experience) => {
+        const cn = (exp.category_name ?? "").toLowerCase();
+        if (cn.includes("food") || cn.includes("drink")) return true;
 
-    // ✅ Fetch availability for THIS selected date only (so no duplicates)
+        // if your backend doesn't send category_name, fallback to tags
+        const tags = Array.isArray(exp.tags) ? exp.tags : [];
+        return tags.some((t) => /food|drink|restaurant|cafe|bar/i.test(t));
+    };
+
+    //  hide capacity text for category_id=3 OR food
+    const shouldShowCapacityInfo = (exp: Experience) => {
+        const ids = exp.category_ids ?? [];
+        const isFood = exp.is_food === true || ids.includes(3);
+        return !isFood; // hide for food/category_id=3
+    };
+
+
+
+    //  Fetch availability for THIS selected date only (so no duplicates)
     const fetchAvailabilityForSelectedDate = async (experienceId: number) => {
         if (!selectedDayDate || !selectedDateStr) return;
 
         const cacheKey = `${experienceId}|${selectedDateStr}`;
-        if (slotsCache[cacheKey]) return;
+        if (slotsCache[cacheKey] !== undefined) return; // already fetched (including empty)
 
         try {
-            setLoadingAvailabilityKey(cacheKey);
+            setLoadingAvailabilityKeys((prev) => ({ ...prev, [cacheKey]: true }));
 
-            // ✅ use the same endpoint style as AvailabilityCalendar
             const resp = await axios.get(
                 `${API_URL}/experience/availability/${experienceId}?date=${encodeURIComponent(selectedDateStr)}`
             );
@@ -253,9 +301,50 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             console.error("Error fetching availability:", err);
             setSlotsCache((prev) => ({ ...prev, [cacheKey]: [] }));
         } finally {
-            setLoadingAvailabilityKey(null);
+            setLoadingAvailabilityKeys((prev) => {
+                const next = { ...prev };
+                delete next[cacheKey];
+                return next;
+            });
         }
     };
+
+    //  Prefetch all availability for the selected date so we can FILTER the list
+    useEffect(() => {
+        if (!selectedDateStr || !selectedDayDate) {
+            setPrefetchStatus({ date: null, status: "idle" });
+            return;
+        }
+
+        // collapse expanded view when switching day (prevents showing stale UI)
+        setExpandedExperienceId(null);
+
+        const seq = ++prefetchSeq.current;
+        setPrefetchStatus({ date: selectedDateStr, status: "loading" });
+
+        const run = async () => {
+            // only prefetch for experiences we could show (not already added on THIS day)
+            const candidates = experiences.filter((exp) => !addedExperienceIds.has(exp.id));
+
+            // batch to avoid spamming your API
+            const batchSize = 6;
+
+            for (let i = 0; i < candidates.length; i += batchSize) {
+                const batch = candidates.slice(i, i + batchSize);
+                await Promise.all(batch.map((exp) => fetchAvailabilityForSelectedDate(exp.id)));
+
+                // if user changed date/filter while we were fetching
+                if (prefetchSeq.current !== seq) return;
+            }
+
+            if (prefetchSeq.current === seq) {
+                setPrefetchStatus({ date: selectedDateStr, status: "done" });
+            }
+        };
+
+        run();
+        // rerun when experiences list changes (filter/city) or date changes
+    }, [selectedDateStr, selectedDayDate, selectedDayOfWeek, experiences, addedExperienceIds]);
 
     const handleExperiencePress = async (experienceId: number) => {
         if (expandedExperienceId === experienceId) {
@@ -267,18 +356,18 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     };
 
     const getTimeSlotConflict = (startTime: string, endTime: string): ItineraryItem | null => {
-        const formattedStart = convertToFormTimeFormat(startTime);
-        const formattedEnd = convertToFormTimeFormat(endTime);
+        const formattedStart = toHHmmss(startTime);
+        const formattedEnd = toHHmmss(endTime);
 
         for (const item of existingItemsForDay) {
-            if (hasTimeConflict(formattedStart, formattedEnd, item.start_time, item.end_time)) {
+            if (hasTimeConflict(formattedStart, formattedEnd, toHHmmss(item.start_time), toHHmmss(item.end_time))) {
                 return item;
             }
         }
         return null;
     };
 
-    // ✅ show "slots left"
+    // ✅ show "slots left" (display helper only)
     const renderSlotsLeft = (slot: TimeSlot) => {
         const remaining = slot.remaining_guests;
         if (remaining === null || remaining === undefined) return null;
@@ -289,15 +378,18 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
     };
 
     const handleAddTimeSlot = (experience: Experience, slot: TimeSlot) => {
+        if (!slot.slot_id) {
+            console.warn("Selected slot has no slot_id", slot);
+            return;
+        }
+
         const newItem: ItineraryItem = {
             experience_id: experience.id,
             day_number: selectedDayNumber,
-
-            // ✅ include slot_id for capacity reservation in saveItinerary/createItinerary
             slot_id: slot.slot_id,
+            start_time: toHHmmss(slot.start_time),
+            end_time: toHHmmss(slot.end_time),
 
-            start_time: convertToFormTimeFormat(slot.start_time),
-            end_time: convertToFormTimeFormat(slot.end_time),
             price: parseFloat(experience.price) || 0,
             unit: experience.unit,
             experience_name: experience.title,
@@ -318,17 +410,54 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
         return sortTimeSlots(slotsCache[key] || []);
     };
 
-    const renderExperienceCard = ({ item }: { item: Experience }) => {
-        const isExpanded = expandedExperienceId === item.id;
-        const availableSlots = getAvailableSlotsForSelectedDate(item.id);
+    // ✅ OPTIONAL: treat "bookable" as having at least one slot with enough remaining capacity
+    const hasAtLeastOneBookableSlot = (slots: TimeSlot[]) => {
+        if (!slots || slots.length === 0) return false;
 
-        const cacheKey = selectedDateStr ? `${item.id}|${selectedDateStr}` : null;
-        const isLoadingSlots = !!cacheKey && loadingAvailabilityKey === cacheKey;
+        return slots.some((s) => {
+            const remaining = s.remaining_guests;
+            if (remaining === null || remaining === undefined) return true; // unknown capacity => keep it
+            const n = Number(remaining);
+            if (!Number.isFinite(n)) return true;
+            return n > 0 && travelerCount <= n;
+        });
+    };
+
+    // ✅ FINAL list:
+    // - remove ones already added on THIS day
+    // - if a date is selected AND prefetch is done => only show experiences that have slots on that day (and optionally capacity)
+    const visibleExperiences = useMemo(() => {
+        const base = experiences.filter((exp) => !addedExperienceIds.has(exp.id));
+
+        if (!selectedDateStr) return base;
+
+        // while still checking availability, don't filter yet (we show a loader anyway)
+        if (prefetchStatus.date !== selectedDateStr || prefetchStatus.status !== "done") return base;
+
+        return base.filter((exp) => {
+            const key = `${exp.id}|${selectedDateStr}`;
+            const slots = slotsCache[key] || [];
+            return hasAtLeastOneBookableSlot(slots);
+        });
+    }, [experiences, addedExperienceIds, selectedDateStr, prefetchStatus, slotsCache, travelerCount]);
+
+    const renderExperienceCard = ({ item: experience }: { item: Experience }) => {
+        const isExpanded = expandedExperienceId === experience.id;
+        const availableSlots = getAvailableSlotsForSelectedDate(experience.id);
+
+        const cacheKey = selectedDateStr ? `${experience.id}|${selectedDateStr}` : null;
+        const isLoadingSlots = !!cacheKey && !!loadingAvailabilityKeys[cacheKey];
         const hasFetched = !!cacheKey && slotsCache[cacheKey] !== undefined;
+
+        // Check if this experience is added on other days
+        const addedOnDays = experienceDaysMap.get(experience.id) || [];
+        const isAddedOnOtherDays = addedOnDays.length > 0;
+
+        const showCapacityInfo = shouldShowCapacityInfo(experience);
 
         return (
             <Pressable
-                onPress={() => handleViewExperience(item.id)}
+                onPress={() => handleViewExperience(experience.id)}
                 className="bg-white rounded-xl mb-4 overflow-hidden"
                 style={{
                     shadowColor: "#000",
@@ -340,11 +469,37 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
             >
                 {/* Image */}
                 <View className="h-72">
-                    {item.images && item.images.length > 0 ? (
-                        <Image source={{ uri: `${API_URL}/${item.images[0]}` }} className="w-full h-full" resizeMode="cover" />
+                    {experience.images && experience.images.length > 0 ? (
+                        <Image
+                            source={{ uri: `${API_URL}/${experience.images[0]}` }}
+                            className="w-full h-full"
+                            resizeMode="cover"
+                        />
                     ) : (
                         <View className="w-full h-full bg-gray-200 items-center justify-center">
                             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+                        </View>
+                    )}
+
+                    {/* Added indicator badge - positioned on the image */}
+                    {isAddedOnOtherDays && (
+                        <View
+                            style={{
+                                position: "absolute",
+                                top: 12,
+                                left: 12,
+                                backgroundColor: "#3B82F6",
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 20,
+                                flexDirection: "row",
+                                alignItems: "center",
+                            }}
+                        >
+                            <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={{ color: "#FFFFFF", fontSize: 12, fontFamily: "Onest-Medium" }}>
+                                {formatAddedDays(addedOnDays)}
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -352,28 +507,31 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                 {/* Content */}
                 <View className="p-4">
                     <Text className="font-onest-semibold text-lg text-black/90" numberOfLines={2}>
-                        {item.title}
+                        {experience.title}
                     </Text>
 
                     <View className="flex-row items-center mt-2">
                         <Ionicons name="location-outline" size={14} color="#6B7280" />
                         <Text className="text-black/50 font-onest text-sm ml-1" numberOfLines={1}>
-                            {item.location}, {item.destination_name}
+                            {experience.location}, {experience.destination_name}
                         </Text>
                     </View>
 
                     <View className="flex-row items-center justify-between mt-3">
-                        {item.price && item.price !== "0" && (
+                        {experience.price && experience.price !== "0" && (
                             <Text className="text-black/70 font-onest-medium">
-                                From ₱{parseFloat(item.price).toLocaleString()}{" "}
-                                <Text className="text-black/40 font-onest">/ {item.unit}</Text>
+                                From ₱{parseFloat(experience.price).toLocaleString()}{" "}
+                                <Text className="text-black/40 font-onest">/ {experience.unit}</Text>
                             </Text>
                         )}
+                        <Text className="text-black/70   font-onest-medium">
+
+                        </Text>
 
                         <Pressable
                             onPress={(e) => {
                                 e.stopPropagation();
-                                handleExperiencePress(item.id);
+                                handleExperiencePress(experience.id);
                             }}
                             className="flex-row items-center"
                             hitSlop={10}
@@ -400,33 +558,34 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         ) : isLoadingSlots ? (
                             <View className="py-4 items-center">
                                 <ActivityIndicator size="small" color="#3B82F6" />
-                                <Text className="text-black/50 font-onest text-sm mt-2">
-                                    Loading availability...
-                                </Text>
+                                <Text className="text-black/50 font-onest text-sm mt-2">Loading availability...</Text>
                             </View>
                         ) : availableSlots.length > 0 ? (
                             <View>
                                 {availableSlots.map((slot, idx) => {
-                                    const remaining = Number(slot.remaining_guests ?? 0);
+                                    // ✅ keep capacity logic even if we hide the text
+                                    const remainingRaw = slot.remaining_guests;
+                                    const remainingNum =
+                                        remainingRaw === null || remainingRaw === undefined ? null : Number(remainingRaw);
+                                    const hasKnownRemaining = remainingNum !== null && Number.isFinite(remainingNum);
 
-                                    // ✅ disable if travelerCount > remaining (but only if remaining is a valid number)
+                                    const isFull = hasKnownRemaining ? remainingNum! <= 0 : false;
                                     const exceedsCapacity =
-                                        Number.isFinite(remaining) && remaining > 0 && travelerCount > remaining;
+                                        hasKnownRemaining && remainingNum! > 0 && travelerCount > remainingNum!;
 
                                     const conflictingItem = getTimeSlotConflict(slot.start_time, slot.end_time);
                                     const hasConflict = conflictingItem !== null;
 
-                                    const slotsLeftText = renderSlotsLeft(slot);
-                                    const isFull = slotsLeftText === "Full";
+                                    const slotsLeftText = showCapacityInfo ? renderSlotsLeft(slot) : null;
 
                                     const isDisabled = hasConflict || isFull || exceedsCapacity;
 
-                                    const slotPrice = parseFloat(item.price) || 0;
+                                    const slotPrice = parseFloat(experience.price) || 0;
 
                                     return (
                                         <TouchableOpacity
                                             key={`${slot.slot_id ?? "slot"}-${idx}`}
-                                            onPress={() => !isDisabled && handleAddTimeSlot(item, slot)}
+                                            onPress={() => !isDisabled && handleAddTimeSlot(experience, slot)}
                                             disabled={isDisabled}
                                             activeOpacity={0.8}
                                             style={{
@@ -455,22 +614,10 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                             justifyContent: "space-between",
                                                         }}
                                                     >
-                                                        <View
-                                                            style={{
-                                                                flexDirection: "row",
-                                                                alignItems: "center",
-                                                                flexShrink: 1,
-                                                            }}
-                                                        >
+                                                        <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}>
                                                             {(hasConflict || isFull || exceedsCapacity) && (
                                                                 <Ionicons
-                                                                    name={
-                                                                        hasConflict
-                                                                            ? "alert-circle"
-                                                                            : isFull
-                                                                                ? "close-circle"
-                                                                                : "people"
-                                                                    }
+                                                                    name={hasConflict ? "alert-circle" : isFull ? "close-circle" : "people"}
                                                                     size={16}
                                                                     color="#9CA3AF"
                                                                     style={{ marginRight: 6 }}
@@ -490,6 +637,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                             </Text>
                                                         </View>
 
+                                                        {/* ✅ HIDE SLOTS LEFT for category_id=3 OR food */}
                                                         {!!slotsLeftText && (
                                                             <Text
                                                                 style={{
@@ -504,7 +652,6 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                         )}
                                                     </View>
 
-                                                    {/* price line */}
                                                     {slotPrice > 0 && (
                                                         <Text
                                                             style={{
@@ -514,11 +661,10 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                                 marginTop: 2,
                                                             }}
                                                         >
-                                                            {formatPrice(slotPrice)} / {item.unit}
+                                                            {formatPrice(slotPrice)} / {experience.unit}
                                                         </Text>
                                                     )}
 
-                                                    {/* conflict/full/over-capacity line */}
                                                     {hasConflict && (
                                                         <Text
                                                             style={{
@@ -541,6 +687,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                                 marginTop: 6,
                                                             }}
                                                         >
+                                                            {/* If you want it totally neutral, change to "This slot is unavailable" */}
                                                             This slot is currently full
                                                         </Text>
                                                     )}
@@ -554,14 +701,15 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                                                                 marginTop: 6,
                                                             }}
                                                         >
-                                                            Needs {travelerCount} slots • only {remaining} left
+                                                            {/* ✅ no counts when capacity text is hidden */}
+                                                            {showCapacityInfo && hasKnownRemaining
+                                                                ? `Needs ${travelerCount} slots • only ${remainingNum} left`
+                                                                : "Not enough capacity for your group"}
                                                         </Text>
                                                     )}
                                                 </View>
 
-                                                {!isDisabled && (
-                                                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                                                )}
+                                                {!isDisabled && <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
                                             </View>
                                         </TouchableOpacity>
                                     );
@@ -584,10 +732,12 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         )}
                     </View>
                 )}
-
             </Pressable>
         );
     };
+
+    const availabilityFiltering =
+        !!selectedDateStr && prefetchStatus.date === selectedDateStr && prefetchStatus.status === "loading";
 
     return (
         <View
@@ -601,7 +751,7 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         <Text className="text-2xl font-onest-semibold text-black/90">Browse activities</Text>
                         {selectedDayDate && (
                             <Text className="text-black/50 font-onest mt-1">
-                                Day {selectedDayNumber} · {formatDate(selectedDayDate)}
+                                Day {selectedDayNumber} · {formatDate(selectedDayDate)} · showing available only
                             </Text>
                         )}
                     </View>
@@ -616,7 +766,8 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         <TouchableOpacity
                             key={filter.key}
                             onPress={() => setSelectedFilter(filter.key)}
-                            className={`mr-2 px-4 py-2 rounded-full ${selectedFilter === filter.key ? "bg-blue-500" : "bg-gray-100"}`}
+                            className={`mr-2 px-4 py-2 rounded-full ${selectedFilter === filter.key ? "bg-blue-500" : "bg-gray-100"
+                                }`}
                             activeOpacity={0.7}
                         >
                             <Text
@@ -644,21 +795,34 @@ const ExperienceBrowserModal: React.FC<ExperienceBrowserModalProps> = ({
                         <Text className="text-white font-onest-medium">Try Again</Text>
                     </TouchableOpacity>
                 </View>
-            ) : filteredExperiences.length === 0 ? (
+            ) : availabilityFiltering ? (
                 <View className="flex-1 items-center justify-center px-6">
-                    <Ionicons name="checkmark-circle-outline" size={48} color="#10B981" />
+                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <Text className="text-black/50 font-onest mt-4 text-center">
+                        Checking availability for {selectedDayDate ? formatDate(selectedDayDate) : "selected day"}...
+                    </Text>
+                </View>
+            ) : visibleExperiences.length === 0 ? (
+                <View className="flex-1 items-center justify-center px-6">
+                    <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
                     <Text className="text-black/70 font-onest-medium text-center mt-4">
-                        {experiences.length > 0 ? "All available experiences have been added!" : "No experiences found"}
+                        {selectedDayDate
+                            ? `No available activities on ${formatDate(selectedDayDate)}`
+                            : experiences.length > 0
+                                ? "All available experiences have been added!"
+                                : "No experiences found"}
                     </Text>
                     <Text className="text-black/40 font-onest text-center mt-2">
-                        {experiences.length > 0
-                            ? "Try a different filter or go back to view your itinerary"
-                            : "Try a different filter or check back later"}
+                        {selectedDayDate
+                            ? "Try another day or change the filter."
+                            : experiences.length > 0
+                                ? "Try a different filter or go back to view your itinerary"
+                                : "Try a different filter or check back later"}
                     </Text>
                 </View>
             ) : (
                 <FlatList
-                    data={filteredExperiences}
+                    data={visibleExperiences}
                     renderItem={renderExperienceCard}
                     keyExtractor={(item) => item.id.toString()}
                     contentContainerStyle={{ padding: 16 }}

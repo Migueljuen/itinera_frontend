@@ -31,6 +31,7 @@ export default function GuideLayout() {
         }}
       />
       <Stack.Screen name="(profile)" options={{ headerShown: false }} />
+      <Stack.Screen name="(subscription)" options={{ headerShown: false }} />
       <Stack.Screen name="(conversations)" options={{ headerShown: false }} />
       <Stack.Screen name="(vehicles)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

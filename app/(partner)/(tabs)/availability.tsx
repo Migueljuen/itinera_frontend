@@ -736,7 +736,7 @@ export default function PartnerAvailability() {
                                             display={Platform.OS === "ios" ? "inline" : "default"}
                                             minimumDate={new Date()}
                                             onChange={onDatePickerChange}
-                                            // ✅ key fixes:
+
                                             themeVariant="light"                 // iOS/Android (where supported)
                                             textColor="#111827"                  // iOS only
                                             style={{ backgroundColor: "#FFFFFF" }} // helps if picker background is transparent

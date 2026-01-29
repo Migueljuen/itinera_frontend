@@ -92,9 +92,12 @@ interface ItineraryFormData {
         experiences: any[];
         travelerCount: number;
         travelCompanions?: any[];
+        includeFoodSuggestions?: boolean,
+
     };
     tourGuide?: TourGuide | null;
     carService?: CarService | null;
+    foodSuggestions?: any[]
 }
 
 // --------------------
@@ -119,11 +122,14 @@ const ManualItineraryForm: React.FC = () => {
         notes: "Add notes here...",
         city: "",
         items: [],
+        foodSuggestions: [],
         preferences: {
             experiences: [],
             travelerCount: 1,
             travelCompanions: [],
+            includeFoodSuggestions: false,
         },
+
     });
 
     // --------------------

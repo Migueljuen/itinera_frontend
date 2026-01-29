@@ -12,7 +12,7 @@ import Step02Verification from "./steps/Step02Verification";
 import Step03Driver from "./steps/Step03Driver";
 import Step03Guide from "./steps/Step03Guide";
 import Step04ReviewSubmit from "./steps/Step04ReviewSubmit";
-import Step04VehicleDetails from "./steps/Step04VehicleDetails"; // ✅ NEW
+import Step04VehicleDetails from "./steps/Step04VehicleDetails";
 
 import API_URL from "../../../constants/api";
 
@@ -55,13 +55,20 @@ export type PartnerOnboardingFormData = {
   // verification
   id_document: UploadAsset | null;
 
+  // ✅ NEW: Registration payment fields (all roles)
+  gcash_reference: string;
+  registration_payment_proof: UploadAsset | null;
+
+  // ✅ NEW: Business permit (Creator only)
+  business_permit_document: UploadAsset | null;
+
   // driver_profiles
   service_area: string;
   is_multi_day: boolean;
   driver_availability_days: DayOfWeek[];
   license_document: UploadAsset | null;
 
-  // driver_vehicles ✅ NEW
+  // driver_vehicles
   vehicle_plate_number: string;
   vehicle_type: string;
   vehicle_brand: string;
@@ -88,11 +95,11 @@ export default function PartnerOnboardingForm() {
   const router = useRouter();
   const [step, setStep] = useState<number>(0);
 
-  // ✅ Step mapping:
+  // Step mapping:
   // 0 Role
   // 1 Requirements
   // 2 Partner Info
-  // 3 Verification (ID + Selfie, license/cert if needed)
+  // 3 Verification (ID + Selfie + Payment, license/cert if needed)
   // 4 Role-specific (Guide/Driver) OR skipped for Creator
   // 5 Vehicle details (Driver only)
   // 6 Review/Submit
@@ -116,6 +123,11 @@ export default function PartnerOnboardingForm() {
 
     creator_role_label: "",
     id_document: null,
+
+    // ✅ NEW: Registration payment defaults
+    gcash_reference: "",
+    registration_payment_proof: null,
+    business_permit_document: null,
 
     service_area: "",
     is_multi_day: false,
@@ -227,10 +239,21 @@ export default function PartnerOnboardingForm() {
       fd.append("password", formData.password);
       fd.append("timezone", formData.timezone);
 
+      // ✅ NEW: Registration payment ref (all roles)
+      fd.append("gcash_reference", (formData.gcash_reference || "").trim());
+
       // Files (all roles)
       appendFile(fd, "profile_pic", formData.profile_pic);
       appendFile(fd, "id_document", formData.id_document);
       appendFile(fd, "selfie_document", formData.selfie_document);
+
+      // ✅ NEW: Registration payment proof (all roles)
+      appendFile(fd, "registration_payment_proof", formData.registration_payment_proof);
+
+      // Creator-specific
+      if (formData.creator_role === "Creator") {
+        appendFile(fd, "business_permit_document", formData.business_permit_document);
+      }
 
       // Driver role-specific
       if (formData.creator_role === "Driver") {
@@ -239,7 +262,7 @@ export default function PartnerOnboardingForm() {
         fd.append("availability_days", JSON.stringify(formData.driver_availability_days));
         appendFile(fd, "license_document", formData.license_document);
 
-        // ✅ Vehicle fields
+        // Vehicle fields
         fd.append("vehicle_plate_number", formData.vehicle_plate_number);
         fd.append("vehicle_type", formData.vehicle_type);
         fd.append("vehicle_brand", formData.vehicle_brand);
@@ -272,7 +295,10 @@ export default function PartnerOnboardingForm() {
       toast.dismiss(toastId);
 
       if (response.ok) {
-        toast.success(result?.message || "Registration successful! Application submitted.");
+        toast.success(
+          result?.message ||
+          "Registration successful! Your application and payment proof have been submitted for verification."
+        );
         setTimeout(() => router.replace("/"), 1200);
       } else {
         toast.error(result?.message || "Registration failed. Please try again.");
@@ -351,7 +377,7 @@ export default function PartnerOnboardingForm() {
         return null;
 
       case 5:
-        // ✅ Driver-only vehicle step
+        // Driver-only vehicle step
         if (formData.creator_role === "Driver") {
           return (
             <Step04VehicleDetails

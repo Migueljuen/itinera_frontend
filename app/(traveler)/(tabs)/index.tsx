@@ -30,6 +30,7 @@ type Experience = {
   location: string;
   tags: string[];
   images: string[];
+  is_pro_creator?: boolean;
 };
 
 interface Conversation {
@@ -54,6 +55,7 @@ const App = () => {
   const [tomorrowExperiences, setTomorrowExperiences] = useState<Experience[]>([]);
   const [popularExperiences, setPopularExperiences] = useState<Experience[]>([]);
   const [todayExperiences, setTodayExperiences] = useState<Experience[]>([]);
+  const [featuredExperiences, setFeaturedExperiences] = useState<Experience[]>([]);
 
   // Unread messages state
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0);
@@ -121,6 +123,17 @@ const App = () => {
     }
   };
 
+  const fetchFeaturedExperiences = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/experience/active?filter=featured&limit=10`
+      );
+      setFeaturedExperiences(response.data);
+    } catch (error) {
+      console.error("Error fetching featured experiences:", error);
+    }
+  };
+
   const addToRecentlyViewed = async (experienceId: number) => {
     try {
       const viewed = await AsyncStorage.getItem("recentlyViewed");
@@ -181,13 +194,13 @@ const App = () => {
     }
   };
 
-  // ============ LOAD ALL DATA ============
   const loadAllSections = async () => {
     setLoading(true);
     try {
       await Promise.all([
         fetchUserData(),
         fetchRecentlyViewed(),
+        fetchFeaturedExperiences(),
         fetchWeekendExperiences(),
         fetchTomorrowExperiences(),
         fetchTodayExperiences(),
@@ -255,18 +268,17 @@ const App = () => {
     setRefreshing(false);
   };
 
-  // ============ EXPERIENCE CARD COMPONENT ============
+
   const ExperienceCard = ({ item }: { item: Experience }) => (
     <Pressable
       onPress={() => {
         addToRecentlyViewed(item.id);
         router.push(`/(experience)/${item.id}`);
       }}
-      className="mr-4 "
+      className="mr-4"
       style={{ width: 240 }}
     >
       <View
-        className=" "
         style={{
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
@@ -275,7 +287,7 @@ const App = () => {
           elevation: 3,
         }}
       >
-        <View className="h-48 rounded-2xl overflow-hidden">
+        <View className="h-48 rounded-2xl overflow-hidden relative">
           {item.images && item.images.length > 0 ? (
             <Image
               source={{ uri: `${API_URL}/${item.images[0]}` }}
@@ -285,6 +297,16 @@ const App = () => {
           ) : (
             <View className="w-full h-full bg-gray-200 items-center justify-center">
               <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+            </View>
+          )}
+
+          {/* Pro Creator Badge */}
+          {item.is_pro_creator && (
+            <View className="absolute top-3 left-3 flex-row items-center bg-amber-500 px-2.5 py-1.5 rounded-full">
+              <Ionicons name="flame" size={14} color="#fbfbfe" />
+              <Text className="text-white text-xs font-onest-semibold ml-1">
+                Featured
+              </Text>
             </View>
           )}
         </View>
@@ -305,7 +327,7 @@ const App = () => {
 
             if (priceNum != null && !Number.isNaN(priceNum) && priceNum > 0) {
               return (
-                <Text className="text-black/70 font-onest  text-sm ">
+                <Text className="text-black/70 font-onest text-sm">
                   From ₱{priceNum.toLocaleString()} {item.unit ? `/ person` : ""}
                 </Text>
               );
@@ -313,7 +335,7 @@ const App = () => {
 
             if (item.price_estimate) {
               return (
-                <Text className="text-black/60 font-onest text-sm  ">
+                <Text className="text-black/60 font-onest text-sm">
                   Around ₱{item.price_estimate}
                 </Text>
               );
@@ -471,6 +493,22 @@ const App = () => {
           />
         )}
 
+        {/* Featured Experiences */}
+        {featuredExperiences.length > 0 && (
+          <Section
+            title="Featured"
+            data={featuredExperiences}
+            onSeeAll={() =>
+              router.push({
+                pathname: "/(traveler)/(experience)/see-all",
+                params: {
+                  filter: "featured",
+                  title: "Featured",
+                },
+              })
+            }
+          />
+        )}
         {/* Happening Today */}
         <Section
           title="Happening Today"

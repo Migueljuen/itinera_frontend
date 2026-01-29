@@ -1,3 +1,5 @@
+
+
 import { ItineraryFormData } from "@/types/itineraryTypes";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
@@ -111,12 +113,43 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * ✅ Filter out food/category_id=3 items for THIS screen + saving
+   * Works if you pass `category_id` in items.
+   * Falls back to category_name/tags if present.
+   */
+  const isFoodOrCategory3Item = (item: any) => {
+    const cid = item?.category_id;
+    if (cid !== null && typeof cid !== "undefined") {
+      return Number(cid) === 3;
+    }
+
+    const cname = String(item?.category_name || "").toLowerCase();
+    if (cname.includes("food") || cname.includes("drink")) return true;
+
+    const rawTags = item?.tags;
+    const tagsArr = Array.isArray(rawTags)
+      ? rawTags
+      : typeof rawTags === "string"
+        ? rawTags.split(",")
+        : [];
+    if (tagsArr.some((t: any) => /food|drink|restaurant|cafe|bar/i.test(String(t)))) return true;
+
+    return false;
+  };
+
+  // ✅ Use filtered activities everywhere in this screen
+  const nonFoodItems = useMemo(() => {
+    const items = (formData.items || []) as any[];
+    return items.filter((it) => !isFoodOrCategory3Item(it));
+  }, [formData.items]);
+
   const fetchGuides = async () => {
     setLoadingGuides(true);
     try {
       const params = new URLSearchParams();
 
-      if (formData.city) params.append("city", formData.city);
+      if ((formData as any).city) params.append("city", (formData as any).city);
       if (formData.start_date) params.append("start_date", formData.start_date);
       if (formData.end_date) params.append("end_date", formData.end_date);
 
@@ -140,7 +173,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       const params = new URLSearchParams();
       params.append("capacity", String(capacity));
 
-
       if (formData.start_date) params.append("start_date", formData.start_date);
       if (formData.end_date) params.append("end_date", formData.end_date);
 
@@ -156,45 +188,35 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
     }
   };
 
-
-
   const totalDays = useMemo(() => {
     if (!formData.start_date || !formData.end_date) return 0;
     const start = new Date(formData.start_date);
     const end = new Date(formData.end_date);
-    return (
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    );
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   }, [formData.start_date, formData.end_date]);
 
-  const guideCost = selectedGuide
-    ? formatPrice(selectedGuide.price_per_day) * totalDays
-    : 0;
-  const carCost = selectedCar
-    ? formatPrice(selectedCar.price_per_day) * totalDays
-    : 0;
+  const guideCost = selectedGuide ? formatPrice(selectedGuide.price_per_day) * totalDays : 0;
+  const carCost = selectedCar ? formatPrice(selectedCar.price_per_day) * totalDays : 0;
   const additionalCost = guideCost + carCost;
   const travelerCount = formData.preferences?.travelerCount || 1;
 
+  // ✅ Total cost ONLY from non-food items
   const totalActivityCost = useMemo(() => {
-    if (!formData.items) return 0;
-    return formData.items.reduce((sum, item) => {
+    return (nonFoodItems || []).reduce((sum, item: any) => {
       const price = Number(item.price || 0);
       if (price <= 0) return sum;
-      if (
-        item.unit?.toLowerCase() === "entry" ||
-        item.unit?.toLowerCase() === "person"
-      ) {
-        return sum + price * travelerCount;
-      }
+
+      const unit = String(item.unit || "").toLowerCase();
+      if (unit === "entry" || unit === "person") return sum + price * travelerCount;
+
       return sum + price;
     }, 0);
-  }, [formData.items, travelerCount]);
+  }, [nonFoodItems, travelerCount]);
 
-  const availableVehicles = vehicles.filter(
-    (car) => car.passenger_capacity >= travelerCount
-  );
-  const totalActivities = formData.items?.length || 0;
+  const availableVehicles = vehicles.filter((car) => car.passenger_capacity >= travelerCount);
+
+  // ✅ Count ONLY non-food items
+  const totalActivities = nonFoodItems.length;
 
   const handleGuideSelect = (guide: TourGuide) => {
     setSelectedGuide(guide);
@@ -210,21 +232,20 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
   const openGuideModal = () => {
     setShowGuideModal(true);
-    if (guides.length === 0) {
-      fetchGuides();
-    }
+    if (guides.length === 0) fetchGuides();
   };
 
   const openCarModal = () => {
     setShowCarModal(true);
-    if (vehicles.length === 0) {
-      fetchVehicles();
-    }
+    if (vehicles.length === 0) fetchVehicles();
   };
+
   const hasServices = selectedGuide !== null || selectedCar !== null;
 
   // Save itinerary
   const handleSaveItinerary = async () => {
+
+
     // Validate meeting point if services are selected
     if (hasServices && !meetingPoint) {
       Alert.alert(
@@ -270,7 +291,6 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         }))
         : [];
 
-
       const meetingPointData =
         hasServices && meetingPoint
           ? {
@@ -283,6 +303,14 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
       console.log("Sending food suggestions payload:", foodSuggestionsPayload);
 
+      // ✅ Save ONLY non-food/category=3 itinerary items
+      const itemsToSave = nonFoodItems;
+      console.log("=== DEBUG SAVE ===");
+      console.log("foodSuggestions:", (formData as any).foodSuggestions);
+      console.log("foodSuggestionsPayload:", foodSuggestionsPayload);
+      console.log("includeFoodSuggestions:", formData.preferences?.includeFoodSuggestions);
+      console.log("items count:", formData.items?.length);
+      console.log("nonFoodItems count:", nonFoodItems.length);
       const response = await fetch(`${API_URL}/itinerary/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -291,8 +319,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
           start_date: formData.start_date,
           end_date: formData.end_date,
           title: formData.title,
-          notes: formData.notes,
-          items: formData.items,
+          notes: (formData as any).notes,
+          items: itemsToSave,
+
           guest_count: formData.preferences?.travelerCount ?? 1,
           guest_breakdown: formData.preferences?.guestBreakdown ?? null,
 
@@ -308,9 +337,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || data.error || "Failed to save itinerary"
-        );
+        throw new Error(data.message || data.error || "Failed to save itinerary");
       }
 
       if (!data.itinerary_id) {
@@ -319,10 +346,12 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
 
       console.log("Itinerary saved with ID:", data.itinerary_id);
 
+
       setFormData((prev) => ({
         ...prev,
-        tourGuide: selectedGuide,
-        carService: selectedCar,
+        items: data.itinerary?.items || prev.items,
+        tourGuide: selectedGuide as any,
+        carService: selectedCar as any,
         additionalServices: {
           guideCost,
           carCost,
@@ -335,9 +364,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       console.error("Error saving itinerary:", error);
       Alert.alert(
         "Save Failed",
-        error instanceof Error
-          ? error.message
-          : "Failed to save itinerary. Please try again."
+        error instanceof Error ? error.message : "Failed to save itinerary. Please try again."
       );
     } finally {
       setSaving(false);
@@ -353,18 +380,12 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         <Text className="text-base text-black/50 font-onest  mt-1">
           Optional travel support services
         </Text>
-
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         <View className="py-6">
-
           {/* Optional Add-ons Section */}
           <View>
-            {/* <Text className="text-lg font-onest-semibold text-start text-black/90 my-4 px-4">
-              Optional Add-ons
-            </Text> */}
-
             <View className="mt-4 mb-12">
               <Text className="text-lg font-onest-medium text-black/90 mb-3">
                 Meeting Point
@@ -407,22 +428,17 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     <View className="flex-row items-center flex-1">
                       <View className="flex-1">
                         <Text className="text-lg font-onest-medium text-black/90">
-                          Tour Guide <Text className="text-black/50 font-onest">(Optional)</Text>
+                          Tour Guide{" "}
+                          <Text className="text-black/50 font-onest">(Optional)</Text>
                         </Text>
                         <Text className="text-sm text-black/50 font-onest">
-                          {selectedGuide
-                            ? selectedGuide.name
-                            : " Local expert"}
+                          {selectedGuide ? selectedGuide.name : " Local expert"}
                         </Text>
                       </View>
                     </View>
                     {selectedGuide && (
                       <View className="bg-green-100 rounded-full px-3 py-1.5 flex-row items-center">
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={14}
-                          color="#059669"
-                        />
+                        <Ionicons name="checkmark-circle" size={14} color="#059669" />
                         <Text className="text-sm font-onest-medium text-green-700 ml-1">
                           Selected
                         </Text>
@@ -443,35 +459,27 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         <View className="flex-row items-center mb-2">
                           <Ionicons name="star" size={14} color="#F59E0B" />
                           <Text className="text-sm text-black/50 font-onest ml-1">
-                            {formatRating(selectedGuide.avg_rating)} (
-                            {selectedGuide.review_count || 0} reviews)
+                            {formatRating(selectedGuide.avg_rating)} ({selectedGuide.review_count || 0} reviews)
                           </Text>
                         </View>
                         <Text className="text-sm text-black/50 font-onest mb-3">
                           {selectedGuide.bio || "Experienced local guide"}
                         </Text>
                         <View className="flex-row flex-wrap">
-                          {parseLanguages(selectedGuide.languages).map(
-                            (lang, idx) => (
-                              <View
-                                key={idx}
-                                className="bg-blue-50 rounded-full px-2 py-1 mr-2 mb-2"
-                              >
-                                <Text className="text-sm text-blue-700 font-onest">
-                                  {lang}
-                                </Text>
-                              </View>
-                            )
-                          )}
+                          {parseLanguages(selectedGuide.languages).map((lang, idx) => (
+                            <View
+                              key={idx}
+                              className="bg-blue-50 rounded-full px-2 py-1 mr-2 mb-2"
+                            >
+                              <Text className="text-sm text-blue-700 font-onest">
+                                {lang}
+                              </Text>
+                            </View>
+                          ))}
                         </View>
                       </View>
-                      <TouchableOpacity
-                        onPress={openGuideModal}
-                        className="ml-2"
-                      >
-                        <Text className="text-primary font-onest-medium text-sm">
-                          Change
-                        </Text>
+                      <TouchableOpacity onPress={openGuideModal} className="ml-2">
+                        <Text className="text-primary font-onest-medium text-sm">Change</Text>
                       </TouchableOpacity>
                     </View>
                     <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
@@ -489,11 +497,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     className="rounded-lg p-4 border-2 border-dashed border-gray-300 items-center"
                     activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={32}
-                      color="#9CA3AF"
-                    />
+                    <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
                     <Text className="text-black/50 font-onest-medium mt-2">
                       Select a Guide
                     </Text>
@@ -510,22 +514,17 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     <View className="flex-row items-center flex-1">
                       <View className="flex-1">
                         <Text className="text-lg font-onest-medium text-black/90">
-                          Transportation <Text className="text-black/50 font-onest">(Optional)</Text>
+                          Transportation{" "}
+                          <Text className="text-black/50 font-onest">(Optional)</Text>
                         </Text>
                         <Text className="text-sm text-black/50 font-onest">
-                          {selectedCar
-                            ? `${selectedCar.vehicle_type} - ${selectedCar.model}`
-                            : "Private vehicle with driver"}
+                          {selectedCar ? `${selectedCar.vehicle_type} - ${selectedCar.model}` : "Private vehicle with driver"}
                         </Text>
                       </View>
                     </View>
                     {selectedCar && (
                       <View className="bg-green-100 rounded-full px-3 py-1.5 flex-row items-center">
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={14}
-                          color="#059669"
-                        />
+                        <Ionicons name="checkmark-circle" size={14} color="#059669" />
                         <Text className="text-sm font-onest-medium text-green-700 ml-1">
                           Selected
                         </Text>
@@ -544,11 +543,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                           {selectedCar.vehicle_type} - {selectedCar.model}
                         </Text>
                         <View className="flex-row items-center mb-3">
-                          <Ionicons
-                            name="people-outline"
-                            size={14}
-                            color="#6B7280"
-                          />
+                          <Ionicons name="people-outline" size={14} color="#6B7280" />
                           <Text className="text-sm text-black/50 font-onest ml-1">
                             Up to {selectedCar.passenger_capacity} passengers
                           </Text>
@@ -556,8 +551,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         <View className="flex-row items-center mb-2">
                           <Ionicons name="star" size={14} color="#F59E0B" />
                           <Text className="text-sm text-black/50 font-onest ml-1">
-                            {formatRating(selectedCar.avg_rating)} (
-                            {selectedCar.review_count || 0} reviews)
+                            {formatRating(selectedCar.avg_rating)} ({selectedCar.review_count || 0} reviews)
                           </Text>
                         </View>
                         <Text className="text-sm text-black/50 font-onest mb-3">
@@ -565,9 +559,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                         </Text>
                       </View>
                       <TouchableOpacity onPress={openCarModal} className="ml-2">
-                        <Text className="text-primary font-onest-medium text-sm">
-                          Change
-                        </Text>
+                        <Text className="text-primary font-onest-medium text-sm">Change</Text>
                       </TouchableOpacity>
                     </View>
                     <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
@@ -585,11 +577,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     className="rounded-lg py-4 border-2 border-dashed border-gray-300 items-center"
                     activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={32}
-                      color="#9CA3AF"
-                    />
+                    <Ionicons name="add-circle-outline" size={32} color="#9CA3AF" />
                     <Text className="text-black/50 font-onest-medium mt-2">
                       Select a Vehicle
                     </Text>
@@ -598,31 +586,20 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               </View>
             </View>
           </View>
-
-
         </View>
       </ScrollView>
 
+      {/* Guide Modal */}
       <Modal
         visible={showGuideModal}
         animationType="slide"
         transparent
         onRequestClose={() => setShowGuideModal(false)}
       >
-        {/* Backdrop */}
-        <Pressable
-          className="flex-1 bg-black/50 justify-end"
-          onPress={() => setShowGuideModal(false)}
-        >
-          {/* Sheet */}
-          <Pressable
-            className="bg-white rounded-t-3xl h-[36rem]"
-            onPress={() => { }}
-          >
+        <Pressable className="flex-1 bg-black/50 justify-end" onPress={() => setShowGuideModal(false)}>
+          <Pressable className="bg-white rounded-t-3xl h-[36rem]" onPress={() => { }}>
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-xl font-onest-medium text-black/90">
-                Select Tour Guide
-              </Text>
+              <Text className="text-xl font-onest-medium text-black/90">Select Tour Guide</Text>
               <TouchableOpacity onPress={() => setShowGuideModal(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -632,9 +609,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               {loadingGuides ? (
                 <View className="items-center justify-center py-8">
                   <ActivityIndicator size="large" color="#6366F1" />
-                  <Text className="text-black/50 font-onest mt-3">
-                    Loading guides...
-                  </Text>
+                  <Text className="text-black/50 font-onest mt-3">Loading guides...</Text>
                 </View>
               ) : guides.length === 0 ? (
                 <View className="items-center justify-center py-8">
@@ -651,28 +626,20 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     className="border border-gray-200 rounded-xl p-4 mb-3"
                     activeOpacity={0.7}
                   >
-                    {/* Top row: avatar + name/rating */}
                     <View className="flex-row items-start">
-                      {/* Avatar */}
                       <View className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden items-center justify-center mr-3">
                         {guide.profile_pic ? (
-                          <Image
-                            source={{ uri: guide.profile_pic }}
-                            className="w-12 h-12"
-                            resizeMode="cover"
-                          />
+                          <Image source={{ uri: guide.profile_pic }} className="w-12 h-12" resizeMode="cover" />
                         ) : (
                           <Ionicons name="person" size={22} color="#9CA3AF" />
                         )}
                       </View>
 
-                      {/* Info */}
                       <View className="flex-1">
                         <View className="flex-row justify-between items-start">
                           <Text className="text-lg font-onest-semibold text-black/90 flex-1 mr-2">
                             {guide.name}
                           </Text>
-
                           <View className="flex-row items-center">
                             <Ionicons name="star" size={16} color="#F59E0B" />
                             <Text className="ml-1 text-sm font-onest-medium text-black/90">
@@ -687,12 +654,10 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                       </View>
                     </View>
 
-                    {/* Bio */}
                     <Text className="text-sm text-black/90 font-onest mt-3 mb-3">
                       {guide.bio || "Experienced local guide"}
                     </Text>
 
-                    {/* Languages */}
                     {parseLanguages(guide.languages).length > 0 && (
                       <View className="flex-row flex-wrap mb-3">
                         {parseLanguages(guide.languages).slice(0, 6).map((lang, idx) => (
@@ -700,12 +665,9 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                             key={`${guide.guide_id}-lang-${idx}`}
                             className="bg-blue-50 rounded-full px-2 py-1 mr-2 mb-2"
                           >
-                            <Text className="text-xs text-blue-700 font-onest">
-                              {lang}
-                            </Text>
+                            <Text className="text-xs text-blue-700 font-onest">{lang}</Text>
                           </View>
                         ))}
-
                         {parseLanguages(guide.languages).length > 6 && (
                           <View className="bg-gray-100 rounded-full px-2 py-1 mr-2 mb-2">
                             <Text className="text-xs text-black/60 font-onest">
@@ -716,17 +678,13 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                       </View>
                     )}
 
-                    {/* Bottom row: price */}
                     <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                      <Text className="text-sm text-black/50 font-onest">
-                        Per day
-                      </Text>
+                      <Text className="text-sm text-black/50 font-onest">Per day</Text>
                       <Text className="text-lg font-onest-bold text-primary">
                         ₱{formatPrice(guide.price_per_day).toLocaleString()}
                       </Text>
                     </View>
                   </TouchableOpacity>
-
                 ))
               )}
             </ScrollView>
@@ -734,27 +692,17 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
         </Pressable>
       </Modal>
 
-
+      {/* Car Modal */}
       <Modal
         visible={showCarModal}
         animationType="slide"
         transparent
         onRequestClose={() => setShowCarModal(false)}
       >
-        {/* Backdrop */}
-        <Pressable
-          className="flex-1 bg-black/50 justify-end"
-          onPress={() => setShowCarModal(false)}
-        >
-          {/* Sheet */}
-          <Pressable
-            className="bg-white rounded-t-3xl h-[36rem]"
-            onPress={() => { }}
-          >
+        <Pressable className="flex-1 bg-black/50 justify-end" onPress={() => setShowCarModal(false)}>
+          <Pressable className="bg-white rounded-t-3xl h-[36rem]" onPress={() => { }}>
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-xl font-onest-medium text-black/90">
-                Select Vehicle
-              </Text>
+              <Text className="text-xl font-onest-medium text-black/90">Select Vehicle</Text>
               <TouchableOpacity onPress={() => setShowCarModal(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -764,9 +712,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
               {loadingVehicles ? (
                 <View className="items-center justify-center py-8">
                   <ActivityIndicator size="large" color="#6366F1" />
-                  <Text className="text-black/50 font-onest mt-3">
-                    Loading vehicles...
-                  </Text>
+                  <Text className="text-black/50 font-onest mt-3">Loading vehicles...</Text>
                 </View>
               ) : availableVehicles.length > 0 ? (
                 availableVehicles.map((car) => (
@@ -778,9 +724,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                   >
                     <View className="flex-row justify-between items-start mb-3">
                       <View className="flex-1">
-                        <Text className="text-lg font-onest-semibold text-black/90">
-                          {car.vehicle_type}
-                        </Text>
+                        <Text className="text-lg font-onest-semibold text-black/90">{car.vehicle_type}</Text>
                         <Text className="text-sm text-black/50 font-onest">
                           {car.brand} {car.model} ({car.year})
                         </Text>
@@ -793,9 +737,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
                     </View>
 
                     <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-                      <Text className="text-sm text-black/50 font-onest">
-                        Per day
-                      </Text>
+                      <Text className="text-sm text-black/50 font-onest">Per day</Text>
                       <Text className="text-lg font-onest-bold text-primary">
                         ₱{formatPrice(car.price_per_day).toLocaleString()}
                       </Text>
@@ -816,10 +758,10 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
       </Modal>
 
       <View className="pb-4">
-
-        <Text className="mt-12 font-onest text-sm text-black/90">By selecting confirm & save, I indicate my agreement to the <Text className="text-blue-500 underline font-onest-medium">Terms of Service</Text> of Itinera
+        <Text className="mt-12 font-onest text-sm text-black/90">
+          By selecting confirm & save, I indicate my agreement to the{" "}
+          <Text className="text-blue-500 underline font-onest-medium">Terms of Service</Text> of Itinera
         </Text>
-
       </View>
 
       {/* Floating Action Buttons */}
@@ -831,9 +773,7 @@ const Step3aReviewServices: React.FC<Step3aProps> = ({
             activeOpacity={0.7}
             disabled={saving}
           >
-            <Text className="text-center font-onest-medium text-base text-black/90">
-              Back
-            </Text>
+            <Text className="text-center font-onest-medium text-base text-black/90">Back</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

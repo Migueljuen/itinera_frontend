@@ -450,12 +450,14 @@ export function TripPlanTab({
                             variant={getVariant(selectedDay)}
                         />
 
-                        {/* Places to Eat Section */}
-                        <PlacesToEatSection
-                            allFoodSuggestions={allFoodSuggestions}
-                            dayItems={selectedDay.items}
-                            onFoodPress={handleFoodPress}
-                        />
+                        {/* Places to Eat Section - only show if there are suggestions */}
+                        {allFoodSuggestions.length > 0 && (
+                            <PlacesToEatSection
+                                allFoodSuggestions={allFoodSuggestions}
+                                dayItems={selectedDay.items}
+                                onFoodPress={handleFoodPress}
+                            />
+                        )}
                     </View>
                 ) : (
                     <EmptyState />

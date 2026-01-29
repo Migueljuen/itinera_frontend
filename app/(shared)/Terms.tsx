@@ -14,7 +14,7 @@ function SectionCard({
 }) {
     return (
         <View
-            className="py-4 mb-4"
+            className="py-4 mb-4 rounded-2xl "
             style={{
                 shadowColor: "#000",
                 shadowOpacity: 0.06,
@@ -33,8 +33,11 @@ function SectionCard({
 
             <View className="gap-2">
                 {items.map((it, idx) => (
-                    <View key={`${title}-${idx}`} className="flex-row items-baseline gap-3">
-                        <View className="size-2 bg-black/70 rounded-full"></View>
+                    <View
+                        key={`${title}-${idx}`}
+                        className="flex-row items-baseline gap-3"
+                    >
+                        <View className="size-2 bg-black/70 rounded-full mt-1.5" />
                         <Text className="flex-1 text-base font-onest text-black/50">
                             {it}
                         </Text>
@@ -54,7 +57,7 @@ export default function TermsOfServiceScreen() {
             <View className="flex-row items-center px-6 pt-14 pb-4">
                 <Pressable
                     onPress={() => router.back()}
-                    className="w-10 h-10 rounded-full  items-center justify-center"
+                    className="w-10 h-10 rounded-full items-center justify-center"
                 >
                     <Ionicons name="arrow-back" size={24} color="#191313" />
                 </Pressable>
@@ -63,6 +66,7 @@ export default function TermsOfServiceScreen() {
             <ScrollView
                 className="flex-1 px-10"
                 contentContainerStyle={{ paddingBottom: 62 }}
+                showsVerticalScrollIndicator={false}
             >
                 {/* Header */}
                 <View className="mb-6">
@@ -86,7 +90,7 @@ export default function TermsOfServiceScreen() {
                     <SectionCard
                         title="1. Acceptance of Terms"
                         items={[
-                            "By creating an account, accessing, or using the Platform, you agree to these Terms and any linked policies (including the Refund & Cancellation Policy).",
+                            "By creating an account, accessing, or using the Platform, you agree to these Terms and any linked policies.",
                             "If you do not agree, do not use the Platform.",
                         ]}
                     />
@@ -94,12 +98,11 @@ export default function TermsOfServiceScreen() {
                     <SectionCard
                         title="2. What the Platform Is"
                         items={[
-                            "The Platform helps connect Travelers who create itineraries and request/book services.",
-                            "Creators who list Experiences (activities/places).",
-                            "Guides and Drivers who provide trip services.",
-                            "Admins who manage verification, itinerary payments, and policy enforcement.",
-                            "Unless explicitly stated, the Platform is not a travel agency and does not directly provide Experiences or transport services.",
-                            "Partners (Creators/Guides/Drivers) are responsible for delivering their services.",
+                            "The Platform helps connect Travelers who create itineraries and book Experiences/services from Partners.",
+                            "Partners may include Experience Creators (activity publishers), Guides, and Drivers.",
+                            "The Platform provides discovery, itinerary planning tools, booking coordination, and account/verification workflows.",
+                            "Unless explicitly stated, the Platform is not a travel agency and does not directly provide Experiences, tours, guiding, or transport services.",
+                            "Partners are responsible for delivering the services they list and offer.",
                         ]}
                     />
 
@@ -114,7 +117,7 @@ export default function TermsOfServiceScreen() {
                     <SectionCard
                         title="4. Roles and Partner Verification"
                         items={[
-                            "Partners may be asked for additional information for verification (e.g., government-issued ID, vehicle information, certifications, background checks).",
+                            "Partners may be asked for additional information for verification (e.g., government-issued ID, certifications, vehicle information).",
                             "Partners offering paid Experiences or services may be required to submit a valid business permit or proof of legal authority to operate, in accordance with applicable local laws.",
                             "Failure to provide required documents may result in delayed approval, listing removal, or account suspension.",
                             "Verification may reduce risk but is not a guarantee of quality or safety.",
@@ -122,165 +125,121 @@ export default function TermsOfServiceScreen() {
                     />
 
                     <SectionCard
-                        title="5. Bookings and Itineraries"
+                        title="5. Partner Registration Fee and Subscription Requirement"
                         items={[
-                            "An itinerary may include multiple Experiences and services.",
-                            'A "Booking" is considered confirmed only when the payment has been acknowledged by the admin.',
-                            "Time slots, price, and meeting locations are set by Partners and may change with notice.",
+                            "New Partners are required to pay a one-time registration fee to activate their Partner account.",
+                            "Registration fee: ₱1,299 (one-time).",
+                            "The registration fee includes one (1) month of basic subscription access starting from activation.",
+                            "After the 1 month: Basic subscription is ₱599/month and Pro subscription is ₱999/month.",
+                            "Only subscribed Partners can preview their activity/listing as it appears to Travelers and receive bookings through the Platform.",
+                            "If a Partner’s subscription ends, their ability to receive bookings and certain Partner features may be restricted until subscription is renewed.",
+                            "Subscription tiers, inclusions, and pricing may be updated with notice on the Platform.",
                         ]}
                     />
 
                     <SectionCard
-                        title="6. Payments (Manual via GCash)"
+                        title="6. Bookings and Itineraries"
                         items={[
-                            "Important: The Platform does not process payments in-app. Payments are made manually via GCash between Traveler and the Platform Admin.",
-                            "Payment Instructions: You will only pay using the official payment details shown in the Platform.",
-                            "Proof of Payment: You may be required to upload/send proof of payment (screenshot/receipt reference).",
-                            "Confirmation: A booking is not fully confirmed until the admin confirms receipt.",
-                            "Fees: Any GCash fees or transfer charges are paid by Traveler unless stated otherwise.",
-                            "Wrong Transfers / Scams: If you send money to the wrong number or a scammer, the Platform's ability to recover funds may be limited. Always verify details before sending.",
+                            "An itinerary may include multiple Experiences and services; each booked Experience/service is treated as a separate booking.",
+                            'A booking may be "Pending" (awaiting required payment) or "Confirmed" (ready/secured).',
+                            "If an Experience requires payment, the booking remains Pending until payment is completed and acknowledged in the Platform.",
+                            "Time slots, price, inclusions, meeting points, and policies are set by Partners and may change with notice (changes will not apply retroactively to already-confirmed bookings unless required for safety/legal reasons).",
+                            "Availability and capacity limits apply per time slot/date. Attempts to book beyond capacity may be rejected or cancelled.",
                         ]}
                     />
 
                     <SectionCard
-                        title="7. Refunds, Cancellations, No-Shows"
+                        title="7. Payments and Fees"
                         items={[
-                            "Refunds and cancellations are governed by the Refund & Cancellation Policy, which is part of these Terms.",
+                            "Payments are handled directly per booking and are not processed by the Platform unless explicitly stated in-product.",
+                            "The Platform does not charge Travelers a platform commission per booking. The Platform earns through Partner registration and subscription fees.",
+                            "Partners are responsible for setting the price of their Experiences/services and for communicating any additional requirements clearly (where applicable).",
                         ]}
                     />
 
                     <SectionCard
-                        title="8. User Conduct"
+                        title="8. Disputes, Cancellations, and Service Issues"
+                        items={[
+                            "Cancellations, reschedules, no-shows, and refund eligibility (if any) are determined by the Partner’s stated booking policy and any applicable consumer protection laws.",
+                            "If you believe a service was not delivered as agreed, report the issue within a reasonable time and provide relevant evidence (messages, photos, receipts).",
+                            "The Platform may assist with communication or mediation, but outcomes may depend on the Partner’s policies and the payment method used.",
+                            "Force majeure and safety-related disruptions (e.g., severe weather, government restrictions) may require rescheduling or cancellation for safety.",
+                        ]}
+                    />
+
+                    <SectionCard
+                        title="9. User Conduct"
                         items={[
                             "You must not harass, threaten, scam, or discriminate against others.",
                             "You must not post fraudulent listings, fake reviews, or misleading booking details.",
-                            "You must not attempt to bypass platform rules (e.g., manipulating proof of payment).",
-                            "You must not upload illegal content.",
+                            "You must not attempt to bypass platform rules or abuse booking/availability systems.",
+                            "You must not upload illegal, harmful, or infringing content.",
                         ]}
                     />
 
                     <SectionCard
-                        title="9. Listings, Accuracy, and Partner Responsibilities"
+                        title="10. Listings, Accuracy, and Partner Responsibilities"
                         items={[
-                            "Partners are responsible for accurate listings (price, inclusions, schedules, safety requirements).",
+                            "Partners are responsible for accurate listings (price, inclusions, schedules, safety requirements, and any restrictions).",
                             "Partners must deliver what is promised in the listing and confirmed in booking messages.",
+                            "Partners must comply with applicable laws and regulations relevant to their services.",
                         ]}
                     />
 
                     <SectionCard
-                        title="10. Messaging and Communication"
+                        title="11. Messaging and Communication"
                         items={[
-                            "The Platform provides in-app messaging.",
-                            "We may review messages when necessary to investigate abuse reports, prevent fraud, or comply with law.",
+                            "The Platform may provide in-app messaging for coordination.",
+                            "We may review messages when necessary to investigate abuse reports, prevent fraud, ensure safety, or comply with law.",
                         ]}
                     />
 
                     <SectionCard
-                        title="11. User Content (Reviews, Photos, Listings)"
+                        title="12. User Content (Reviews, Photos, Listings)"
                         items={[
-                            "You keep ownership of your content, but you grant the Platform permission to store, display, and use it to operate the Platform.",
-                            "Content must be truthful and non-infringing.",
+                            "You keep ownership of your content, but you grant the Platform permission to store, display, and use it to operate and improve the Platform.",
+                            "Content must be truthful, lawful, and non-infringing.",
                         ]}
                     />
 
                     <SectionCard
-                        title="12. Safety Disclaimer / Assumption of Risk"
+                        title="13. Safety Disclaimer / Assumption of Risk"
                         items={[
                             "Travel and activities involve risks (weather, terrain, transport, third parties).",
-                            "You are responsible for assessing suitability and following safety guidance.",
+                            "You are responsible for assessing suitability and following safety guidance and local rules.",
                         ]}
                     />
 
                     <SectionCard
-                        title="13. Disclaimers"
+                        title="14. Disclaimers"
                         items={[
                             'The Platform is provided "as is" and "as available."',
                             "We do not guarantee uninterrupted service or that all listings will be error-free.",
+                            "We do not guarantee outcomes of bookings, Partner performance, or Traveler satisfaction.",
                         ]}
                     />
 
                     <SectionCard
-                        title="14. Limitation of Liability"
+                        title="15. Limitation of Liability"
                         items={[
-                            "To the fullest extent allowed by law, the Platform is not liable for indirect or consequential damages.",
+                            "To the fullest extent allowed by law, the Platform is not liable for indirect, incidental, or consequential damages.",
+                            "To the extent permitted by law, any liability related to the Platform is limited to amounts paid to the Platform for registration/subscription (if any) within a reasonable period.",
                         ]}
                     />
 
                     <SectionCard
-                        title="15. Suspension and Termination"
+                        title="16. Suspension and Termination"
                         items={[
-                            "We may suspend or terminate accounts for fraud, abuse, policy violations, or safety concerns.",
+                            "We may suspend or terminate accounts for fraud, abuse, policy violations, repeated cancellations, safety concerns, or misuse of the Platform.",
+                            "We may restrict Partner visibility or booking access for non-compliance, expired subscription, or verification failures.",
                         ]}
                     />
 
                     <SectionCard
-                        title="16. Governing Law"
+                        title="17. Governing Law"
                         items={[
                             "These Terms are governed by the laws of the Republic of the Philippines.",
                             "Disputes will be handled in the appropriate courts, unless consumer protection laws require otherwise.",
-                        ]}
-                    />
-
-                    {/* Refund & Cancellation Policy Section */}
-                    <View className="mt-6 mb-4">
-                        <Text className="text-2xl font-onest-semibold text-black/90 leading-tight">
-                            Refund & Cancellation Policy
-                        </Text>
-                        <Text className="mt-2 text-base text-black/50 font-onest">
-                            This policy applies to bookings arranged through the Platform where payment is made manually via GCash.
-                        </Text>
-                    </View>
-
-                    <SectionCard
-                        title="A. Payment Types"
-                        items={[
-                            "Downpayment: 50% of the total itinerary price.",
-                            "Fully Paid: 100% of the total itinerary price.",
-                        ]}
-                    />
-
-                    <SectionCard
-                        title="B. Traveler-Initiated Cancellation"
-                        items={[
-                            "Each activity in your itinerary is treated as a separate booking.",
-                            "Downpayment (50%): Non-refundable. If you cancel a booking, the activity is removed and no refund shall be processed.",
-                            "Fully paid (100%): 50% of the cancelled activity's cost will be refunded.",
-                            "Any GCash fees/transfer charges are non-refundable.",
-                            "Refunds are processed back to the payer's GCash number.",
-                        ]}
-                    />
-
-                    <SectionCard
-                        title="C. No-Show Policy"
-                        items={[
-                            "If you do not arrive for a scheduled activity, it is treated as a no-show for that booking.",
-                            "No-shows are not refundable, whether downpayment or fully paid.",
-                        ]}
-                    />
-
-                    <SectionCard
-                        title="D. Partner-Initiated Cancellation"
-                        items={[
-                            "If the Partner cancels a confirmed booking (except force majeure/safety), the Traveler is entitled to a full refund of amounts paid (downpayment or full).",
-                            "The Partner must provide valid proof/reason for cancelling the booking.",
-                            "Frequent or repeated Partner-initiated cancellations may result in warnings, temporary suspension, or account termination.",
-                        ]}
-                    />
-
-                    <SectionCard
-                        title="E. Force Majeure / Safety Cancellations"
-                        items={[
-                            "Events outside reasonable control may include severe weather warnings, natural disasters, government restrictions, or safety risks.",
-                            "Outcome: Reschedule without penalty.",
-                        ]}
-                    />
-
-                    <SectionCard
-                        title="F. Disputes and Evidence Window"
-                        items={[
-                            "If you believe a service was not delivered as agreed, report it within 48 hours of the scheduled start time.",
-                            "Provide evidence (messages, photos, receipts).",
-                            "The Platform may mediate but does not guarantee recovery because payments are manual/off-platform.",
                         ]}
                     />
 
@@ -289,7 +248,7 @@ export default function TermsOfServiceScreen() {
                         <Text className="text-base font-onest-semibold text-black/90 mb-2">
                             Contact
                         </Text>
-                        <Text className="text-base font-onest text-black/50">
+                        <Text className="text-base font-onest text-black/50 whitespace-pre-line">
                             For support, disputes, or policy questions:{"\n"}
                             itinera.team.app@gmail.com
                         </Text>

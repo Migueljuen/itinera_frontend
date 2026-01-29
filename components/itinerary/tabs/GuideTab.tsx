@@ -53,7 +53,6 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
                     itineraryId={itineraryId}
                 />
             )}
-
             {/* Empty State */}
             {!hasAssignments && (
                 <View className="flex-1 items-center justify-center py-20">
@@ -68,6 +67,16 @@ export function GuideTab({ serviceAssignments, itineraryId }: Props) {
                     </Text>
                 </View>
             )}
+
+
+            <View className="p-4 ">
+                <View className="flex-row items-center justify-center mb-2"></View>
+                <Text className="text-sm font-onest text-center text-black/50 leading-5">
+                    All tour guides and drivers on Itinera have been carefully vetted and verified to
+                    ensure professional, safe, and quality service for your travels.
+                </Text>
+            </View>
+
 
 
         </ScrollView>
@@ -226,197 +235,200 @@ function ServiceSection({
     };
 
     return (
-        <View className="mb-8">
-            {assignments.map((assignment, index) => {
-                const statusConfig = getStatusConfig(assignment.status);
-                const isDriver = assignment.service_type === "Driver";
-                const isAccepted = assignment.status === "Accepted";
-                const isPending = assignment.status === "Pending";
+        <>
+            <View className="mb-8">
+                {assignments.map((assignment, index) => {
+                    const statusConfig = getStatusConfig(assignment.status);
+                    const isDriver = assignment.service_type === "Driver";
+                    const isAccepted = assignment.status === "Accepted";
+                    const isPending = assignment.status === "Pending";
 
-                // allow cancelling for Pending or Accepted (if you want only Accepted, change here)
-                const canCancel = (isPending || isAccepted) && assignment.status !== "Cancelled";
-                const isCancelling = cancellingAssignmentId === assignment.assignment_id;
+                    // allow cancelling for Pending or Accepted (if you want only Accepted, change here)
+                    const canCancel = (isPending || isAccepted) && assignment.status !== "Cancelled";
+                    const isCancelling = cancellingAssignmentId === assignment.assignment_id;
 
-                return (
-                    <View
-                        key={assignment.assignment_id}
-                        className={`rounded-xl py-4 ${index < assignments.length - 1 ? "mb-6" : ""}`}
-                    >
-                        {/* Header Row */}
-                        <View className="flex-row items-start mb-3">
-                            {/* Profile Picture */}
-                            {assignment.provider.profile_pic ? (
-                                <Image
-                                    source={{ uri: getProfilePicUrl(assignment.provider.profile_pic)! }}
-                                    style={{ width: 40, height: 40, borderRadius: 20 }}
-                                />
-                            ) : (
-                                <View
-                                    style={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        backgroundColor: "#E5E7EB",
-                                        justifyContent: "center",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <Ionicons name="person" size={24} color="#9CA3AF" />
-                                </View>
-                            )}
+                    return (
+                        <View
+                            key={assignment.assignment_id}
+                            className={`rounded-xl py-4 ${index < assignments.length - 1 ? "mb-6" : ""}`}
+                        >
+                            <View className="flex flex-row  items-center justify-between mb-8">
+                                <Text className="text-2xl text-onest text-black/90 ">Your {assignment.service_type}</Text>
 
-                            {/* Name and Vehicle Info */}
-                            <View className="ml-3 flex-1">
-                                <Text className="text-base font-onest-semibold text-black/90">
-                                    {assignment.provider.name}
-                                </Text>
-                                {isDriver && assignment.provider.vehicle_type ? (
-                                    <Text className="text-xs font-onest text-black/50 mt-0.5">
-                                        {assignment.provider.vehicle_type}
-                                        {assignment.provider.vehicle_model && ` ${assignment.provider.vehicle_model}`}
-                                    </Text>
+                                {canCancel && (
+                                    <Pressable
+                                        onPress={() => confirmCancel(assignment.assignment_id, isDriver ? "driver" : "guide")}
+                                        disabled={isCancelling}
+                                        className="  "
+                                    >
+
+                                        <Text className="font-onest-medium text-sm text-red-700">
+                                            Cancel
+                                        </Text>
+                                    </Pressable>
+                                )}
+                            </View>
+                            {/* Header Row */}
+                            <View className="flex-row items-start mb-3">
+                                {/* Profile Picture */}
+                                {assignment.provider.profile_pic ? (
+                                    <Image
+                                        source={{ uri: getProfilePicUrl(assignment.provider.profile_pic)! }}
+                                        style={{ width: 40, height: 40, borderRadius: 20 }}
+                                    />
                                 ) : (
-                                    <Text className="text-xs font-onest text-gray-400 mt-0.5">
-                                        {assignment.service_type}
+                                    <View
+                                        style={{
+                                            width: 40,
+                                            height: 40,
+                                            borderRadius: 20,
+                                            backgroundColor: "#E5E7EB",
+                                            justifyContent: "center",
+                                            alignItems: "center",
+                                        }}
+                                    >
+                                        <Ionicons name="person" size={24} color="#9CA3AF" />
+                                    </View>
+                                )}
+
+                                {/* Name and Vehicle Info */}
+                                <View className="ml-3 flex-1">
+                                    <Text className="text-base font-onest-semibold text-black/90">
+                                        {assignment.provider.name}
                                     </Text>
+                                    {isDriver && assignment.provider.vehicle_type ? (
+                                        <Text className="text-xs font-onest text-black/50 mt-0.5">
+                                            {assignment.provider.vehicle_type}
+                                            {assignment.provider.vehicle_model && ` ${assignment.provider.vehicle_model}`}
+                                        </Text>
+                                    ) : (
+                                        <Text className="text-xs font-onest text-gray-400 mt-0.5">
+                                            {assignment.service_type}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                {/* Status Badge or Chat Button */}
+                                {isAccepted ? (
+                                    <Pressable
+                                        onPress={() =>
+                                            handleStartConversation(
+                                                assignment.provider.provider_id,
+                                                assignment.provider.name,
+                                                assignment.assignment_id
+                                            )
+                                        }
+                                        disabled={startingChat === assignment.assignment_id}
+                                        className="bg-gray-100 p-3 rounded-full"
+                                    >
+                                        {startingChat === assignment.assignment_id ? (
+                                            <ActivityIndicator size="small" color="#1f2937" />
+                                        ) : (
+                                            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#1f2937" />
+                                        )}
+                                    </Pressable>
+                                ) : (
+                                    <View className={`px-3 py-1 rounded-full ${statusConfig.bg}`}>
+                                        <Text className={`text-xs font-onest ${statusConfig.text}`}>
+                                            {assignment.status}
+                                        </Text>
+                                    </View>
                                 )}
                             </View>
 
-                            {/* Status Badge or Chat Button */}
-                            {isAccepted ? (
+                            {/* Call Button */}
+                            {assignment.provider.mobile_number && (
                                 <Pressable
-                                    onPress={() =>
-                                        handleStartConversation(
-                                            assignment.provider.provider_id,
-                                            assignment.provider.name,
-                                            assignment.assignment_id
-                                        )
-                                    }
-                                    disabled={startingChat === assignment.assignment_id}
-                                    className="bg-gray-100 p-3 rounded-full"
+                                    onPress={() => {
+                                        Linking.openURL(`tel:${assignment.provider.mobile_number}`);
+                                    }}
+                                    className="flex-row items-center justify-center bg-green-50 py-3 rounded-xl mt-2"
                                 >
-                                    {startingChat === assignment.assignment_id ? (
-                                        <ActivityIndicator size="small" color="#1f2937" />
-                                    ) : (
-                                        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#1f2937" />
-                                    )}
-                                </Pressable>
-                            ) : (
-                                <View className={`px-3 py-1 rounded-full ${statusConfig.bg}`}>
-                                    <Text className={`text-xs font-onest ${statusConfig.text}`}>
-                                        {assignment.status}
+                                    <Ionicons name="call-outline" size={18} color="#16a34a" />
+                                    <Text className="font-onest-medium text-green-700 ml-2">
+                                        {assignment.provider.mobile_number}
                                     </Text>
-                                </View>
+                                </Pressable>
                             )}
-                        </View>
-
-                        {/* Call Button */}
-                        {assignment.provider.mobile_number && (
-                            <Pressable
-                                onPress={() => {
-                                    Linking.openURL(`tel:${assignment.provider.mobile_number}`);
-                                }}
-                                className="flex-row items-center justify-center bg-green-50 py-3 rounded-xl mt-2"
-                            >
-                                <Ionicons name="call-outline" size={18} color="#16a34a" />
-                                <Text className="font-onest-medium text-green-700 ml-2">
-                                    {assignment.provider.mobile_number}
-                                </Text>
-                            </Pressable>
-                        )}
 
 
 
-                        {/* Meeting Points Section - Guide Only */}
-                        {!isDriver && isAccepted && assignment.meeting_points.length > 0 && (
-                            <View className="mt-12">
-                                {assignment.meeting_points.map((meetingPoint) => {
-                                    return (
-                                        <View key={meetingPoint.id} className="mb-4">
-                                            <View className="flex-row justify-between items-baseline mb-3">
-                                                <Text className="text-2xl font-onest text-black/90 ">
-                                                    Where you'll meet
-                                                </Text>
-                                            </View>
-
-                                            {/* Your Requested Location */}
-                                            <View className="mb-4">
-                                                <View className="py-3">
-                                                    <Text className="font-onest-medium text-black/90 mb-1">
-                                                        {meetingPoint.requested.name}
-                                                    </Text>
-                                                    <Text className="text-sm font-onest text-black/60 mb-2">
-                                                        {meetingPoint.requested.address}
+                            {/* Meeting Points Section - Guide Only */}
+                            {!isDriver && isAccepted && assignment.meeting_points.length > 0 && (
+                                <View className="mt-12">
+                                    {assignment.meeting_points.map((meetingPoint) => {
+                                        return (
+                                            <View key={meetingPoint.id} className="mb-4">
+                                                <View className="flex-row justify-between items-baseline mb-3">
+                                                    <Text className="text-2xl font-onest text-black/90 ">
+                                                        Where you'll meet
                                                     </Text>
                                                 </View>
 
-                                                {/* View on Map Button */}
-                                                {meetingPoint.requested.latitude && meetingPoint.requested.longitude && (
-                                                    <View className="flex-row items-center justify-center py-3 rounded-xl mt-2">
-                                                        <Pressable
-                                                            onPress={() =>
-                                                                handleOpenLocation(
-                                                                    meetingPoint.requested.latitude!,
-                                                                    meetingPoint.requested.longitude!,
-                                                                    meetingPoint.requested.name
-                                                                )
-                                                            }
-                                                            className="flex-row items-center gap-2"
-                                                        >
-                                                            <Ionicons name="map-outline" size={24} color="#4F46E5" />
-                                                            <Text className="font-onest-medium">View on Map</Text>
-                                                        </Pressable>
+                                                {/* Your Requested Location */}
+                                                <View className="mb-4">
+                                                    <View className="py-3">
+                                                        <Text className="font-onest-medium text-black/90 mb-1">
+                                                            {meetingPoint.requested.name}
+                                                        </Text>
+                                                        <Text className="text-sm font-onest text-black/60 mb-2">
+                                                            {meetingPoint.requested.address}
+                                                        </Text>
                                                     </View>
-                                                )}
+
+                                                    {/* View on Map Button */}
+                                                    {meetingPoint.requested.latitude && meetingPoint.requested.longitude && (
+                                                        <View className="flex-row items-center justify-center py-3 rounded-xl mt-2">
+                                                            <Pressable
+                                                                onPress={() =>
+                                                                    handleOpenLocation(
+                                                                        meetingPoint.requested.latitude!,
+                                                                        meetingPoint.requested.longitude!,
+                                                                        meetingPoint.requested.name
+                                                                    )
+                                                                }
+                                                                className="flex-row items-center gap-2"
+                                                            >
+                                                                <Ionicons name="map-outline" size={24} color="#4F46E5" />
+                                                                <Text className="font-onest-medium">View on Map</Text>
+                                                            </Pressable>
+                                                        </View>
+                                                    )}
+                                                </View>
                                             </View>
-                                        </View>
-                                    );
-                                })}
-                            </View>
-                        )}
+                                        );
+                                    })}
+                                </View>
+                            )}
 
-                        {/* Decline Reason */}
-                        {assignment.status === "Declined" && assignment.decline_reason && (
-                            <View className="border-t border-gray-100 pt-3 mt-3">
-                                <Text className="text-xs font-onest text-black/50">
-                                    Reason: {assignment.decline_reason}
-                                </Text>
-                            </View>
-                        )}
+                            {/* Decline Reason */}
+                            {assignment.status === "Declined" && assignment.decline_reason && (
+                                <View className="border-t border-gray-100 pt-3 mt-3">
+                                    <Text className="text-xs font-onest text-black/50">
+                                        Reason: {assignment.decline_reason}
+                                    </Text>
+                                </View>
+                            )}
 
-                        {/* Pending Notice */}
-                        {isPending && (
-                            <View className="border-t border-gray-100 pt-3 mt-3">
-                                <Text className="text-xs font-onest text-black/50">
-                                    Waiting for {isDriver ? "driver" : "guide"} to accept your request
-                                </Text>
-                            </View>
-                        )}
-                        {canCancel && (
-                            <Pressable
-                                onPress={() => confirmCancel(assignment.assignment_id, isDriver ? "driver" : "guide")}
-                                disabled={isCancelling}
-                                className="flex-row items-center  mt-24 justify-center bg-red-50 py-3 rounded-xl "
-                            >
+                            {/* Pending Notice */}
+                            {isPending && (
+                                <View className="border-t border-gray-100 pt-3 mt-3">
+                                    <Text className="text-xs font-onest text-black/50">
+                                        Waiting for {isDriver ? "driver" : "guide"} to accept your request
+                                    </Text>
+                                </View>
+                            )}
 
-                                <Text className="font-onest-medium text-red-800 ml-2">
-                                    Cancel {isPending ? "request" : "booking"}
-                                </Text>
-                            </Pressable>
-                        )}
-                        {/* Trust Badge - Only show when there are assignments */}
 
-                        <View className="p-4 ">
-                            <View className="flex-row items-center justify-center mb-2"></View>
-                            <Text className="text-sm font-onest text-center text-black/50 leading-5">
-                                All tour guides and drivers on Itinera have been carefully vetted and verified to
-                                ensure professional, safe, and quality service for your travels.
-                            </Text>
+
                         </View>
 
-                    </View>
-                );
-            })}
-        </View>
+                    );
+                })}
+            </View>
+
+
+
+        </>
     );
 }

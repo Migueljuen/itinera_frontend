@@ -193,7 +193,7 @@ const Step3GeneratedItinerary: React.FC<StepProps> = ({
   const mainScrollRef = useRef<ScrollView>(null);
   const chipScrollRef = useRef<ScrollView>(null);
 
-  const MIN_LOADING_TIME = 100;
+  const MIN_LOADING_TIME = 3000;
 
   useEffect(() => {
     generateItinerary();

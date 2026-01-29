@@ -23,7 +23,7 @@ import API_URL from '../../../constants/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../contexts/RefreshContext';
 
-type PartnerType = 'Guide' | 'Driver';
+type PartnerType = 'Guide' | 'Driver' | 'Creator';
 
 interface UserData {
   user_id?: number;
@@ -76,6 +76,28 @@ interface EarningsSummary {
   pending: number;
 }
 
+interface Subscription {
+  subscription_id: number;
+  plan_id: number;
+  plan_name?: string;
+  plan_code?: string;
+  status: 'active' | 'trialing' | 'trial' | 'expired' | 'inactive' | 'canceled' | 'cancelled';
+  started_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  ended_at: string | null;
+}
+
+interface RegistrationPayment {
+  registration_payment_id: number;
+  status: 'pending' | 'paid' | 'rejected';
+  amount_php: number;
+  gcash_reference: string | null;
+  proof_url: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
 const PARTNER_CONFIG: Record<PartnerType, {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -87,6 +109,10 @@ const PARTNER_CONFIG: Record<PartnerType, {
   Driver: {
     label: 'Driver',
     icon: 'car-outline',
+  },
+  Creator: {
+    label: 'Experience Creator',
+    icon: 'sparkles-outline',
   },
 };
 
@@ -118,6 +144,11 @@ const PartnerProfileScreen: React.FC = () => {
     pending: 0,
   });
 
+  // Subscription state
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [latestRegPayment, setLatestRegPayment] = useState<RegistrationPayment | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
   const config = partnerType ? PARTNER_CONFIG[partnerType] : PARTNER_CONFIG.Guide;
 
   const fetchUserData = async () => {
@@ -135,7 +166,6 @@ const PartnerProfileScreen: React.FC = () => {
       console.error('Error fetching user data:', error);
     }
   };
-
 
   const fetchPartnerProfile = async () => {
     try {
@@ -176,6 +206,29 @@ const PartnerProfileScreen: React.FC = () => {
     }
   };
 
+  const fetchSubscription = async () => {
+    if (!user?.user_id) return;
+
+    try {
+      setSubscriptionLoading(true);
+      const response = await axios.get(
+        `${API_URL}/subscription/partner/${user.user_id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setSubscription(response.data?.subscription || null);
+      setLatestRegPayment(response.data?.latest_registration_payment || null);
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+      setSubscription(null);
+      setLatestRegPayment(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
   const loadAllData = async () => {
     setLoading(true);
     try {
@@ -183,6 +236,7 @@ const PartnerProfileScreen: React.FC = () => {
         fetchUserData(),
         fetchPartnerProfile(),
         fetchEarnings(),
+        fetchSubscription(),
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -272,8 +326,6 @@ const PartnerProfileScreen: React.FC = () => {
     }
   };
 
-
-
   const openSupportChat = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -282,7 +334,6 @@ const PartnerProfileScreen: React.FC = () => {
         return;
       }
 
-      // Create or get existing conversation with Support (fixed user)
       const response = await axios.post(
         `${API_URL}/conversations`,
         { participantId: SUPPORT_USER_ID },
@@ -293,7 +344,7 @@ const PartnerProfileScreen: React.FC = () => {
         const conversationId = response.data.data.id;
 
         router.push({
-          pathname: "/(partner)/(conversations)/[id]", // use traveler if that's where your chat screen is
+          pathname: "/(partner)/(conversations)/[id]",
           params: {
             id: String(conversationId),
             name: "Chat support",
@@ -417,9 +468,11 @@ const PartnerProfileScreen: React.FC = () => {
     );
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formatCurrency = (amount: number) => {
@@ -435,6 +488,117 @@ const PartnerProfileScreen: React.FC = () => {
     return badges[status] || badges.pending;
   };
 
+  // Subscription status styling
+  const getSubscriptionStatus = (status: string | undefined) => {
+    const s = (status || '').toLowerCase();
+
+    if (s === 'active') {
+      return {
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        border: 'border-green-200',
+        label: 'Active',
+        icon: 'checkmark-circle' as const,
+        iconColor: '#059669',
+      };
+    }
+
+    if (s === 'trialing' || s === 'trial') {
+      return {
+        bg: 'bg-blue-100',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        label: 'Trial',
+        icon: 'time' as const,
+        iconColor: '#3B82F6',
+      };
+    }
+
+    if (s === 'expired' || s === 'inactive') {
+      return {
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        label: 'Expired',
+        icon: 'close-circle' as const,
+        iconColor: '#6B7280',
+      };
+    }
+
+    if (s === 'canceled' || s === 'cancelled') {
+      return {
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        label: 'Canceled',
+        icon: 'close-circle' as const,
+        iconColor: '#6B7280',
+      };
+    }
+
+    return {
+      bg: 'bg-gray-100',
+      text: 'text-gray-600',
+      border: 'border-gray-200',
+      label: status || 'Unknown',
+      icon: 'help-circle' as const,
+      iconColor: '#6B7280',
+    };
+  };
+
+  // Registration payment status
+  const getRegPaymentStatus = (status: string | undefined) => {
+    const s = (status || '').toLowerCase();
+
+    if (s === 'paid') {
+      return {
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        label: 'Approved',
+        icon: 'checkmark-circle' as const,
+        iconColor: '#059669',
+      };
+    }
+
+    if (s === 'pending') {
+      return {
+        bg: 'bg-yellow-100',
+        text: 'text-yellow-700',
+        label: 'Pending Review',
+        icon: 'time' as const,
+        iconColor: '#D97706',
+      };
+    }
+
+    if (s === 'rejected') {
+      return {
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+        label: 'Rejected',
+        icon: 'close-circle' as const,
+        iconColor: '#DC2626',
+      };
+    }
+
+    return {
+      bg: 'bg-gray-100',
+      text: 'text-gray-600',
+      label: 'Not Submitted',
+      icon: 'help-circle' as const,
+      iconColor: '#6B7280',
+    };
+  };
+
+  // Days remaining calculation
+  const getDaysRemaining = () => {
+    if (!subscription?.current_period_end) return null;
+    const endDate = new Date(subscription.current_period_end);
+    const today = new Date();
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-white">
@@ -447,6 +611,10 @@ const PartnerProfileScreen: React.FC = () => {
   const verificationBadge = partnerProfile
     ? getVerificationBadge(partnerProfile.verification_status)
     : null;
+
+  const subStatus = getSubscriptionStatus(subscription?.status);
+  const regPaymentStatus = getRegPaymentStatus(latestRegPayment?.status);
+  const daysRemaining = getDaysRemaining();
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -505,14 +673,129 @@ const PartnerProfileScreen: React.FC = () => {
             {userData.first_name} {userData.last_name}
           </Text>
           <Text className="text-sm text-black/50 font-onest mt-1">{userData.email}</Text>
+        </View>
 
+        {/* Subscription Section */}
+        <View className="mt-12">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-2xl text-onest text-black/90">Subscription</Text>
+            <TouchableOpacity onPress={() => router.push('/(partner)/subscription')}>
+              <Text className="text-sm font-onest text-primary">View all</Text>
+            </TouchableOpacity>
+          </View>
 
+          {subscriptionLoading ? (
+            <View className="py-6 items-center">
+              <ActivityIndicator size="small" color="#6B7280" />
+            </View>
+          ) : (
+            <View
+              className="rounded-2xl p-4 bg-white border border-gray-100"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              {/* Plan & Status Row */}
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <View className={`w-10 h-10 rounded-full ${subStatus.bg} items-center justify-center mr-3`}>
+                    <Ionicons name={subStatus.icon} size={20} color={subStatus.iconColor} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-onest-medium capitalize text-black/90">
+                      {subscription?.plan_name + " plan" || 'No subscription'}
+                    </Text>
+                    <Text className="text-xs font-onest text-black/50 mt-0.5">
+                      {subscription ? `Started ${formatDate(subscription.started_at)}` : 'Not subscribed'}
+                    </Text>
+                  </View>
+                </View>
 
+                {/* Status Badge */}
+                <View className={`px-3 py-1 rounded-full ${subStatus.bg} border ${subStatus.border}`}>
+                  <Text className={`text-xs font-onest-medium ${subStatus.text}`}>
+                    {subStatus.label}
+                  </Text>
+                </View>
+              </View>
 
+              {/* Period Info */}
+              {subscription && (
+                <View className="flex-row mt-4 pt-4 border-t border-gray-100">
+                  <View className="flex-1">
+                    <Text className="text-xs text-black/50 font-onest">Current Period</Text>
+                    <Text className="text-sm font-onest text-black/80 mt-1">
+                      {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
+                    </Text>
+                  </View>
+
+                  {daysRemaining !== null && (
+                    <View className="items-end">
+                      <Text className="text-xs text-black/50 font-onest">Days Left</Text>
+                      <Text
+                        className={`text-sm font-onest-semibold mt-1 ${daysRemaining <= 7 ? 'text-yellow-600' : 'text-black/80'
+                          }`}
+                      >
+                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Registration Payment Status (if pending or rejected) */}
+              {latestRegPayment && latestRegPayment.status !== 'paid' && (
+                <View className="mt-4 pt-4 border-t border-gray-100">
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={regPaymentStatus.icon}
+                      size={16}
+                      color={regPaymentStatus.iconColor}
+                    />
+                    <Text className={`ml-2 text-sm font-onest ${regPaymentStatus.text}`}>
+                      Registration: {regPaymentStatus.label}
+                    </Text>
+                  </View>
+                  {latestRegPayment.status === 'rejected' && (
+                    <Text className="text-xs font-onest text-red-600 mt-1">
+                      Please upload a new payment proof.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* No subscription state */}
+              {!subscription && !latestRegPayment && (
+                <View className="mt-4 pt-4 border-t border-gray-100">
+                  <View className="flex-row items-center">
+                    <Ionicons name="information-circle-outline" size={16} color="#D97706" />
+                    <Text className="ml-2 text-sm font-onest text-yellow-700">
+                      Complete registration payment to activate your subscription.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Manage Button */}
+              <Pressable
+                onPress={() => router.push('/(partner)/(subscription)/subscription')}
+                className="mt-4 flex-row items-center justify-center py-3 rounded-xl bg-gray-100"
+              >
+                <Ionicons name="card-outline" size={18} color="#374151" />
+                <Text className="ml-2 text-sm font-onest-medium text-gray-700">
+                  Manage Subscription
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* Performance Section */}
-        <View className="mt-12">
+        {/* <View className="mt-12">
           <Text className="text-2xl text-onest text-black/90 mb-4">Performance</Text>
 
           <View className="flex-row justify-between">
@@ -546,7 +829,7 @@ const PartnerProfileScreen: React.FC = () => {
               <Text className="text-xs text-black/50 font-onest">Rating</Text>
             </View>
           </View>
-        </View>
+        </View> */}
 
         {/* Earnings Section */}
         <View className="mt-12">
@@ -616,7 +899,6 @@ const PartnerProfileScreen: React.FC = () => {
                 android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: false }}
                 style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
               >
-
                 <View className="w-12 h-12 rounded-xl bg-gray-100 items-center justify-center mr-3">
                   <Ionicons name="car-outline" size={24} color="#6B7280" />
                 </View>
@@ -638,7 +920,6 @@ const PartnerProfileScreen: React.FC = () => {
                 </View>
               </Pressable>
             ))}
-
           </View>
         )}
 
@@ -680,7 +961,7 @@ const PartnerProfileScreen: React.FC = () => {
 
           <Pressable
             onPress={openSupportChat}
-            className="flex-1  py-3 rounded-xl flex-row items-center justify-center"
+            className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
           >
             <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
               <Ionicons name="help-circle-outline" size={20} color="#3B82F6" />

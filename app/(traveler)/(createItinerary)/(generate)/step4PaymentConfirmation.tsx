@@ -3,11 +3,10 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 interface TourGuide {
@@ -55,11 +54,18 @@ interface ItineraryItem {
   price_estimate?: string | null;
   unit?: string;
 
-  // optional if your backend already sends this
   reservation_requires_payment?: boolean | number;
 
   // optional UI extras you might already send
   slot_remaining_preview?: number | null;
+
+  // ✅ BEST SIGNALS (add at least one of these in backend response)
+  category_id?: number | null;
+  category_name?: string | null;
+  tags?: string[] | string | null;
+
+  // ✅ even better: backend computed flag
+  is_food?: boolean | number;
 }
 
 interface StepProps {
@@ -82,12 +88,13 @@ interface StepProps {
     };
   };
   itineraryId: number;
-  totalCost: number; // kept for backward compatibility, but we compute from items
+  totalCost: number; // legacy; Step4 will compute from filtered items instead
   onNext: () => void;
   onBack: () => void;
 }
 
 const MIN_ENTER_LOADING_MS = 450;
+const FOOD_CATEGORY_ID = 3;
 
 const parsePriceEstimateRange = (
   value: any
@@ -124,74 +131,51 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // ✅ Minimum loading time on entry (prevents UI flicker)
   const [enterLoading, setEnterLoading] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setEnterLoading(false), MIN_ENTER_LOADING_MS);
     return () => clearTimeout(t);
   }, []);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const handlePayNow = () => {
-    // Per-booking payment screen (your new model routes through payment flow)
-    router.replace(`/(traveler)/(payment)/${itineraryId}`);
-  };
-
-  const handlePayLater = () => {
-    Alert.alert(
-      "Booking Created",
-      "Your bookings have been created. Paid items will remain pending until payment is completed.",
-      [
-        {
-          text: "Go to Home",
-          onPress: () => router.replace("/"),
-        },
-        {
-          text: "View Itinerary",
-          onPress: () => {
-            if (itineraryId) {
-              router.replace(`/(traveler)/(itinerary)/${itineraryId}`);
-            } else {
-              router.replace("/");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-
-  const activityCount = formData.items?.length || 0;
-
-  const duration =
-    Math.ceil(
-      (new Date(formData.end_date).getTime() -
-        new Date(formData.start_date).getTime()) /
-      (1000 * 60 * 60 * 24)
-    ) + 1;
-
-  const guideCost = formData.additionalServices?.guideCost || 0;
-  const carCost = formData.additionalServices?.carCost || 0;
-  const pendingServicesCost = guideCost + carCost;
-  const hasPendingServices = pendingServicesCost > 0;
-
-  // Guest count (capacity & per-person pricing)
   const travelerCount = formData.preferences?.travelerCount || 1;
 
   /**
+   * ✅ Only Step4 should hide food/category=3
+   * IMPORTANT: This only works if items contain category_id OR is_food OR category_name/tags.
+   */
+  const isFoodOrCategory3 = (item: ItineraryItem) => {
+    // Strongest signal if you add it in backend
+    if (typeof item.is_food !== "undefined" && item.is_food !== null) {
+      return Number(item.is_food) === 1;
+    }
+
+    // Next strongest: category_id
+    if (typeof item.category_id !== "undefined" && item.category_id !== null) {
+      return Number(item.category_id) === FOOD_CATEGORY_ID;
+    }
+
+    // Fallback: category_name
+    const cname = String(item.category_name || "").toLowerCase();
+    if (cname.includes("food") || cname.includes("drink")) return true;
+
+    // Fallback: tags
+    const rawTags = item.tags;
+    const tagsArr = Array.isArray(rawTags)
+      ? rawTags
+      : typeof rawTags === "string"
+        ? rawTags.split(",").map((t) => t.trim())
+        : [];
+
+    if (tagsArr.some((t) => /food|drink|restaurant|cafe|bar/i.test(String(t))))
+      return true;
+
+    return false;
+  };
+
+  /**
    * ✅ New payment model alignment:
-   * - Some experiences may be FREE reservation (reservation_requires_payment = 0)
-   * - Some require payment (reservation_requires_payment = 1)
-   * - If you don’t yet send reservation_requires_payment per item, we infer:
-   *   - if item has price or price_estimate => likely requires payment
-   *   - else treat as free
+   * - if reservation_requires_payment exists, trust it
+   * - else infer: price or price_estimate => requires payment
    */
   const normalizeRequiresPayment = (item: ItineraryItem) => {
     if (typeof item.reservation_requires_payment !== "undefined") {
@@ -202,6 +186,13 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
     return price > 0 || hasEstimate;
   };
 
+  // ✅ Filter items for Step4 UI only
+  const { filteredItems, excludedFoodCount } = useMemo(() => {
+    const all = formData.items || [];
+    const filtered = all.filter((it) => !isFoodOrCategory3(it));
+    return { filteredItems: filtered, excludedFoodCount: all.length - filtered.length };
+  }, [formData.items]);
+
   const {
     payNowItems,
     freeReserveItems,
@@ -211,9 +202,9 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
     const payNow: Array<{
       key: string;
       name: string;
-      costExact: number; // exact due now if price exists
-      estMin: number; // estimate min for budget
-      estMax: number; // estimate max for budget
+      costExact: number;
+      estMin: number;
+      estMax: number;
       note?: string | null;
       isEstimateOnly: boolean;
     }> = [];
@@ -224,7 +215,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
       note?: string | null;
     }> = [];
 
-    for (const item of formData.items || []) {
+    for (const item of filteredItems) {
       const requiresPayment = normalizeRequiresPayment(item);
 
       const key = `${item.day_number}-${item.experience_id}-${item.start_time}-${item.end_time}`;
@@ -243,13 +234,17 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
       const price = Number(item.price || 0);
       const isExact = price > 0;
 
-      // exact cost if price provided
-      const costExact = isExact ? applyUnitMultiplier(price, unit, travelerCount) : 0;
+      const costExact = isExact
+        ? applyUnitMultiplier(price, unit, travelerCount)
+        : 0;
 
-      // estimate range if no exact price (or even if you want to show budget range)
       const range = parsePriceEstimateRange(item.price_estimate);
-      const estMin = range ? applyUnitMultiplier(range.min, unit, travelerCount) : costExact;
-      const estMax = range ? applyUnitMultiplier(range.max, unit, travelerCount) : costExact;
+      const estMin = range
+        ? applyUnitMultiplier(range.min, unit, travelerCount)
+        : costExact;
+      const estMax = range
+        ? applyUnitMultiplier(range.max, unit, travelerCount)
+        : costExact;
 
       const u = String(unit || "").toLowerCase();
       const isPerPerson = u === "entry" || u === "person";
@@ -271,10 +266,8 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
     }
 
     const payNowTotalExact = payNow.reduce((sum, x) => sum + x.costExact, 0);
-
     const estMinTotal = payNow.reduce((sum, x) => sum + (x.estMin || 0), 0);
     const estMaxTotal = payNow.reduce((sum, x) => sum + (x.estMax || 0), 0);
-    const hasRange = Math.round(estMinTotal) !== Math.round(estMaxTotal);
 
     return {
       payNowItems: payNow,
@@ -283,15 +276,19 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
       estimatedPayNowBudget: {
         min: Math.round(estMinTotal),
         max: Math.round(estMaxTotal),
-        hasRange,
+        hasRange: Math.round(estMinTotal) !== Math.round(estMaxTotal),
       },
     };
-  }, [formData.items, travelerCount]);
+  }, [filteredItems, travelerCount]);
 
-  // Backward compat fallback (but prefer computed exact)
-  const dueNowExact = payNowTotalExact || totalCost || 0;
+  // ✅ Due-now MUST match what Step4 shows (do not use legacy totalCost which may include food)
+  const dueNowExact = payNowTotalExact;
 
-  // ✅ Minimum entry loading view
+  const guideCost = formData.additionalServices?.guideCost || 0;
+  const carCost = formData.additionalServices?.carCost || 0;
+  const pendingServicesCost = guideCost + carCost;
+  const hasPendingServices = pendingServicesCost > 0;
+
   if (enterLoading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -318,24 +315,14 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
             <Text className="text-2xl font-onest-semibold text-black/90 mb-1">
               Booking Summary
             </Text>
-            <Text className="text-sm font-onest text-black/50">
-              Payments are handled per booking. Items that require payment stay{" "}
-              <Text className="font-onest-semibold text-black/70">Pending</Text>{" "}
-              until paid. Free reservations confirm immediately.
-            </Text>
-          </View>
 
-          {/* Trip Info */}
-          {/* <View className="mb-6">
-            <Text className="text-lg font-onest-semibold text-black/90 mb-1">
-              {formData.title || "My Trip"}
-            </Text>
-            <Text className="text-sm font-onest text-black/50">
-              {formatDate(formData.start_date)} - {formatDate(formData.end_date)} •{" "}
-              {duration} {duration === 1 ? "day" : "days"} • {activityCount}{" "}
-              {activityCount === 1 ? "activity" : "activities"}
-            </Text>
-          </View> */}
+            {/* ✅ Optional note so you know it worked */}
+            {excludedFoodCount > 0 && (
+              <Text className="text-xs font-onest text-black/40 mt-2">
+                {excludedFoodCount} food booking{excludedFoodCount > 1 ? "s" : ""} hidden from this payment summary.
+              </Text>
+            )}
+          </View>
 
           {/* Pending Services (Guide / Car) */}
           {hasPendingServices && (
@@ -343,7 +330,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
               <View className="flex-row items-center mb-3">
                 <View className="w-2 h-2 rounded-full bg-amber-400 mr-2" />
                 <Text className="text-sm font-onest-medium text-black/70">
-                  Optional Services (separate requests)
+                  Additional <Text className="text-black/50 font-onest"> (separate requests)</Text>
                 </Text>
               </View>
 
@@ -352,7 +339,11 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
                 <View className="flex-row items-center justify-between py-3 border-b border-black/5">
                   <View className="flex-row items-center flex-1">
                     <View className="w-10 h-10 rounded-xl bg-gray-50 items-center justify-center mr-3">
-                      <Ionicons name="person-outline" size={18} color="#9CA3AF" />
+                      <Ionicons
+                        name="person-outline"
+                        size={18}
+                        color="#9CA3AF"
+                      />
                     </View>
                     <View className="flex-1">
                       <Text className="text-sm font-onest-medium text-black/80">
@@ -402,7 +393,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
                 </View>
               )}
 
-              <Text className="text-xs font-onest text-black/40 mt-3 leading-4">
+              <Text className="text-xs font-onest text-black/70 mt-3 leading-4">
                 These service requests are handled separately. Once accepted,
                 you’ll receive a payment request for each.
               </Text>
@@ -415,13 +406,12 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
               Payments for Activities
             </Text>
 
-            {/* Pay-now / Requires payment */}
             {payNowItems.length > 0 ? (
               <View className="mt-2 rounded-xl py-3">
                 {payNowItems.map((a) => (
                   <View
                     key={a.key}
-                    className="flex-row items-start justify-between py-2 border-b border-black/5"
+                    className="flex-row items-start justify-between py-2 "
                   >
                     <View className="flex-1 pr-3">
                       <Text className="text-sm font-onest-medium text-black/80">
@@ -457,64 +447,18 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
                 ))}
               </View>
             ) : (
-              <View className="mt-2  rounded-xl p-4">
+              <View className="mt-2 rounded-xl p-4">
                 <Text className="text-sm font-onest text-black/60">
                   No paid bookings in this itinerary.
                 </Text>
               </View>
             )}
 
-            {/* Free reservations */}
-            {freeReserveItems.length > 0 && (
-              <View className="mt-8">
-                <View className="flex-row items-center mb-2">
-
-                  <Text className="text-lg font-onest-medium text-black/70">
-                    Free Reservations
-                  </Text>
-                </View>
-
-                <View className="rounded-xl py-2">
-                  {freeReserveItems.map((f) => (
-                    <View
-                      key={f.key}
-                      className="flex-row items-center justify-between py-2 border-b border-black/5"
-                    >
-                      <Text className="text-sm font-onest text-black/70">
-                        {f.name}
-                      </Text>
-                      <Text className="text-xs font-onest text-green-600">
-                        Confirmed
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Optional services shown but not included in due-now */}
-            {hasPendingServices && (
-              <View className="flex-row justify-between items-center py-2 mt-3">
-                <View className="flex-row items-center">
-                  <Text className="text-sm font-onest text-black/30">
-                    Services (separate)
-                  </Text>
-                  <View className="ml-2 rounded-full px-2 py-0.5">
-                    <Text className="text-xs font-onest text-amber-600">
-                      Pending
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-sm font-onest text-black/30">
-                  ₱{pendingServicesCost.toLocaleString()}
-                </Text>
-              </View>
-            )}
 
             {/* Due now */}
-            <View className="pt-3 mt-2 border-t border-black/5">
+            <View className="pt-4 mt-4 border-t border-black/5">
               <View className="flex-row justify-between items-center">
-                <Text className="text-sm font-onest-medium text-black/80">
+                <Text className="text-lg font-onest-medium text-black/80">
                   Due now
                 </Text>
                 <Text className="text-xl font-onest-bold text-primary">
@@ -522,28 +466,16 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
                 </Text>
               </View>
 
-              {/* Estimated budget range */}
-              <View className="flex-row justify-between items-center mt-2 bg-gray-50 rounded-lg px-3 py-2">
-                <Text className="text-xs font-onest text-black/40">
-                  Estimated budget for paid activities
-                </Text>
-                <Text className="text-xs font-onest-medium text-black/60">
-                  {estimatedPayNowBudget.hasRange
-                    ? `₱${estimatedPayNowBudget.min.toLocaleString()} - ₱${estimatedPayNowBudget.max.toLocaleString()}`
-                    : `₱${estimatedPayNowBudget.max.toLocaleString()}`}
-                </Text>
-              </View>
+
             </View>
           </View>
 
-          {/* Info Note aligned to your new payment model */}
           <View className="bg-blue-50 rounded-xl p-4 mb-6">
             <View className="flex-row items-center">
               <Ionicons
                 name="information-circle-outline"
                 size={18}
                 color="#3B82F6"
-
               />
               <Text className="flex-1 text-xs font-onest text-blue-600 ml-2 leading-4">
                 Unpaid bookings will not be included in the final itinerary.
@@ -555,14 +487,10 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
 
       {/* Bottom Actions */}
       <View className="absolute bottom-0 left-0 right-0 border-t bg-[#fff] border-black/5 px-6 py-4">
-        {/* PRIMARY: View Itinerary */}
         <TouchableOpacity
           onPress={() => {
-            if (itineraryId) {
-              router.replace(`/(traveler)/(itinerary)/${itineraryId}`);
-            } else {
-              router.replace("/");
-            }
+            if (itineraryId) router.replace(`/(traveler)/(itinerary)/${itineraryId}`);
+            else router.replace("/");
           }}
           className="bg-primary py-4 rounded-xl flex-row items-center justify-center mb-3"
           activeOpacity={0.7}
@@ -572,11 +500,7 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
             <ActivityIndicator size="small" color="white" />
           ) : (
             <>
-              <Ionicons
-                name="list-outline"
-                size={18}
-                color="white"
-              />
+              <Ionicons name="list-outline" size={18} color="white" />
               <Text className="ml-2 text-white font-onest-semibold text-base">
                 View Itinerary
               </Text>
@@ -584,7 +508,6 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* SECONDARY: Go to Home */}
         <TouchableOpacity
           onPress={() => router.replace("/")}
           className="py-3 flex-row items-center justify-center"
@@ -596,8 +519,6 @@ const Step4PaymentConfirmation: React.FC<StepProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
-
-
     </View>
   );
 };

@@ -346,14 +346,19 @@ interface PaymentHistorySectionProps {
 
 function PaymentHistorySection({ bookings, refunds = [] }: PaymentHistorySectionProps) {
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-PH', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
+        return new Date(dateString).toLocaleDateString("en-PH", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
         });
     };
+
+
+    const filteredBookings = bookings.filter(
+        (booking) => booking.experience_category_id !== 3
+    );
 
     const historyItems: Array<{
         date: string;
@@ -364,20 +369,20 @@ function PaymentHistorySection({ bookings, refunds = [] }: PaymentHistorySection
     }> = [];
 
     // Add booking creation events
-    bookings.forEach((booking) => {
+    filteredBookings.forEach((booking) => {
         historyItems.push({
             date: booking.created_at,
-            label: 'Booking Created',
-            icon: 'document-outline',
+            label: "Booking Created",
+            icon: "document-outline",
             subLabel: booking.experience_name,
         });
 
-        if (booking.payment_status === 'Paid') {
+        if (booking.payment_status === "Paid") {
             historyItems.push({
                 date: booking.updated_at,
-                label: 'Payment Verified',
-                icon: 'checkmark-circle-outline',
-                iconColor: '#16A34A',
+                label: "Payment Verified",
+                icon: "checkmark-circle-outline",
+                iconColor: "#16A34A",
                 subLabel: `₱${Number(booking.activity_price).toLocaleString()} - ${booking.experience_name}`,
             });
         }
@@ -387,47 +392,70 @@ function PaymentHistorySection({ bookings, refunds = [] }: PaymentHistorySection
     refunds.forEach((refund) => {
         historyItems.push({
             date: refund.requested_at,
-            label: 'Cancellation Requested',
-            icon: 'close-circle-outline',
-            iconColor: '#EF4444',
+            label: "Cancellation Requested",
+            icon: "close-circle-outline",
+            iconColor: "#EF4444",
             subLabel: refund.experience_name || `Booking #${refund.booking_id}`,
         });
 
-        if (refund.status === 'completed' && refund.completed_at && refund.refund_amount > 0) {
+        if (
+            refund.status === "completed" &&
+            refund.completed_at &&
+            refund.refund_amount > 0
+        ) {
             historyItems.push({
                 date: refund.completed_at,
-                label: 'Refund Completed',
-                icon: 'cash-outline',
-                iconColor: '#16A34A',
+                label: "Refund Completed",
+                icon: "cash-outline",
+                iconColor: "#16A34A",
                 subLabel: `+₱${refund.refund_amount.toLocaleString()}`,
             });
         }
     });
 
     // Sort by date (newest first)
-    historyItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    historyItems.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
 
     if (historyItems.length === 0) return null;
 
     return (
         <View className="mt-12">
-            <Text className="text-2xl font-onest text-black/90 mb-4">History</Text>
+            <Text className="text-2xl font-onest text-black/90 mb-4">
+                History
+            </Text>
+
             {historyItems.map((item, index) => (
                 <View
                     key={`${item.date}-${index}`}
-                    className={`flex-row items-center py-3 ${index < historyItems.length - 1 ? 'border-b border-gray-100' : ''
+                    className={`flex-row items-center py-3 ${index < historyItems.length - 1
+                        ? "border-b border-gray-100"
+                        : ""
                         }`}
                 >
                     <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-3">
-                        <Ionicons name={item.icon} size={18} color={item.iconColor || '#6B7280'} />
+                        <Ionicons
+                            name={item.icon}
+                            size={18}
+                            color={item.iconColor || "#6B7280"}
+                        />
                     </View>
+
                     <View className="flex-1">
-                        <Text className="text-sm font-onest text-black/90">{item.label}</Text>
+                        <Text className="text-sm font-onest text-black/90">
+                            {item.label}
+                        </Text>
+
                         {item.subLabel && (
-                            <Text className="text-xs font-onest text-black/50 mt-0.5" numberOfLines={1}>
+                            <Text
+                                className="text-xs font-onest text-black/50 mt-0.5"
+                                numberOfLines={1}
+                            >
                                 {item.subLabel}
                             </Text>
                         )}
+
                         <Text className="text-xs font-onest text-black/40 mt-0.5">
                             {formatDate(item.date)}
                         </Text>
