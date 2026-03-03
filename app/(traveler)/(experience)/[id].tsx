@@ -23,11 +23,13 @@ import { ItineraryItem } from "../../../types/itineraryTypes";
 
 // Local imports
 import AvailabilityModal from "@/components/AvailabilityModal";
+import { FoodNearbySection } from "@/components/experience/FoodNearbySection";
 import FloatingActions from "@/components/FloatingActions";
 import HeroImageCarousel from "@/components/HeroImageCarousel";
 import MapPreview from "@/components/MapPreview";
 import { useExperience } from "@/hooks/useExperience";
 import { useItineraryItem } from "@/hooks/useItineraryItem";
+import { useNearbyFood } from "@/hooks/useNearbyFood";
 import { useReviews } from "@/hooks/useReviews";
 import { Experience } from "@/types/experienceDetails";
 import {
@@ -81,6 +83,14 @@ export default function ExperienceDetail() {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+
+  // Nearby food — fetched once experience coordinates are available (non-food only)
+  const isFoodExperience = experience?.category_id === 3;
+  const { items: nearbyFoodItems, loading: nearbyFoodLoading } = useNearbyFood(
+    !isFoodExperience ? experience?.destination?.latitude : null,
+    !isFoodExperience ? experience?.destination?.longitude : null,
+    experienceId
+  );
 
   // Trip dates state
   const [tripStartDate] = useState<string>(
@@ -253,8 +263,6 @@ export default function ExperienceDetail() {
     );
   }
 
-  const isFoodCategory = experience.category_id === 3;
-
   return (
     <View className="flex-1 bg-gray-50 pb-36">
       <Animated.ScrollView
@@ -311,6 +319,17 @@ export default function ExperienceDetail() {
                 <ActivityIndicator size="small" color="#000" />
               ) : (
                 <ReviewsSection reviews={reviews} initialDisplayCount={2} />
+              )}
+
+              {/* Food Nearby — only for non-food experiences */}
+              {!isFoodExperience && (
+                <FoodNearbySection
+                  items={nearbyFoodItems}
+                  loading={nearbyFoodLoading}
+                  anchorLat={experience.destination?.latitude}
+                  anchorLng={experience.destination?.longitude}
+                  anchorName={experience.title}
+                />
               )}
 
               {/* Location Button */}
